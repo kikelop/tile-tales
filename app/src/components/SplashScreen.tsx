@@ -7,14 +7,24 @@ const TILE_IMAGES = [
   "/tiles/zellige-rose.png",
   "/tiles/geometric-orange.png",
   "/tiles/floral-green.png",
+  "/tiles/floral-multicolor.png",
+  "/tiles/green-baroque.png",
+  "/tiles/pink-marble.png",
+  "/tiles/yellow-zellige.png",
+  "/tiles/star-blue-gold.png",
+  "/tiles/star-compass.png",
+  "/tiles/blue-floral-delft.png",
+  "/tiles/fleur-de-lis-rust.png",
+  "/tiles/black-baroque.png",
+  "/tiles/ochre-scrollwork.png",
 ];
 
-// Each slot cycles through images in a different order
+// Each slot cycles through images in a different staggered order
 const SEQUENCES = [
-  [0, 2, 1, 3],
-  [1, 3, 0, 2],
-  [2, 0, 3, 1],
-  [3, 1, 2, 0],
+  [0, 4, 8, 12, 2, 6, 10, 1, 5, 9, 13, 3, 7, 11],
+  [3, 7, 11, 1, 5, 9, 13, 0, 4, 8, 12, 2, 6, 10],
+  [6, 10, 0, 4, 8, 12, 2, 7, 11, 1, 5, 9, 13, 3],
+  [9, 13, 3, 7, 11, 1, 5, 10, 0, 4, 8, 12, 2, 6],
 ];
 
 export default function SplashScreen({ onFinished }: { onFinished: () => void }) {
