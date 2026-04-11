@@ -3,22 +3,9 @@
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { ContactShadows, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { useState, Suspense, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useSyncExternalStore, Suspense, useRef, useCallback, useEffect, useMemo } from "react";
 import CropModal from "./CropModal";
-
-interface TileItem {
-  name: string;
-  file: string;
-  memory: string;
-  date: string;
-}
-
-const DEFAULT_TILES: TileItem[] = [
-  { name: "Terrazzo Star", file: "/tiles/terrazzo-star.png", memory: "", date: "" },
-  { name: "Zellige Rose", file: "/tiles/zellige-rose.png", memory: "", date: "" },
-  { name: "Geometric Orange", file: "/tiles/geometric-orange.png", memory: "", date: "" },
-  { name: "Floral Green", file: "/tiles/floral-green.png", memory: "", date: "" },
-];
+import { getState, subscribe, updateTile, addTile, generateTileId, type TileItem } from "@/lib/store";
 
 function useTextTexture(text: string, date: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -366,22 +353,27 @@ function RotatableTile({
   );
 }
 
-function AdaptiveCamera() {
+function AdaptiveCamera({ onReady }: { onReady?: () => void }) {
   const { camera, size } = useThree();
+  const readyFired = useRef(false);
   useEffect(() => {
     const aspect = size.width / size.height;
     // Portrait/mobile: pull camera back; landscape/desktop: closer
     camera.position.z = aspect < 1 ? 11 : 6;
     // Shift camera up slightly on mobile so tile appears more centered visually
     camera.position.y = aspect < 1 ? 0.6 : 0.3;
-  }, [camera, size]);
+    if (!readyFired.current && onReady) {
+      readyFired.current = true;
+      onReady();
+    }
+  }, [camera, size, onReady]);
   return null;
 }
 
-function Scene({ textureUrl, memory, date }: { textureUrl: string; memory: string; date: string }) {
+function Scene({ textureUrl, memory, date, onReady }: { textureUrl: string; memory: string; date: string; onReady?: () => void }) {
   return (
     <>
-      <AdaptiveCamera />
+      <AdaptiveCamera onReady={onReady} />
       <ambientLight intensity={0.8} />
       <directionalLight position={[2, 6, 10]} intensity={1.5} />
       <directionalLight position={[-4, 3, 5]} intensity={0.5} />
@@ -406,14 +398,32 @@ function Scene({ textureUrl, memory, date }: { textureUrl: string; memory: strin
   );
 }
 
-export default function TileViewer3D() {
-  const [tiles, setTiles] = useState<TileItem[]>(DEFAULT_TILES);
-  const [activeIndex, setActiveIndex] = useState(0);
+export default function TileViewer3D({
+  onReady,
+  initialIndex = 0,
+  onBack,
+}: {
+  onReady?: () => void;
+  initialIndex?: number;
+  onBack: () => void;
+}) {
+  const { tiles } = useSyncExternalStore(subscribe, getState, getState);
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [editingMemory, setEditingMemory] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const [memoryDraft, setMemoryDraft] = useState("");
   const [dateDraft, setDateDraft] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  // Clamp activeIndex if tiles change
+  const safeIndex = Math.min(activeIndex, Math.max(0, tiles.length - 1));
+  useEffect(() => { setActiveIndex(safeIndex); }, [safeIndex]);
+
+  const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
+  const goNext = useCallback(() => setActiveIndex((i) => Math.min(tiles.length - 1, i + 1)), [tiles.length]);
 
   const handleCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -423,13 +433,13 @@ export default function TileViewer3D() {
   }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
+    const id = generateTileId();
     const name = `Tile #${tiles.length + 1}`;
-    const newTiles = [...tiles, { name, file: croppedUrl, memory: "", date: "" }];
-    setTiles(newTiles);
-    setActiveIndex(newTiles.length - 1);
+    addTile({ id, name, file: croppedUrl, memory: "", date: "" });
+    setActiveIndex(tiles.length); // will point to newly added
     if (pendingImage) URL.revokeObjectURL(pendingImage);
     setPendingImage(null);
-  }, [tiles, pendingImage]);
+  }, [tiles.length, pendingImage]);
 
   const handleCropCancel = useCallback(() => {
     if (pendingImage) URL.revokeObjectURL(pendingImage);
@@ -447,67 +457,51 @@ export default function TileViewer3D() {
         touchAction: "none",
       }}
     >
-      {/* Hidden file input for camera */}
+      {/* Hidden file inputs */}
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
         onChange={handleCapture}
         style={{ display: "none" }}
       />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleCapture}
+        style={{ display: "none" }}
+      />
 
       {/* Canvas */}
       <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
-        <Canvas
-          camera={{ position: [0, 0.3, 6], fov: 35 }}
-          gl={{
-            antialias: true,
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.2,
-          }}
-          dpr={[1, 2]}
-        >
-          <color attach="background" args={["#f5f2ed"]} />
-          <Scene textureUrl={tiles[activeIndex].file} memory={tiles[activeIndex].memory} date={tiles[activeIndex].date} />
-        </Canvas>
+        {tiles.length > 0 ? (
+          <Canvas
+            camera={{ position: [0, 0.3, 6], fov: 35 }}
+            gl={{
+              antialias: true,
+              toneMapping: THREE.ACESFilmicToneMapping,
+              toneMappingExposure: 1.2,
+            }}
+            dpr={[1, 2]}
+          >
+            <color attach="background" args={["#f5f2ed"]} />
+            <Scene textureUrl={tiles[safeIndex].file} memory={tiles[safeIndex].memory} date={tiles[safeIndex].date} onReady={onReady} />
+          </Canvas>
+        ) : (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+            <p style={{ color: "#8a8578", fontSize: 16 }}>No tiles yet — tap + to add one</p>
+          </div>
+        )}
 
-        {/* Title */}
-        <div
+        {/* Back button */}
+        <button
+          onClick={onBack}
           style={{
             position: "absolute",
             top: "max(16px, env(safe-area-inset-top, 16px))",
             left: "max(16px, env(safe-area-inset-left, 16px))",
-            pointerEvents: "none",
-            padding: "0 8px",
-          }}
-        >
-          <h1
-            style={{
-              fontSize: "clamp(22px, 5vw, 30px)",
-              fontWeight: 600,
-              letterSpacing: "-0.02em",
-              margin: 0,
-            }}
-          >
-            {tiles[activeIndex].name}
-          </h1>
-          <p style={{ fontSize: "clamp(12px, 3vw, 14px)", color: "#8a8578", marginTop: 4 }}>
-            Drag to rotate — Pinch to zoom
-          </p>
-        </div>
-
-        {/* Memory edit button */}
-        <button
-          onClick={() => {
-            setMemoryDraft(tiles[activeIndex].memory);
-            setDateDraft(tiles[activeIndex].date);
-            setEditingMemory(true);
-          }}
-          style={{
-            position: "absolute",
-            top: "max(16px, env(safe-area-inset-top, 16px))",
-            right: "max(16px, env(safe-area-inset-right, 16px))",
             width: 44,
             height: 44,
             borderRadius: 22,
@@ -523,54 +517,88 @@ export default function TileViewer3D() {
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-            <path d="m15 5 4 4" />
+            <path d="M19 12H5" />
+            <path d="m12 19-7-7 7-7" />
           </svg>
         </button>
+
+        {/* Title */}
+        {tiles.length > 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "max(16px, env(safe-area-inset-top, 16px))",
+              left: 72,
+              pointerEvents: "none",
+            }}
+          >
+            <h1
+              style={{
+                fontSize: "clamp(20px, 5vw, 26px)",
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+                margin: 0,
+                lineHeight: "44px",
+              }}
+            >
+              {tiles[safeIndex].name}
+            </h1>
+          </div>
+        )}
+
+        {/* Memory edit button */}
+        {tiles.length > 0 && (
+          <button
+            onClick={() => {
+              setNameDraft(tiles[safeIndex].name);
+              setMemoryDraft(tiles[safeIndex].memory);
+              setDateDraft(tiles[safeIndex].date);
+              setEditingMemory(true);
+            }}
+            style={{
+              position: "absolute",
+              top: "max(16px, env(safe-area-inset-top, 16px))",
+              right: "max(16px, env(safe-area-inset-right, 16px))",
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              border: "none",
+              background: "rgba(255,255,255,0.85)",
+              backdropFilter: "blur(8px)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              WebkitTapHighlightColor: "transparent",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              <path d="m15 5 4 4" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      {/* Tile selector + capture button */}
+      {/* Tile selector — horizontally scrollable */}
       <div
+        className="hide-scrollbar"
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          gap: "clamp(8px, 2vw, 12px)",
-          padding: "12px 16px max(12px, env(safe-area-inset-bottom, 12px))",
+          gap: "clamp(6px, 1.5vw, 10px)",
+          padding: "10px 16px max(10px, env(safe-area-inset-bottom, 10px))",
           flexShrink: 0,
           overflowX: "auto",
           WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+          touchAction: "pan-x",
         }}
       >
-        {/* Capture button */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          style={{
-            width: "clamp(52px, 12vw, 72px)",
-            height: "clamp(52px, 12vw, 72px)",
-            borderRadius: "clamp(8px, 2vw, 12px)",
-            overflow: "hidden",
-            border: "2px dashed #b5ad9e",
-            padding: 0,
-            cursor: "pointer",
-            background: "transparent",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            WebkitTapHighlightColor: "transparent",
-          }}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8a8578" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-            <circle cx="12" cy="13" r="4" />
-          </svg>
-        </button>
-
-        {/* Tile thumbnails */}
         {tiles.map((tile, i) => (
           <button
-            key={tile.file}
+            key={tile.id}
             onClick={() => setActiveIndex(i)}
             style={{
               width: "clamp(52px, 12vw, 72px)",
@@ -580,9 +608,9 @@ export default function TileViewer3D() {
               border: "none",
               padding: 0,
               cursor: "pointer",
-              outline: i === activeIndex ? "2px solid #1a1a1a" : "2px solid transparent",
+              outline: i === safeIndex ? "2px solid #1a1a1a" : "2px solid transparent",
               outlineOffset: 2,
-              opacity: i === activeIndex ? 1 : 0.6,
+              opacity: i === safeIndex ? 1 : 0.6,
               transition: "all 0.2s",
               background: "transparent",
               flexShrink: 0,
@@ -598,6 +626,112 @@ export default function TileViewer3D() {
           </button>
         ))}
       </div>
+
+      {/* Floating add button + menu */}
+      <button
+        onClick={() => setShowAddMenu((v) => !v)}
+        style={{
+          position: "fixed",
+          bottom: "max(90px, calc(env(safe-area-inset-bottom, 12px) + 90px))",
+          right: "max(16px, env(safe-area-inset-right, 16px))",
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          border: "none",
+          background: "#1a1a1a",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+          WebkitTapHighlightColor: "transparent",
+          zIndex: 50,
+          transition: "transform 0.2s",
+          transform: showAddMenu ? "rotate(45deg)" : "rotate(0deg)",
+        }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
+
+      {showAddMenu && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowAddMenu(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 49 }}
+          />
+          {/* Menu */}
+          <div
+            style={{
+              position: "fixed",
+              bottom: "max(150px, calc(env(safe-area-inset-bottom, 12px) + 150px))",
+              right: "max(16px, env(safe-area-inset-right, 16px))",
+              background: "#fff",
+              borderRadius: 14,
+              boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
+              overflow: "hidden",
+              zIndex: 50,
+              minWidth: 180,
+            }}
+          >
+            <button
+              onClick={() => {
+                setShowAddMenu(false);
+                cameraInputRef.current?.click();
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                width: "100%",
+                padding: "14px 18px",
+                border: "none",
+                borderBottom: "1px solid #f0ece6",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 15,
+                color: "#1a1a1a",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              Take photo
+            </button>
+            <button
+              onClick={() => {
+                setShowAddMenu(false);
+                galleryInputRef.current?.click();
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                width: "100%",
+                padding: "14px 18px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 15,
+                color: "#1a1a1a",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              Choose from library
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Memory edit modal */}
       {editingMemory && (
@@ -622,14 +756,30 @@ export default function TileViewer3D() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 600 }}>
-              Write a memory
-            </h3>
-            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#8a8578" }}>
-              This text will appear on the back of the tile
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="Tile name"
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid #e0d8cc",
+                background: "#faf8f5",
+                fontSize: 20,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+                outline: "none",
+                boxSizing: "border-box",
+                color: "#1a1a1a",
+                marginBottom: 12,
+              }}
+            />
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "#8a8578" }}>
+              Memory (appears on the back of the tile)
             </p>
             <textarea
-              autoFocus
               value={memoryDraft}
               onChange={(e) => setMemoryDraft(e.target.value)}
               placeholder="The day I found this tile..."
@@ -685,9 +835,8 @@ export default function TileViewer3D() {
               </button>
               <button
                 onClick={() => {
-                  const updated = [...tiles];
-                  updated[activeIndex] = { ...updated[activeIndex], memory: memoryDraft, date: dateDraft };
-                  setTiles(updated);
+                  const tile = tiles[safeIndex];
+                  if (tile) updateTile(tile.id, { name: nameDraft, memory: memoryDraft, date: dateDraft });
                   setEditingMemory(false);
                 }}
                 style={{

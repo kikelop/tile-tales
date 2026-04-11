@@ -1,22 +1,111 @@
-import Gallery from "@/components/Gallery";
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
+import SplashScreen from "@/components/SplashScreen";
+import TileGrid from "@/components/TileGrid";
+import CropModal from "@/components/CropModal";
+import WallpaperGenerator from "@/components/WallpaperGenerator";
+import { addTile, generateTileId } from "@/lib/store";
+
+const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), {
+  ssr: false,
+});
+
+const MIN_SPLASH_MS = 2500;
+
+type Screen =
+  | { type: "splash" }
+  | { type: "grid" }
+  | { type: "viewer"; initialIndex: number }
+  | { type: "wallpaper" };
 
 export default function Home() {
-  return (
-    <div className="flex flex-1 flex-col">
-      {/* Header */}
-      <header className="px-6 pt-12 pb-8 sm:px-10 lg:px-16">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Tile Tales
-        </h1>
-        <p className="mt-2 max-w-md text-lg text-[var(--color-muted)]">
-          Your collection of street tiles from around the world.
-        </p>
-      </header>
+  const [screen, setScreen] = useState<Screen>({ type: "splash" });
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
-      {/* Gallery */}
-      <main className="flex-1 px-6 pb-16 sm:px-10 lg:px-16">
-        <Gallery />
-      </main>
-    </div>
+  // Splash timer
+  useEffect(() => {
+    if (screen.type !== "splash") return;
+    const timeout = setTimeout(() => {
+      const fadeOut = (window as unknown as Record<string, (() => void) | undefined>).__splashFadeOut;
+      if (fadeOut) fadeOut();
+    }, MIN_SPLASH_MS);
+    return () => clearTimeout(timeout);
+  }, [screen.type]);
+
+  const handleCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingImage(URL.createObjectURL(file));
+    e.target.value = "";
+  }, []);
+
+  const handleCropConfirm = useCallback((croppedUrl: string) => {
+    const id = generateTileId();
+    addTile({ id, name: "New tile", file: croppedUrl, memory: "", date: "" });
+    if (pendingImage) URL.revokeObjectURL(pendingImage);
+    setPendingImage(null);
+  }, [pendingImage]);
+
+  const handleCropCancel = useCallback(() => {
+    if (pendingImage) URL.revokeObjectURL(pendingImage);
+    setPendingImage(null);
+  }, [pendingImage]);
+
+  return (
+    <>
+      {/* Hidden file inputs */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCapture}
+        style={{ display: "none" }}
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleCapture}
+        style={{ display: "none" }}
+      />
+
+      {screen.type === "splash" && (
+        <SplashScreen onFinished={() => setScreen({ type: "grid" })} />
+      )}
+
+      {screen.type === "grid" && (
+        <>
+          <TileGrid
+            onSelectTile={(index) => setScreen({ type: "viewer", initialIndex: index })}
+            onTakePhoto={() => cameraInputRef.current?.click()}
+            onChooseLibrary={() => galleryInputRef.current?.click()}
+            onOpenWallpaper={() => setScreen({ type: "wallpaper" })}
+          />
+          {pendingImage && (
+            <CropModal
+              imageUrl={pendingImage}
+              onConfirm={handleCropConfirm}
+              onCancel={handleCropCancel}
+            />
+          )}
+        </>
+      )}
+
+      {screen.type === "wallpaper" && (
+        <WallpaperGenerator onBack={() => setScreen({ type: "grid" })} />
+      )}
+
+      {screen.type === "viewer" && (
+        <TileViewer3D
+          initialIndex={screen.initialIndex}
+          onBack={() => setScreen({ type: "grid" })}
+        />
+      )}
+    </>
   );
 }

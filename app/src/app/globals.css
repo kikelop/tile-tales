@@ -14,3 +14,8 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Hide scrollbar on tile selector */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
