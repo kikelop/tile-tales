@@ -6,7 +6,10 @@ import SplashScreen from "@/components/SplashScreen";
 import TileGrid from "@/components/TileGrid";
 import CropModal from "@/components/CropModal";
 import WallpaperGenerator from "@/components/WallpaperGenerator";
+import ScreenTransition from "@/components/ScreenTransition";
 import { addTile, generateTileId } from "@/lib/store";
+
+const TileMap = dynamic(() => import("@/components/TileMap"), { ssr: false });
 
 const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), {
   ssr: false,
@@ -18,7 +21,8 @@ type Screen =
   | { type: "splash" }
   | { type: "grid" }
   | { type: "viewer"; initialIndex: number }
-  | { type: "wallpaper" };
+  | { type: "wallpaper" }
+  | { type: "map" };
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>({ type: "splash" });
@@ -45,7 +49,7 @@ export default function Home() {
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
     const id = generateTileId();
-    addTile({ id, name: "New tile", file: croppedUrl, memory: "", date: "" });
+    addTile({ id, name: "New tile", file: croppedUrl, memory: "", date: "", tags: [], favorite: false });
     if (pendingImage) URL.revokeObjectURL(pendingImage);
     setPendingImage(null);
   }, [pendingImage]);
@@ -78,33 +82,45 @@ export default function Home() {
         <SplashScreen onFinished={() => setScreen({ type: "grid" })} />
       )}
 
-      {screen.type === "grid" && (
-        <>
-          <TileGrid
-            onSelectTile={(index) => setScreen({ type: "viewer", initialIndex: index })}
-            onTakePhoto={() => cameraInputRef.current?.click()}
-            onChooseLibrary={() => galleryInputRef.current?.click()}
-            onOpenWallpaper={() => setScreen({ type: "wallpaper" })}
-          />
-          {pendingImage && (
-            <CropModal
-              imageUrl={pendingImage}
-              onConfirm={handleCropConfirm}
-              onCancel={handleCropCancel}
+      {screen.type !== "splash" && (
+        <ScreenTransition screenKey={screen.type}>
+          {screen.type === "grid" && (
+            <>
+              <TileGrid
+                onSelectTile={(index) => setScreen({ type: "viewer", initialIndex: index })}
+                onTakePhoto={() => cameraInputRef.current?.click()}
+                onChooseLibrary={() => galleryInputRef.current?.click()}
+                onOpenWallpaper={() => setScreen({ type: "wallpaper" })}
+                onOpenMap={() => setScreen({ type: "map" })}
+              />
+              {pendingImage && (
+                <CropModal
+                  imageUrl={pendingImage}
+                  onConfirm={handleCropConfirm}
+                  onCancel={handleCropCancel}
+                />
+              )}
+            </>
+          )}
+
+          {screen.type === "wallpaper" && (
+            <WallpaperGenerator onBack={() => setScreen({ type: "grid" })} />
+          )}
+
+          {screen.type === "map" && (
+            <TileMap
+              onBack={() => setScreen({ type: "grid" })}
+              onSelectTile={(index) => setScreen({ type: "viewer", initialIndex: index })}
             />
           )}
-        </>
-      )}
 
-      {screen.type === "wallpaper" && (
-        <WallpaperGenerator onBack={() => setScreen({ type: "grid" })} />
-      )}
-
-      {screen.type === "viewer" && (
-        <TileViewer3D
-          initialIndex={screen.initialIndex}
-          onBack={() => setScreen({ type: "grid" })}
-        />
+          {screen.type === "viewer" && (
+            <TileViewer3D
+              initialIndex={screen.initialIndex}
+              onBack={() => setScreen({ type: "grid" })}
+            />
+          )}
+        </ScreenTransition>
       )}
     </>
   );

@@ -5,7 +5,7 @@ import { ContactShadows, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { useState, useSyncExternalStore, Suspense, useRef, useCallback, useEffect, useMemo } from "react";
 import CropModal from "./CropModal";
-import { getState, subscribe, updateTile, addTile, generateTileId, type TileItem } from "@/lib/store";
+import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, generateTileId, type TileItem } from "@/lib/store";
 
 function useTextTexture(text: string, date: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -319,7 +319,32 @@ function RotatableTile({
     timeRef.current += delta;
     const t = timeRef.current;
 
+    // --- Entry: fast scale-up (0.5s), slower drop (2s) ---
+    const entryDur = 2.0;
+    const ep = Math.min(t / entryDur, 1);
+    const dropEase = 1 - Math.pow(1 - ep, 3); // easeOutCubic
+
+    // Scale pops in fast (0.5s) so the flip is visible
+    const scaleDur = 0.5;
+    const sp = Math.min(t / scaleDur, 1);
+    const scaleEase = 1 - Math.pow(1 - sp, 2);
+
+    const scale = scaleEase;
+    const dropY = (1 - dropEase) * 8;
+
+    // --- Z rotation: continuous, fast at start ---
+    const zSpeed = t < 3.0 ? 0.08 + 4.0 * Math.pow(1 - t / 3.0, 2) : 0.08;
+
+    // --- Y flip: full 360° like a coin ---
+    const flipDur = 1.8;
+    const fp = Math.min(t / flipDur, 1);
+    const flipEase = 1 - Math.pow(1 - fp, 3);
+    const yAngle = flipEase * Math.PI * 2;
+
+
+
     if (!isDragging.current) {
+      // User flick inertia
       if (Math.abs(velocity.current.x) > 0.0001 || Math.abs(velocity.current.y) > 0.0001) {
         const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), velocity.current.x);
         const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), velocity.current.y);
@@ -328,10 +353,11 @@ function RotatableTile({
         velocity.current.y *= 0.95;
       }
 
+      // Z rotation (continuous) + X tumble (entry only)
       const autoQ = new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(0, 0, 1),
-        autoRotateSpeed.current * delta
+        new THREE.Vector3(0, 0, 1), zSpeed * delta
       );
+      // Wobble
       const wobbleX = Math.sin(t * 0.4) * 0.0008;
       const wobbleY = Math.cos(t * 0.3) * 0.0006;
       const qx2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), wobbleX);
@@ -340,9 +366,21 @@ function RotatableTile({
       quaternion.current.premultiply(autoQ).premultiply(qx2).premultiply(qy2);
     }
 
+    // Float
+    const floatY = Math.sin(t * 0.8) * 0.06;
+
+    // Apply
     if (groupRef.current) {
-      groupRef.current.quaternion.copy(quaternion.current);
-      groupRef.current.position.y = Math.sin(t * 0.8) * 0.06;
+      // Apply Y flip in WORLD space (premultiply), then Z spin etc
+      if (fp < 1) {
+        const flipQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yAngle);
+        const final_q = flipQ.clone().multiply(quaternion.current);
+        groupRef.current.quaternion.copy(final_q);
+      } else {
+        groupRef.current.quaternion.copy(quaternion.current);
+      }
+      groupRef.current.position.set(0, dropY + floatY, 0);
+      groupRef.current.scale.setScalar(scale);
     }
   });
 
@@ -369,6 +407,43 @@ function AdaptiveCamera({ onReady }: { onReady?: () => void }) {
   }, [camera, size, onReady]);
   return null;
 }
+
+function ExitingTile({ textureUrl, memory, date, exitTo, startQuaternion }: { textureUrl: string; memory: string; date: string; exitTo: "left" | "right"; startQuaternion: THREE.Quaternion }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const progress = useRef(0);
+  const initDone = useRef(false);
+
+  useFrame((_, delta) => {
+    progress.current = Math.min(1, progress.current + delta / 0.5);
+    if (groupRef.current) {
+      // Set initial quaternion on first frame
+      if (!initDone.current) {
+        groupRef.current.quaternion.copy(startQuaternion);
+        initDone.current = true;
+      }
+
+      const p = progress.current;
+      const ease = 1 - Math.pow(1 - p, 3);
+      const dir = exitTo === "left" ? -1 : 1;
+      groupRef.current.position.x = ease * 8 * dir;
+
+      groupRef.current.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mat = (child as THREE.Mesh).material as THREE.Material;
+          mat.transparent = true;
+          mat.opacity = 1 - ease;
+        }
+      });
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <TileMesh textureUrl={textureUrl} memory={memory} date={date} />
+    </group>
+  );
+}
+
 
 function Scene({ textureUrl, memory, date, onReady }: { textureUrl: string; memory: string; date: string; onReady?: () => void }) {
   return (
@@ -408,12 +483,19 @@ export default function TileViewer3D({
   onBack: () => void;
 }) {
   const { tiles } = useSyncExternalStore(subscribe, getState, getState);
+
+  // Preload all tile textures into Drei's cache
+  useEffect(() => {
+    tiles.forEach((t) => useTexture.preload(t.file));
+  }, [tiles]);
+
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [editingMemory, setEditingMemory] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [memoryDraft, setMemoryDraft] = useState("");
   const [dateDraft, setDateDraft] = useState("");
+  const [tagsDraft, setTagsDraft] = useState("");
   const [showAddMenu, setShowAddMenu] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -421,6 +503,7 @@ export default function TileViewer3D({
   // Clamp activeIndex if tiles change
   const safeIndex = Math.min(activeIndex, Math.max(0, tiles.length - 1));
   useEffect(() => { setActiveIndex(safeIndex); }, [safeIndex]);
+
 
   const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => setActiveIndex((i) => Math.min(tiles.length - 1, i + 1)), [tiles.length]);
@@ -435,7 +518,7 @@ export default function TileViewer3D({
   const handleCropConfirm = useCallback((croppedUrl: string) => {
     const id = generateTileId();
     const name = `Tile #${tiles.length + 1}`;
-    addTile({ id, name, file: croppedUrl, memory: "", date: "" });
+    addTile({ id, name, file: croppedUrl, memory: "", date: "", tags: [], favorite: false });
     setActiveIndex(tiles.length); // will point to newly added
     if (pendingImage) URL.revokeObjectURL(pendingImage);
     setPendingImage(null);
@@ -546,38 +629,71 @@ export default function TileViewer3D({
           </div>
         )}
 
-        {/* Memory edit button */}
+        {/* Favorite + Edit buttons */}
         {tiles.length > 0 && (
-          <button
-            onClick={() => {
-              setNameDraft(tiles[safeIndex].name);
-              setMemoryDraft(tiles[safeIndex].memory);
-              setDateDraft(tiles[safeIndex].date);
-              setEditingMemory(true);
-            }}
+          <div
             style={{
               position: "absolute",
               top: "max(16px, env(safe-area-inset-top, 16px))",
               right: "max(16px, env(safe-area-inset-right, 16px))",
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              border: "none",
-              background: "rgba(255,255,255,0.85)",
-              backdropFilter: "blur(8px)",
-              cursor: "pointer",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              WebkitTapHighlightColor: "transparent",
+              gap: 8,
             }}
           >
+            {/* Favorite button */}
+            <button
+              onClick={() => toggleFavorite(tiles[safeIndex].id)}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                border: "none",
+                background: "rgba(255,255,255,0.85)",
+                backdropFilter: "blur(8px)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                WebkitTapHighlightColor: "transparent",
+                fontSize: 20,
+                lineHeight: 1,
+                transition: "transform 0.2s",
+              }}
+            >
+              {tiles[safeIndex].favorite ? "♥" : "♡"}
+            </button>
+
+            {/* Edit button */}
+            <button
+              onClick={() => {
+                setNameDraft(tiles[safeIndex].name);
+                setMemoryDraft(tiles[safeIndex].memory);
+                setDateDraft(tiles[safeIndex].date);
+                setTagsDraft(tiles[safeIndex].tags.join(", "));
+                setEditingMemory(true);
+              }}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                border: "none",
+                background: "rgba(255,255,255,0.85)",
+                backdropFilter: "blur(8px)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
               <path d="m15 5 4 4" />
             </svg>
           </button>
+          </div>
         )}
       </div>
 
@@ -817,6 +933,24 @@ export default function TileViewer3D({
                 marginTop: 8,
               }}
             />
+            <input
+              type="text"
+              value={tagsDraft}
+              onChange={(e) => setTagsDraft(e.target.value)}
+              placeholder="Tags: geometric, floral, classic..."
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid #e0d8cc",
+                background: "#faf8f5",
+                fontSize: 14,
+                outline: "none",
+                boxSizing: "border-box",
+                color: "#1a1a1a",
+                marginTop: 8,
+              }}
+            />
             <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
               <button
                 onClick={() => setEditingMemory(false)}
@@ -836,7 +970,10 @@ export default function TileViewer3D({
               <button
                 onClick={() => {
                   const tile = tiles[safeIndex];
-                  if (tile) updateTile(tile.id, { name: nameDraft, memory: memoryDraft, date: dateDraft });
+                  if (tile) {
+                    const tags = tagsDraft.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
+                    updateTile(tile.id, { name: nameDraft, memory: memoryDraft, date: dateDraft, tags });
+                  }
                   setEditingMemory(false);
                 }}
                 style={{
@@ -854,6 +991,34 @@ export default function TileViewer3D({
                 Save
               </button>
             </div>
+            {/* Delete */}
+            <button
+              onClick={() => {
+                const tile = tiles[safeIndex];
+                if (tile && tiles.length > 1) {
+                  deleteTile(tile.id);
+                  setEditingMemory(false);
+                } else if (tile) {
+                  deleteTile(tile.id);
+                  setEditingMemory(false);
+                  onBack();
+                }
+              }}
+              style={{
+                width: "100%",
+                padding: "12px 0",
+                marginTop: 8,
+                borderRadius: 12,
+                border: "none",
+                background: "transparent",
+                color: "#d44",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Delete tile
+            </button>
           </div>
         </div>
       )}

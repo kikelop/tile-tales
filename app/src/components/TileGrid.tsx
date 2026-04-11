@@ -1,41 +1,80 @@
 "use client";
 
-import { useState, useEffect, useRef, useSyncExternalStore } from "react";
-import { getState, subscribe } from "@/lib/store";
+import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from "react";
+import { getState, subscribe, getAllTags, toggleFavorite } from "@/lib/store";
 
 function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
 }
-
-const FILTERS = [
-  { id: "all", label: "All" },
-  { id: "favorites", label: "Favorites" },
-  { id: "geometric", label: "Geometric" },
-  { id: "floral", label: "Floral" },
-  { id: "classic", label: "Classic" },
-];
 
 export default function TileGrid({
   onSelectTile,
   onTakePhoto,
   onChooseLibrary,
   onOpenWallpaper,
+  onOpenMap,
 }: {
   onSelectTile: (index: number) => void;
   onTakePhoto: () => void;
   onChooseLibrary: () => void;
   onOpenWallpaper: () => void;
+  onOpenMap: () => void;
 }) {
   const { tiles } = useStore();
   const [activeFilter, setActiveFilter] = useState("all");
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [columns, setColumns] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 ? 5 : 3);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pinchStart = useRef(0);
+  const colsAtPinchStart = useRef(3);
 
-  // Scroll to bottom on mount (newest tiles at the bottom, like iOS Photos)
+  // Build filter list dynamically: All + Favorites + all tags from tiles
+  const filters = useMemo(() => {
+    const tags = getAllTags();
+    return [
+      { id: "all", label: "All" },
+      { id: "favorites", label: "♥ Favorites" },
+      ...tags.map((t) => ({ id: `tag:${t}`, label: t.charAt(0).toUpperCase() + t.slice(1) })),
+    ];
+  }, [tiles]);
+
+  // Filter tiles
+  const filteredTiles = useMemo(() => {
+    if (activeFilter === "all") return tiles;
+    if (activeFilter === "favorites") return tiles.filter((t) => t.favorite);
+    if (activeFilter.startsWith("tag:")) {
+      const tag = activeFilter.slice(4);
+      return tiles.filter((t) => t.tags.includes(tag));
+    }
+    return tiles;
+  }, [tiles, activeFilter]);
+
+  // Scroll to bottom on mount
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
+
+  // Pinch-to-zoom
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStart.current = Math.hypot(dx, dy);
+      colsAtPinchStart.current = columns;
+    }
+  }, [columns]);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 2) return;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    const ratio = dist / pinchStart.current;
+    let newCols = Math.round(colsAtPinchStart.current / ratio);
+    newCols = Math.max(1, Math.min(6, newCols));
+    if (newCols !== columns) setColumns(newCols);
+  }, [columns]);
 
   return (
     <div
@@ -71,58 +110,89 @@ export default function TileGrid({
       {/* Mosaic grid */}
       <div
         ref={scrollRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
         style={{
           flex: 1,
           overflow: "auto",
           WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y pinch-zoom",
         }}
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 2,
-          }}
-        >
-          {tiles.map((tile, i) => (
-            <button
-              key={tile.id}
-              onClick={() => onSelectTile(i)}
-              style={{
-                aspectRatio: "1",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                background: "#ece8e1",
-                overflow: "hidden",
-                display: "block",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={tile.file}
-                alt={tile.name}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
-                  transition: "transform 0.2s",
-                }}
-                onPointerEnter={(e) => {
-                  (e.target as HTMLImageElement).style.transform = "scale(1.05)";
-                }}
-                onPointerLeave={(e) => {
-                  (e.target as HTMLImageElement).style.transform = "scale(1)";
-                }}
-              />
-            </button>
-          ))}
-        </div>
+        {filteredTiles.length === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", padding: 32 }}>
+            <p style={{ color: "#8a8578", fontSize: 15 }}>No tiles match this filter</p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${columns}, 1fr)`,
+              gap: 2,
+              transition: "grid-template-columns 0.2s ease",
+            }}
+          >
+            {filteredTiles.map((tile) => {
+              // Find original index in full tiles array for navigation
+              const originalIndex = tiles.findIndex((t) => t.id === tile.id);
+              return (
+                <button
+                  key={tile.id}
+                  onClick={() => onSelectTile(originalIndex)}
+                  style={{
+                    aspectRatio: "1",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    background: "#ece8e1",
+                    overflow: "hidden",
+                    display: "block",
+                    position: "relative",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={tile.file}
+                    alt={tile.name}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                      transition: "transform 0.2s",
+                    }}
+                    onPointerEnter={(e) => {
+                      (e.target as HTMLImageElement).style.transform = "scale(1.05)";
+                    }}
+                    onPointerLeave={(e) => {
+                      (e.target as HTMLImageElement).style.transform = "scale(1)";
+                    }}
+                  />
+                  {/* Favorite indicator */}
+                  {tile.favorite && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        fontSize: 22,
+                        lineHeight: 1,
+                        color: "#fff",
+                        textShadow: "0 1px 4px rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      ♥
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Bottom bar: filters + add button */}
+      {/* Bottom bar: filters + wallpaper + add */}
       <div
         style={{
           flexShrink: 0,
@@ -135,7 +205,7 @@ export default function TileGrid({
           gap: 8,
         }}
       >
-        {/* Filter chips — scrollable */}
+        {/* Filter chips */}
         <div
           className="hide-scrollbar"
           style={{
@@ -148,7 +218,7 @@ export default function TileGrid({
             paddingLeft: 4,
           }}
         >
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <button
               key={f.id}
               onClick={() => setActiveFilter(f.id)}
@@ -171,6 +241,29 @@ export default function TileGrid({
             </button>
           ))}
         </div>
+
+        {/* Map button */}
+        <button
+          onClick={onOpenMap}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            border: "none",
+            background: "rgba(0,0,0,0.06)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+        </button>
 
         {/* Wallpaper button */}
         <button
@@ -245,22 +338,11 @@ export default function TileGrid({
             }}
           >
             <button
-              onClick={() => {
-                setShowAddMenu(false);
-                onTakePhoto();
-              }}
+              onClick={() => { setShowAddMenu(false); onTakePhoto(); }}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                width: "100%",
-                padding: "14px 18px",
-                border: "none",
-                borderBottom: "1px solid #f0ece6",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: 15,
-                color: "#1a1a1a",
+                display: "flex", alignItems: "center", gap: 12, width: "100%",
+                padding: "14px 18px", border: "none", borderBottom: "1px solid #f0ece6",
+                background: "transparent", cursor: "pointer", fontSize: 15, color: "#1a1a1a",
                 WebkitTapHighlightColor: "transparent",
               }}
             >
@@ -271,21 +353,11 @@ export default function TileGrid({
               Take photo
             </button>
             <button
-              onClick={() => {
-                setShowAddMenu(false);
-                onChooseLibrary();
-              }}
+              onClick={() => { setShowAddMenu(false); onChooseLibrary(); }}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                width: "100%",
-                padding: "14px 18px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: 15,
-                color: "#1a1a1a",
+                display: "flex", alignItems: "center", gap: 12, width: "100%",
+                padding: "14px 18px", border: "none", background: "transparent",
+                cursor: "pointer", fontSize: 15, color: "#1a1a1a",
                 WebkitTapHighlightColor: "transparent",
               }}
             >

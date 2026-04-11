@@ -1,18 +1,26 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from "react";
-import { getState, subscribe, type TileItem } from "@/lib/store";
+import { getState, subscribe, addWallpaper, type TileItem } from "@/lib/store";
 
-type PatternMode = "grid" | "mirror" | "diagonal";
+type PatternMode = "grid" | "mirror" | "brick" | "diamond" | "pinwheel";
 
 const PATTERN_LABELS: Record<PatternMode, string> = {
   grid: "Grid",
   mirror: "Mirror",
-  diagonal: "Diagonal",
+  diamond: "Diamond",
+  pinwheel: "Pinwheel",
+  brick: "Brick",
 };
 
 function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
+}
+
+// Seeded pseudo-random for consistent "random" pattern
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
 }
 
 function drawPattern(
@@ -20,58 +28,172 @@ function drawPattern(
   images: HTMLImageElement[],
   width: number,
   height: number,
-  tileSize: number,
+  rawTileSize: number,
   mode: PatternMode
 ) {
   ctx.clearRect(0, 0, width, height);
 
-  const cols = Math.ceil(width / tileSize);
-  const rows = Math.ceil(height / tileSize);
+  // Snap tile size so columns fit exactly — no tiles get cut off
+  const cols = Math.max(1, Math.round(width / rawTileSize));
+  const tileSize = width / cols;
+  const rows = Math.ceil(height / tileSize) + 1;
+  const n = images.length;
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      const imgIndex = (row + col) % images.length;
-      const img = images[imgIndex];
       const x = col * tileSize;
       const y = row * tileSize;
 
       ctx.save();
 
-      if (mode === "mirror") {
-        const flipH = col % 2 === 1;
-        const flipV = row % 2 === 1;
-        ctx.translate(
-          flipH ? x + tileSize : x,
-          flipV ? y + tileSize : y
-        );
-        ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-        ctx.drawImage(img, 0, 0, tileSize, tileSize);
-      } else if (mode === "diagonal") {
-        // Offset every other row by half a tile
-        const offsetX = row % 2 === 1 ? tileSize / 2 : 0;
-        ctx.drawImage(img, x + offsetX, y, tileSize, tileSize);
-        // Fill gap on left edge for odd rows
-        if (row % 2 === 1 && col === 0) {
-          const gapImg = images[(row + cols - 1) % images.length];
-          ctx.drawImage(gapImg, -tileSize / 2, y, tileSize, tileSize);
+      switch (mode) {
+        case "mirror": {
+          const imgIndex = (row + col) % n;
+          const flipH = col % 2 === 1;
+          const flipV = row % 2 === 1;
+          ctx.translate(flipH ? x + tileSize : x, flipV ? y + tileSize : y);
+          ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+          ctx.drawImage(images[imgIndex], 0, 0, tileSize, tileSize);
+          break;
         }
-      } else {
-        // grid
-        ctx.drawImage(img, x, y, tileSize, tileSize);
+
+        case "brick": {
+          // Half-tile offset on odd rows, like a brick wall
+          const offsetX = row % 2 === 1 ? tileSize / 2 : 0;
+          const imgIndex = (row * cols + col) % n;
+          ctx.drawImage(images[imgIndex], x + offsetX, y, tileSize, tileSize);
+          // Fill left gap on odd rows
+          if (row % 2 === 1 && col === cols - 1) {
+            ctx.drawImage(images[(row * cols) % n], -tileSize / 2, y, tileSize, tileSize);
+            ctx.drawImage(images[(row * cols + col + 1) % n], x + offsetX + tileSize, y, tileSize, tileSize);
+          }
+          break;
+        }
+
+        case "diamond":
+          // Handled separately below (two-pass rendering)
+          break;
+
+        case "pinwheel": {
+          // 2x2 block: each cell gets a different tile, rotated 0°/90°/180°/270°
+          const quadRow = row % 2;
+          const quadCol = col % 2;
+          const quadIndex = quadRow * 2 + quadCol; // 0,1,2,3
+          const blockRow = Math.floor(row / 2);
+          const blockCol = Math.floor(col / 2);
+          // Cycle through images per block position
+          const imgIndex = (quadIndex + (blockRow + blockCol) * n) % n;
+          const rotation = quadIndex * (Math.PI / 2);
+          const cx = x + tileSize / 2;
+          const cy = y + tileSize / 2;
+          ctx.translate(cx, cy);
+          ctx.rotate(rotation);
+          ctx.drawImage(images[imgIndex], -tileSize / 2, -tileSize / 2, tileSize, tileSize);
+          break;
+        }
+
+
+        default: {
+          // grid
+          const imgIndex = (row + col) % n;
+          ctx.drawImage(images[imgIndex], x, y, tileSize, tileSize);
+          break;
+        }
       }
 
       ctx.restore();
     }
   }
+
+  // Diamond: two-pass — fill gaps first, then main tiles on top
+  if (mode === "diamond") {
+    const s = tileSize / Math.SQRT2;
+
+    // Pass 1: gap-filler diamonds at every cell corner intersection
+    for (let row = 0; row <= rows; row++) {
+      for (let col = 0; col <= cols; col++) {
+        const gapIndex = (row + col + 1) % n;
+        ctx.save();
+        ctx.translate(col * tileSize, row * tileSize);
+        ctx.rotate(Math.PI / 4);
+        ctx.drawImage(images[gapIndex], -s / 2, -s / 2, s, s);
+        ctx.restore();
+      }
+    }
+
+    // Pass 2: main diamonds centered in each cell
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const imgIndex = (row + col) % n;
+        ctx.save();
+        ctx.translate(col * tileSize + tileSize / 2, row * tileSize + tileSize / 2);
+        ctx.rotate(Math.PI / 4);
+        ctx.drawImage(images[imgIndex], -s / 2, -s / 2, s, s);
+        ctx.restore();
+      }
+    }
+  }
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b];
+}
+
+function applyDuotone(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  darkColor: string,
+  lightColor: string
+) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  const dark = hexToRgb(darkColor);
+  const light = hexToRgb(lightColor);
+
+  for (let i = 0; i < data.length; i += 4) {
+    // Luminance
+    let lum = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
+    // Push toward extremes — high contrast S-curve
+    lum = lum < 0.5
+      ? 2 * lum * lum
+      : 1 - 2 * (1 - lum) * (1 - lum);
+    // Apply again for even more punch
+    lum = lum < 0.5
+      ? 2 * lum * lum
+      : 1 - 2 * (1 - lum) * (1 - lum);
+    // Lerp between dark and light
+    data[i]     = dark[0] + (light[0] - dark[0]) * lum;
+    data[i + 1] = dark[1] + (light[1] - dark[1]) * lum;
+    data[i + 2] = dark[2] + (light[2] - dark[2]) * lum;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function getExportSize(): { w: number; h: number } {
+  if (typeof window === "undefined") return { w: 1080, h: 1920 };
+  const isMobile = window.innerWidth < 768;
+  return isMobile ? { w: 1080, h: 1920 } : { w: 2560, h: 1440 };
+}
+
+type View = "editor" | "preview" | "saved";
+
 export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
-  const { tiles } = useStore();
+  const { tiles, wallpapers } = useStore();
+  const [view, setView] = useState<View>("editor");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PatternMode>("grid");
   const [tileSize, setTileSize] = useState(120);
+  const [duotone, setDuotone] = useState(false);
+  const [duoDark, setDuoDark] = useState("#4a6fa5");
+  const [duoLight, setDuoLight] = useState("#e8dcc8");
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const [loadedImages, setLoadedImages] = useState<HTMLImageElement[]>([]);
+  const [generatedDataUrl, setGeneratedDataUrl] = useState<string | null>(null);
 
   const toggleTile = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -93,7 +215,6 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
       .filter(Boolean) as TileItem[];
 
     let cancelled = false;
-    const loaded: HTMLImageElement[] = [];
 
     Promise.all(
       selected.map(
@@ -110,20 +231,18 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
       if (!cancelled) setLoadedImages(imgs);
     });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [selectedIds, tiles]);
 
-  // Draw preview
+  // Draw live preview in editor
   useEffect(() => {
+    if (view !== "editor") return;
     const canvas = previewCanvasRef.current;
     if (!canvas || loadedImages.length === 0) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Preview at screen-appropriate size
     const dpr = window.devicePixelRatio || 1;
     const displayW = canvas.clientWidth;
     const displayH = canvas.clientHeight;
@@ -132,34 +251,235 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
     ctx.scale(dpr, dpr);
 
     drawPattern(ctx, loadedImages, displayW, displayH, tileSize, mode);
+    if (duotone) applyDuotone(ctx, displayW * dpr, displayH * dpr, duoDark, duoLight);
+  }, [loadedImages, mode, tileSize, view, duotone, duoDark, duoLight]);
+
+  const handleCreate = useCallback(() => {
+    if (loadedImages.length === 0) return;
+
+    const { w, h } = getExportSize();
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+
+    // Scale tile size proportionally for export
+    const scaleFactor = Math.max(w, h) / Math.max(window.innerWidth, window.innerHeight);
+    drawPattern(ctx, loadedImages, w, h, tileSize * scaleFactor, mode);
+    if (duotone) applyDuotone(ctx, w, h, duoDark, duoLight);
+
+    const dataUrl = canvas.toDataURL("image/png");
+    setGeneratedDataUrl(dataUrl);
+    setView("preview");
   }, [loadedImages, mode, tileSize]);
 
-  const handleExport = useCallback(
-    (w: number, h: number, label: string) => {
-      if (loadedImages.length === 0) return;
+  const handleSave = useCallback(() => {
+    if (!generatedDataUrl) return;
+    addWallpaper(generatedDataUrl);
+    setView("saved");
+  }, [generatedDataUrl]);
 
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
-
-      drawPattern(ctx, loadedImages, w, h, tileSize * 2, mode);
-
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `tile-tales-wallpaper-${label}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }, "image/png");
-    },
-    [loadedImages, mode, tileSize]
-  );
+  const handleDownload = useCallback(() => {
+    if (!generatedDataUrl) return;
+    const a = document.createElement("a");
+    a.href = generatedDataUrl;
+    a.download = `tile-tales-wallpaper-${Date.now()}.png`;
+    a.click();
+  }, [generatedDataUrl]);
 
   const hasSelection = selectedIds.length > 0;
 
+  // --- PREVIEW VIEW ---
+  if (view === "preview" && generatedDataUrl) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "#000",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Preview image */}
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={generatedDataUrl}
+            alt="Wallpaper preview"
+            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+          />
+        </div>
+
+        {/* Actions */}
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            padding: "16px 16px max(16px, env(safe-area-inset-bottom, 16px))",
+            background: "rgba(0,0,0,0.8)",
+          }}
+        >
+          <button
+            onClick={() => setView("editor")}
+            style={{
+              flex: 1,
+              padding: "14px 0",
+              borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "transparent",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Back
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              flex: 1,
+              padding: "14px 0",
+              borderRadius: 12,
+              border: "none",
+              background: "#fff",
+              color: "#1a1a1a",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Save
+          </button>
+          <button
+            onClick={handleDownload}
+            style={{
+              flex: 1,
+              padding: "14px 0",
+              borderRadius: 12,
+              border: "none",
+              background: "#fff",
+              color: "#1a1a1a",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Download
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SAVED VIEW ---
+  if (view === "saved") {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "#f5f2ed",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            padding: "max(16px, env(safe-area-inset-top, 16px)) 16px 12px",
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <button
+            onClick={() => setView("editor")}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              border: "none",
+              background: "rgba(0,0,0,0.06)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              WebkitTapHighlightColor: "transparent",
+              flexShrink: 0,
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "#1a1a1a" }}>
+            My Wallpapers
+          </h1>
+        </div>
+
+        {/* Grid of saved wallpapers */}
+        <div
+          style={{
+            flex: 1,
+            overflow: "auto",
+            WebkitOverflowScrolling: "touch",
+            padding: "0 0 max(16px, env(safe-area-inset-bottom, 16px))",
+          }}
+        >
+          {wallpapers.length === 0 ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", padding: 32 }}>
+              <p style={{ color: "#8a8578", fontSize: 15, textAlign: "center" }}>
+                No wallpapers yet. Create one and hit Save!
+              </p>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: 8,
+                padding: "0 16px",
+              }}
+            >
+              {wallpapers.map((wp) => (
+                <button
+                  key={wp.id}
+                  onClick={() => {
+                    setGeneratedDataUrl(wp.dataUrl);
+                    setView("preview");
+                  }}
+                  style={{
+                    aspectRatio: "9/16",
+                    border: "none",
+                    padding: 0,
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    background: "#ece8e1",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={wp.dataUrl}
+                    alt="Saved wallpaper"
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // --- EDITOR VIEW ---
   return (
     <div
       style={{
@@ -209,10 +529,31 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
             fontWeight: 700,
             letterSpacing: "-0.02em",
             color: "#1a1a1a",
+            flex: 1,
           }}
         >
           Wallpaper
         </h1>
+
+        {/* My Wallpapers link */}
+        {wallpapers.length > 0 && (
+          <button
+            onClick={() => setView("saved")}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 20,
+              border: "none",
+              background: "rgba(0,0,0,0.06)",
+              fontSize: 13,
+              fontWeight: 500,
+              color: "#1a1a1a",
+              cursor: "pointer",
+              WebkitTapHighlightColor: "transparent",
+            }}
+          >
+            Saved ({wallpapers.length})
+          </button>
+        )}
       </div>
 
       {/* Preview area */}
@@ -227,7 +568,6 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          position: "relative",
         }}
       >
         {hasSelection ? (
@@ -242,92 +582,115 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
         )}
       </div>
 
-      {/* Controls: pattern mode + tile size */}
+      {/* Controls: pattern chips (scrollable) + size slider */}
       {hasSelection && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            padding: "12px 16px 0",
-            flexShrink: 0,
-          }}
-        >
-          {(Object.keys(PATTERN_LABELS) as PatternMode[]).map((m) => (
+        <div style={{ flexShrink: 0, padding: "12px 0 0" }}>
+          <div
+            className="hide-scrollbar"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "0 16px",
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "none",
+            }}
+          >
+            {(Object.keys(PATTERN_LABELS) as PatternMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 20,
+                  border: "none",
+                  background: mode === m ? "#1a1a1a" : "rgba(0,0,0,0.06)",
+                  color: mode === m ? "#fff" : "#1a1a1a",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  WebkitTapHighlightColor: "transparent",
+                  transition: "all 0.2s",
+                }}
+              >
+                {PATTERN_LABELS[m]}
+              </button>
+            ))}
+
+            <input
+              type="range"
+              min={60}
+              max={240}
+              value={tileSize}
+              onChange={(e) => setTileSize(Number(e.target.value))}
+              style={{ width: 70, accentColor: "#1a1a1a", flexShrink: 0 }}
+            />
+
+            {/* Duotone toggle */}
             <button
-              key={m}
-              onClick={() => setMode(m)}
+              onClick={() => setDuotone((v) => !v)}
               style={{
-                padding: "6px 16px",
+                padding: "6px 14px",
                 borderRadius: 20,
                 border: "none",
-                background: mode === m ? "#1a1a1a" : "rgba(0,0,0,0.06)",
-                color: mode === m ? "#fff" : "#1a1a1a",
+                background: duotone ? "#1a1a1a" : "rgba(0,0,0,0.06)",
+                color: duotone ? "#fff" : "#1a1a1a",
                 fontSize: 13,
                 fontWeight: 500,
                 cursor: "pointer",
-                WebkitTapHighlightColor: "transparent",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
                 transition: "all 0.2s",
+                WebkitTapHighlightColor: "transparent",
               }}
             >
-              {PATTERN_LABELS[m]}
+              Duotone
             </button>
-          ))}
 
-          {/* Size slider */}
-          <input
-            type="range"
-            min={60}
-            max={240}
-            value={tileSize}
-            onChange={(e) => setTileSize(Number(e.target.value))}
-            style={{ width: 80, accentColor: "#1a1a1a" }}
-          />
+            {/* Color pickers (only when duotone active) */}
+            {duotone && (
+              <>
+                <input
+                  type="color"
+                  value={duoDark}
+                  onChange={(e) => setDuoDark(e.target.value)}
+                  title="Dark color"
+                  style={{ width: 28, height: 28, border: "none", borderRadius: 14, cursor: "pointer", flexShrink: 0, padding: 0 }}
+                />
+                <input
+                  type="color"
+                  value={duoLight}
+                  onChange={(e) => setDuoLight(e.target.value)}
+                  title="Light color"
+                  style={{ width: 28, height: 28, border: "none", borderRadius: 14, cursor: "pointer", flexShrink: 0, padding: 0 }}
+                />
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Export buttons */}
+      {/* Create button */}
       {hasSelection && (
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            padding: "10px 16px",
-            flexShrink: 0,
-          }}
-        >
+        <div style={{ padding: "10px 16px", flexShrink: 0 }}>
           <button
-            onClick={() => handleExport(1080, 1920, "mobile")}
+            onClick={handleCreate}
             style={{
-              flex: 1,
-              padding: "12px 0",
+              width: "100%",
+              padding: "14px 0",
               borderRadius: 12,
               border: "none",
               background: "#1a1a1a",
               color: "#fff",
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: 600,
               cursor: "pointer",
             }}
           >
-            Mobile (1080×1920)
-          </button>
-          <button
-            onClick={() => handleExport(2560, 1440, "desktop")}
-            style={{
-              flex: 1,
-              padding: "12px 0",
-              borderRadius: 12,
-              border: "1px solid #d0c9be",
-              background: "transparent",
-              color: "#1a1a1a",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Desktop (2560×1440)
+            Create Wallpaper
           </button>
         </div>
       )}
