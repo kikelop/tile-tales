@@ -109,7 +109,7 @@ function useTextTexture(text: string, date: string) {
         render();
       }
     };
-    bgImg.src = "/tiles/default/square.png";
+    bgImg.src = "/tiles/default/square.webp";
   }, [text, date]);
 
   return texture;
@@ -119,11 +119,11 @@ function TileMesh({ textureUrl, memory, date }: { textureUrl: string; memory: st
   const tileTexture = useTexture(textureUrl);
   tileTexture.colorSpace = THREE.SRGBColorSpace;
   const [s1, s2, s3, s4, sq] = useTexture([
-    "/tiles/default/side1.png",
-    "/tiles/default/side2.png",
-    "/tiles/default/side3.png",
-    "/tiles/default/side4.png",
-    "/tiles/default/square.png",
+    "/tiles/default/side1.webp",
+    "/tiles/default/side2.webp",
+    "/tiles/default/side3.webp",
+    "/tiles/default/side4.webp",
+    "/tiles/default/square.webp",
   ]);
   [s1, s2, s3, s4, sq].forEach(t => { t.colorSpace = THREE.SRGBColorSpace; });
   const backTexture = useTextTexture(memory, date);

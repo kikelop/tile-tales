@@ -3,20 +3,20 @@
 import { useState, useEffect, useCallback } from "react";
 
 const TILE_IMAGES = [
-  "/tiles/terrazzo-star.png",
-  "/tiles/zellige-rose.png",
-  "/tiles/geometric-orange.png",
-  "/tiles/floral-green.png",
-  "/tiles/floral-multicolor.png",
-  "/tiles/green-baroque.png",
-  "/tiles/pink-marble.png",
-  "/tiles/yellow-zellige.png",
-  "/tiles/star-blue-gold.png",
-  "/tiles/star-compass.png",
-  "/tiles/blue-floral-delft.png",
-  "/tiles/fleur-de-lis-rust.png",
-  "/tiles/black-baroque.png",
-  "/tiles/ochre-scrollwork.png",
+  "/tiles/terrazzo-star.webp",
+  "/tiles/zellige-rose.webp",
+  "/tiles/geometric-orange.webp",
+  "/tiles/floral-green.webp",
+  "/tiles/floral-multicolor.webp",
+  "/tiles/green-baroque.webp",
+  "/tiles/pink-marble.webp",
+  "/tiles/yellow-zellige.webp",
+  "/tiles/star-blue-gold.webp",
+  "/tiles/star-compass.webp",
+  "/tiles/blue-floral-delft.webp",
+  "/tiles/fleur-de-lis-rust.webp",
+  "/tiles/black-baroque.webp",
+  "/tiles/ochre-scrollwork.webp",
 ];
 
 // Each slot cycles through images in a different staggered order
