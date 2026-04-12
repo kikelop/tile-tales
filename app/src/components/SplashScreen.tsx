@@ -118,6 +118,9 @@ export default function SplashScreen({ onFinished }: { onFinished: () => void })
   );
 }
 
+const DUO_DARK = "#4a6fa5";
+const DUO_LIGHT = "#e8dcc8";
+
 function TileSlot({
   images,
   step,
@@ -130,6 +133,15 @@ function TileSlot({
   const current = images[step % images.length];
   const prev = images[(step - 1 + images.length) % images.length];
 
+  const imgStyle: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    filter: "grayscale(1) contrast(1.8)",
+  };
+
   return (
     <div
       style={{
@@ -141,6 +153,7 @@ function TileSlot({
         perspective: 200,
         opacity: 0,
         animation: `splashFadeIn 0.5s ease ${delay + 0.1}s forwards`,
+        background: DUO_DARK,
       }}
     >
       {/* Previous image fading out */}
@@ -150,11 +163,8 @@ function TileSlot({
           src={prev}
           alt=""
           style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
+            ...imgStyle,
+            mixBlendMode: "luminosity",
             animation: `tileOut 0.4s ease forwards`,
             animationDelay: `${delay}s`,
           }}
@@ -166,15 +176,22 @@ function TileSlot({
         src={current}
         alt=""
         style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
+          ...imgStyle,
+          mixBlendMode: "luminosity",
           animation: step === 0 ? "none" : `tileIn 0.4s ease forwards`,
           animationDelay: `${delay}s`,
           opacity: step === 0 ? 1 : 0,
           transform: "rotateY(0deg)",
+        }}
+      />
+      {/* Duotone color overlay */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `linear-gradient(${DUO_DARK}, ${DUO_DARK})`,
+          mixBlendMode: "color",
+          pointerEvents: "none",
         }}
       />
 

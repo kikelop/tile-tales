@@ -271,7 +271,7 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
     const dataUrl = canvas.toDataURL("image/png");
     setGeneratedDataUrl(dataUrl);
     setView("preview");
-  }, [loadedImages, mode, tileSize]);
+  }, [loadedImages, mode, tileSize, duotone, duoDark, duoLight]);
 
   const handleSave = useCallback(() => {
     if (!generatedDataUrl) return;
