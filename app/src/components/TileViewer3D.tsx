@@ -391,6 +391,17 @@ function RotatableTile({
   );
 }
 
+function requestGeolocation(): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    );
+  });
+}
+
 function AdaptiveCamera({ onReady }: { onReady?: () => void }) {
   const { camera, size } = useThree();
   const readyFired = useRef(false);
@@ -499,6 +510,7 @@ export default function TileViewer3D({
   const [showAddMenu, setShowAddMenu] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const pendingGeo = useRef<{ lat: number; lng: number } | null>(null);
 
   // Clamp activeIndex if tiles change
   const safeIndex = Math.min(activeIndex, Math.max(0, tiles.length - 1));
@@ -513,12 +525,18 @@ export default function TileViewer3D({
     if (!file) return;
     setPendingImage(URL.createObjectURL(file));
     e.target.value = "";
+    requestGeolocation().then((geo) => { pendingGeo.current = geo; });
   }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
     const id = generateTileId();
     const name = `Tile #${tiles.length + 1}`;
-    addTile({ id, name, file: croppedUrl, memory: "", date: "", tags: [], favorite: false });
+    const geo = pendingGeo.current;
+    addTile({
+      id, name, file: croppedUrl, memory: "", date: "", tags: [], favorite: false,
+      ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
+    });
+    pendingGeo.current = null;
     setActiveIndex(tiles.length); // will point to newly added
     if (pendingImage) URL.revokeObjectURL(pendingImage);
     setPendingImage(null);
@@ -629,7 +647,7 @@ export default function TileViewer3D({
           </div>
         )}
 
-        {/* Favorite + Edit buttons */}
+        {/* Favorite + Share + Edit buttons */}
         {tiles.length > 0 && (
           <div
             style={{
@@ -662,6 +680,117 @@ export default function TileViewer3D({
               }}
             >
               {tiles[safeIndex].favorite ? "♥" : "♡"}
+            </button>
+
+            {/* Share button */}
+            <button
+              onClick={async () => {
+                const tile = tiles[safeIndex];
+                if (!tile) return;
+                try {
+                  // Create a share card with tile image + name + location
+                  const canvas = document.createElement("canvas");
+                  canvas.width = 1080;
+                  canvas.height = 1080;
+                  const ctx = canvas.getContext("2d")!;
+
+                  // Load tile image
+                  const img = new Image();
+                  img.crossOrigin = "anonymous";
+                  await new Promise<void>((resolve, reject) => {
+                    img.onload = () => resolve();
+                    img.onerror = reject;
+                    img.src = tile.file;
+                  });
+
+                  // Fill background
+                  ctx.fillStyle = "#f5f2ed";
+                  ctx.fillRect(0, 0, 1080, 1080);
+
+                  // Draw tile image centered with padding
+                  const pad = 60;
+                  const imgSize = 1080 - pad * 2;
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.roundRect(pad, pad, imgSize, imgSize, 24);
+                  ctx.clip();
+                  ctx.drawImage(img, pad, pad, imgSize, imgSize);
+                  ctx.restore();
+
+                  // Overlay gradient at bottom for text
+                  const grad = ctx.createLinearGradient(0, 780, 0, 1080);
+                  grad.addColorStop(0, "rgba(0,0,0,0)");
+                  grad.addColorStop(1, "rgba(0,0,0,0.6)");
+                  ctx.fillStyle = grad;
+                  ctx.beginPath();
+                  ctx.roundRect(pad, pad, imgSize, imgSize, 24);
+                  ctx.fill();
+
+                  // Tile name
+                  ctx.fillStyle = "#ffffff";
+                  ctx.font = "bold 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+                  ctx.textAlign = "left";
+                  ctx.textBaseline = "bottom";
+                  ctx.fillText(tile.name, pad + 28, 1080 - pad - 24);
+
+                  // Location or date subtitle
+                  const subtitle = tile.date || (tile.lat && tile.lng ? `${tile.lat.toFixed(2)}, ${tile.lng.toFixed(2)}` : "");
+                  if (subtitle) {
+                    ctx.fillStyle = "rgba(255,255,255,0.75)";
+                    ctx.font = "28px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+                    ctx.fillText(subtitle, pad + 28, 1080 - pad - 72);
+                  }
+
+                  // Watermark
+                  ctx.fillStyle = "rgba(255,255,255,0.5)";
+                  ctx.font = "22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+                  ctx.textAlign = "right";
+                  ctx.fillText("Tile Tales", 1080 - pad - 20, pad + 40);
+
+                  const blob = await new Promise<Blob>((resolve) =>
+                    canvas.toBlob((b) => resolve(b!), "image/png")
+                  );
+                  const file = new File([blob], `${tile.name.replace(/\s+/g, "-").toLowerCase()}.png`, { type: "image/png" });
+
+                  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                    await navigator.share({
+                      title: tile.name,
+                      text: tile.memory || `Check out this tile: ${tile.name}`,
+                      files: [file],
+                    });
+                  } else {
+                    // Desktop fallback: download
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = file.name;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                } catch {
+                  // User cancelled share or error — silently ignore
+                }
+              }}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                border: "none",
+                background: "rgba(255,255,255,0.85)",
+                backdropFilter: "blur(8px)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
             </button>
 
             {/* Edit button */}

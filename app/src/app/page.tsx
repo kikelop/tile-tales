@@ -24,9 +24,21 @@ type Screen =
   | { type: "wallpaper" }
   | { type: "map" };
 
+function requestGeolocation(): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    );
+  });
+}
+
 export default function Home() {
   const [screen, setScreen] = useState<Screen>({ type: "splash" });
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const pendingGeo = useRef<{ lat: number; lng: number } | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,11 +57,18 @@ export default function Home() {
     if (!file) return;
     setPendingImage(URL.createObjectURL(file));
     e.target.value = "";
+    // Request geolocation in parallel with crop
+    requestGeolocation().then((geo) => { pendingGeo.current = geo; });
   }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
     const id = generateTileId();
-    addTile({ id, name: "New tile", file: croppedUrl, memory: "", date: "", tags: [], favorite: false });
+    const geo = pendingGeo.current;
+    addTile({
+      id, name: "New tile", file: croppedUrl, memory: "", date: "", tags: [], favorite: false,
+      ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
+    });
+    pendingGeo.current = null;
     if (pendingImage) URL.revokeObjectURL(pendingImage);
     setPendingImage(null);
   }, [pendingImage]);

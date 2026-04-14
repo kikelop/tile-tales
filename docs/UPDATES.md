@@ -41,3 +41,16 @@
 - Crop modal mejorado: rotacion fina (-10/+10, step 0.05), zoom con slider eliminado
 - Pinch zoom en mobile con native touch events
 - Camera adaptativa: Y=0.6 en portrait para centrar mejor
+
+## 2026-04-12 — PWA + Optimizaciones
+- Manifest.json para PWA instalable (standalone, off-white theme)
+- Service worker con cache-first para imagenes (.webp, .png)
+- Imagenes optimizadas a WebP (32MB → 720KB)
+
+## 2026-04-12 — Geolocalizacion + Compartir
+- Geolocalizacion automatica: al capturar foto se solicita permiso de ubicacion
+- lat/lng se guardan automaticamente en el tile nuevo
+- Funciona en ambos flujos de captura (grid y viewer)
+- Boton de compartir en viewer 3D (entre favorito y editar)
+- Genera share card: imagen del tile con nombre, ubicacion/fecha y watermark "Tile Tales"
+- Web Share API en mobile (con archivo), descarga directa en desktop
