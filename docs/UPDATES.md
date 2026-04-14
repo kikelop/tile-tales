@@ -47,10 +47,19 @@
 - Service worker con cache-first para imagenes (.webp, .png)
 - Imagenes optimizadas a WebP (32MB → 720KB)
 
-## 2026-04-12 — Geolocalizacion + Compartir
+## 2026-04-12 — Geolocalizacion + Compartir + iOS + Auditoria
 - Geolocalizacion automatica: al capturar foto se solicita permiso de ubicacion
 - lat/lng se guardan automaticamente en el tile nuevo
 - Funciona en ambos flujos de captura (grid y viewer)
 - Boton de compartir en viewer 3D (entre favorito y editar)
 - Genera share card: imagen del tile con nombre, ubicacion/fecha y watermark "Tile Tales"
 - Web Share API en mobile (con archivo), descarga directa en desktop
+- App iOS nativa creada en `ios/TileTales/` (SwiftUI + SceneKit + MapKit, 15 archivos)
+  - Grid, viewer 3D, mapa, wallpaper, edit sheet, share, camara, geolocalizacion
+  - Pendiente de build: necesita Xcode (usuario no tiene macOS actualizado)
+- Auditoria UX/UI completa en `docs/AUDIT.md`
+  - 30 mejoras propuestas con impacto y complejidad
+  - 16 features nuevas (alta/media/baja prioridad)
+  - 4 sprints de implementacion
+- Desplegado en prod: commit `13a48ce`
+- **Nota**: Geolocalizacion no verificada en prod — revisar en proxima sesion

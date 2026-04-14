@@ -8,6 +8,7 @@ App de coleccion de azulejos callejeros con visualizacion 3D. Web first, PWA ins
 - **Estado**: Store custom con subscribers en `app/src/lib/store.ts` + localStorage persistence
 - **Mapa**: Leaflet + react-leaflet
 - **Deploy**: Vercel (`app-five-xi-20.vercel.app`), root directory = `app/`
+- **iOS**: SwiftUI + SceneKit + MapKit (proyecto en `ios/TileTales/`, pendiente de Xcode)
 - **Backend**: Pendiente (Supabase planificado)
 
 ## Estructura del proyecto
@@ -16,7 +17,15 @@ tile-tales/
 ├── CLAUDE.md              ← Este archivo
 ├── vercel.json            ← Root directory config
 ├── docs/                  ← Documentacion del proyecto
+│   ├── PROJECT.md         ← Vision y concepto
+│   ├── ROADMAP.md         ← Fases del proyecto
+│   ├── UPDATES.md         ← Log de sesiones
+│   ├── AUDIT.md           ← Auditoria UX/UI completa (30 mejoras + 16 features)
+│   ├── DECISIONS.md       ← ADRs
+│   └── REFERENCES.md      ← Descripcion de 20 referencias visuales
 ├── references/            ← Capturas de inspiracion visual
+├── ios/                   ← App iOS nativa (SwiftUI + SceneKit)
+│   └── TileTales/         ← Proyecto Xcode (15 archivos Swift)
 └── app/                   ← Next.js app (root para Vercel)
     ├── public/
     │   ├── manifest.json  ← PWA manifest
@@ -31,7 +40,7 @@ tile-tales/
         │   ├── layout.tsx     ← Root layout, fonts, PWA meta tags
         │   └── globals.css    ← Tailwind + theme vars
         ├── components/
-        │   ├── TileViewer3D.tsx    ← Viewer 3D principal (R3F canvas, rotacion, animacion entrada)
+        │   ├── TileViewer3D.tsx    ← Viewer 3D principal (R3F canvas, rotacion, share, animacion)
         │   ├── TileGrid.tsx        ← Home: mosaico grid con filtros, pinch-to-zoom, favoritos
         │   ├── TileMap.tsx         ← Mapa Leaflet con pins de tiles geolocalizadas
         │   ├── WallpaperGenerator.tsx ← Generador de wallpapers (patrones + duotono)
@@ -64,39 +73,61 @@ Splash → Grid (home) → Viewer 3D
                      → Map
 ```
 
-## Features implementadas
-- Splash screen con tiles animadas en duotono
-- Grid mosaico (tipo iOS Photos, scroll-to-bottom, pinch-to-zoom 1-6 columnas)
-- Viewer 3D interactivo (drag to rotate, pinch zoom, auto-rotate Z, wobble, float)
-- Animacion de entrada dramatica (caida + Y flip 360 + Z spin decelerando)
-- Selector de tiles en el viewer (thumbnails abajo)
-- Editar tile: nombre, memoria (reverso), fecha, tags desde modal del lapiz
-- Favoritos: toggle con corazon en el viewer, indicador en grid
-- Eliminar tiles desde el modal de edicion
-- Filtros funcionales: All, Favorites, tags dinamicos en barra inferior
-- Wallpaper generator: 5 patrones (Grid, Mirror, Diamond, Pinwheel, Brick)
-- Wallpaper duotono: filtro de 2 colores con alto contraste + color pickers
-- Wallpaper flow: seleccionar → crear → preview → save/download
-- Mapa con Leaflet: pins con miniatura, popup → abrir en 3D
-- Boton + flotante: take photo / choose from library (en grid y viewer)
-- localStorage persistence (tiles, wallpapers, sobrevive refresh)
-- PWA: manifest.json, service worker cache, instalable en home screen
-- Imagenes optimizadas a WebP (32MB → 720KB)
-- Texture preloading para cambio instantaneo entre tiles
-- Geolocalizacion automatica al capturar foto (navigator.geolocation)
-- Compartir tile: share card con imagen + nombre + ubicacion (Web Share API / download)
+## Features implementadas (20 total)
+1. Splash screen con tiles animadas en duotono
+2. Grid mosaico (tipo iOS Photos, scroll-to-bottom, pinch-to-zoom 1-6 columnas)
+3. Viewer 3D interactivo (drag to rotate, pinch zoom, auto-rotate Z, wobble, float)
+4. Animacion de entrada dramatica (caida + Y flip 360 + Z spin decelerando)
+5. Selector de tiles en el viewer (thumbnails abajo)
+6. Editar tile: nombre, memoria (reverso), fecha, tags desde modal del lapiz
+7. Favoritos: toggle con corazon en el viewer, indicador en grid
+8. Eliminar tiles desde el modal de edicion
+9. Filtros funcionales: All, Favorites, tags dinamicos en barra inferior
+10. Wallpaper generator: 5 patrones (Grid, Mirror, Diamond, Pinwheel, Brick)
+11. Wallpaper duotono: filtro de 2 colores con alto contraste + color pickers
+12. Wallpaper flow: seleccionar → crear → preview → save/download
+13. Mapa con Leaflet: pins con miniatura, popup → abrir en 3D
+14. Boton + flotante: take photo / choose from library (en grid y viewer)
+15. localStorage persistence (tiles, wallpapers, sobrevive refresh)
+16. PWA: manifest.json, service worker cache, instalable en home screen
+17. Imagenes optimizadas a WebP (32MB → 720KB)
+18. Texture preloading para cambio instantaneo entre tiles
+19. Geolocalizacion automatica al capturar foto (navigator.geolocation) — **PENDIENTE DE VERIFICAR EN PROD**
+20. Compartir tile: share card con imagen + nombre + ubicacion (Web Share API / download)
 
-## Features implementadas (sesion 2026-04-12 tarde)
-- Geolocalizacion automatica: al capturar foto se pide permiso y se guarda lat/lng
-- Compartir tile: boton share en viewer 3D, genera imagen con nombre/ubicacion, Web Share API (mobile) o descarga (desktop)
+## Bugs / pendiente de verificar
+- **Geolocalizacion**: El codigo esta desplegado pero el usuario no lo vio funcionar en prod. Revisar en proxima sesion: ¿pide permiso? ¿guarda lat/lng? ¿aparece en mapa?
 
-## Features pendientes (proxima sesion)
-### 1. Social con Supabase
+## Proximos pasos (proxima sesion)
+### 1. Verificar geolocalizacion en prod
+- Probar en mobile real (camara + ubicacion)
+- Debug si no funciona (permisos, HTTPS, timing)
+
+### 2. Quick wins UX (ver docs/AUDIT.md Sprint 1)
+- Contador de tiles en header
+- Indicador "flip to see memory" al primer uso
+- Doble tap para resetear rotacion
+- Toast notifications
+- Haptic feedback en botones clave
+
+### 3. UX core (ver docs/AUDIT.md Sprint 2)
+- Swipe entre tiles en viewer
+- Barra de busqueda en grid
+- Reverse geocoding (lat/lng → nombre ciudad)
+- Ordenar tiles
+- Presets de duotono en wallpaper
+
+### 4. iOS app
+- Instalar Xcode (requiere macOS actualizado)
+- Abrir `ios/TileTales/TileTales.xcodeproj`
+- Build + test en simulador
+- Iterar UI para que coincida con la web
+
+### 5. Social con Supabase (mas adelante)
 - Auth (login/registro)
 - Storage para imagenes de tiles
 - Base de datos para colecciones
 - Ver tiles de otros usuarios en el mapa comunitario
-- Esto es lo mas complejo — requiere setup de Supabase
 
 ## Instrucciones para Claude
 1. Al inicio de cada sesion, lee CLAUDE.md para tener contexto
