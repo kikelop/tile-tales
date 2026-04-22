@@ -81,7 +81,7 @@ export default function TileGrid({
       style={{
         position: "fixed",
         inset: 0,
-        background: "#f5f2ed",
+        background: "#ff0000",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
