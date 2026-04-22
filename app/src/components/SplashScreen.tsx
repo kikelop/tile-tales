@@ -62,7 +62,7 @@ export default function SplashScreen({ onFinished }: { onFinished: () => void })
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "#ff0000",
+        background: "#0000ff",
         transition: "opacity 0.6s ease",
         opacity: fading ? 0 : 1,
       }}
