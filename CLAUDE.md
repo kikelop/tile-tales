@@ -7,7 +7,7 @@ App de coleccion de azulejos callejeros con visualizacion 3D. Web first, PWA ins
 - **Web**: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + Three.js/React Three Fiber + Drei
 - **Estado**: Store custom con subscribers en `app/src/lib/store.ts` + localStorage persistence
 - **Mapa**: Leaflet + react-leaflet
-- **Deploy**: Vercel (`app-five-xi-20.vercel.app`), root directory = `app/`
+- **Deploy**: Vercel (`app-rho-seven-17.vercel.app`, cuenta `enriquelopezde...`), root directory = `app/`, auto-deploy desde `main`
 - **iOS**: SwiftUI + SceneKit + MapKit (proyecto en `ios/TileTales/`, pendiente de Xcode)
 - **Backend**: Pendiente (Supabase planificado)
 
@@ -135,7 +135,7 @@ Splash → Grid (home) → Viewer 3D
 3. Componentes funcionales con TypeScript
 4. CSS con Tailwind + inline styles (patron actual del proyecto)
 5. Commits en ingles, formato convencional
-6. Deploy: `cd app && vercel --prod --yes`
+6. Deploy: automatico al pushear a `main` (Vercel git integration). Fallback manual: `cd app && vercel --prod --yes`
 7. Push: `git push origin main`
 8. Iteracion rapida, sin pausas de validacion, efectos sutiles y elegantes
 9. Siempre verificar build antes de commit: `cd app && npx next build`
