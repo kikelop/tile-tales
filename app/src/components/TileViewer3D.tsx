@@ -8,6 +8,7 @@ import CropModal from "./CropModal";
 import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, generateTileId, type TileItem } from "@/lib/store";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
+import { readGeoForCapture, requestGeolocation, type GeoPoint } from "@/lib/geo";
 
 function useTextTexture(text: string, date: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -422,17 +423,6 @@ function RotatableTile({
   );
 }
 
-function requestGeolocation(): Promise<{ lat: number; lng: number } | null> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-    );
-  });
-}
-
 function AdaptiveCamera({ onReady }: { onReady?: () => void }) {
   const { camera, size } = useThree();
   const readyFired = useRef(false);
@@ -538,11 +528,13 @@ export default function TileViewer3D({
   const [memoryDraft, setMemoryDraft] = useState("");
   const [dateDraft, setDateDraft] = useState("");
   const [tagsDraft, setTagsDraft] = useState("");
+  const [geoDraft, setGeoDraft] = useState<GeoPoint | null>(null);
+  const [fetchingGeo, setFetchingGeo] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [flipHintVisible, setFlipHintVisible] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const pendingGeo = useRef<Promise<{ lat: number; lng: number } | null> | null>(null);
+  const pendingGeo = useRef<Promise<GeoPoint | null> | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -568,9 +560,10 @@ export default function TileViewer3D({
   const handleCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const source = (e.currentTarget.dataset.source as "camera" | "gallery") || "camera";
     setPendingImage(URL.createObjectURL(file));
     e.target.value = "";
-    pendingGeo.current = requestGeolocation();
+    pendingGeo.current = readGeoForCapture(file, source);
   }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
@@ -614,6 +607,7 @@ export default function TileViewer3D({
         type="file"
         accept="image/*"
         capture="environment"
+        data-source="camera"
         onChange={handleCapture}
         style={{ display: "none" }}
       />
@@ -621,6 +615,7 @@ export default function TileViewer3D({
         ref={galleryInputRef}
         type="file"
         accept="image/*"
+        data-source="gallery"
         onChange={handleCapture}
         style={{ display: "none" }}
       />
@@ -855,10 +850,16 @@ export default function TileViewer3D({
             {/* Edit button */}
             <button
               onClick={() => {
-                setNameDraft(tiles[safeIndex].name);
-                setMemoryDraft(tiles[safeIndex].memory);
-                setDateDraft(tiles[safeIndex].date);
-                setTagsDraft(tiles[safeIndex].tags.join(", "));
+                const tile = tiles[safeIndex];
+                setNameDraft(tile.name);
+                setMemoryDraft(tile.memory);
+                setDateDraft(tile.date);
+                setTagsDraft(tile.tags.join(", "));
+                setGeoDraft(
+                  tile.lat != null && tile.lng != null
+                    ? { lat: tile.lat, lng: tile.lng }
+                    : null
+                );
                 setEditingMemory(true);
               }}
               style={{
@@ -1174,6 +1175,82 @@ export default function TileViewer3D({
                 marginTop: 8,
               }}
             />
+
+            {/* Location editor */}
+            <div style={{ marginTop: 14 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 13, color: "#8a8578" }}>Location</p>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "#faf8f5",
+                  border: "1px solid #e0d8cc",
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={geoDraft ? "#1a1a1a" : "#b8b0a3"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span style={{ flex: 1, fontSize: 13, color: geoDraft ? "#1a1a1a" : "#9a9288", fontVariantNumeric: "tabular-nums" }}>
+                  {geoDraft
+                    ? `${geoDraft.lat.toFixed(4)}, ${geoDraft.lng.toFixed(4)}`
+                    : "No location"}
+                </span>
+                {geoDraft && (
+                  <button
+                    onClick={() => { setGeoDraft(null); haptic(6); }}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 14,
+                      border: "none",
+                      background: "transparent",
+                      color: "#d44",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={async () => {
+                  if (fetchingGeo) return;
+                  setFetchingGeo(true);
+                  haptic(6);
+                  const geo = await requestGeolocation();
+                  setFetchingGeo(false);
+                  if (geo) {
+                    setGeoDraft(geo);
+                    toast("Location updated");
+                  } else {
+                    toast("Couldn't get location");
+                  }
+                }}
+                disabled={fetchingGeo}
+                style={{
+                  marginTop: 8,
+                  width: "100%",
+                  padding: "10px 0",
+                  borderRadius: 12,
+                  border: "1px solid #e0d8cc",
+                  background: "transparent",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: fetchingGeo ? "#9a9288" : "#1a1a1a",
+                  cursor: fetchingGeo ? "default" : "pointer",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+              >
+                {fetchingGeo ? "Getting location…" : "Use my current location"}
+              </button>
+            </div>
+
             <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
               <button
                 onClick={() => setEditingMemory(false)}
@@ -1195,7 +1272,14 @@ export default function TileViewer3D({
                   const tile = tiles[safeIndex];
                   if (tile) {
                     const tags = tagsDraft.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
-                    updateTile(tile.id, { name: nameDraft, memory: memoryDraft, date: dateDraft, tags });
+                    updateTile(tile.id, {
+                      name: nameDraft,
+                      memory: memoryDraft,
+                      date: dateDraft,
+                      tags,
+                      lat: geoDraft?.lat,
+                      lng: geoDraft?.lng,
+                    });
                     haptic(8);
                     toast("Tile updated");
                   }

@@ -9,6 +9,7 @@ import WallpaperGenerator from "@/components/WallpaperGenerator";
 import ScreenTransition from "@/components/ScreenTransition";
 import { addTile, updateTile, generateTileId } from "@/lib/store";
 import { toast } from "@/lib/toast";
+import { readGeoForCapture, type GeoPoint } from "@/lib/geo";
 
 const TileMap = dynamic(() => import("@/components/TileMap"), { ssr: false });
 const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), { ssr: false });
@@ -22,21 +23,10 @@ type Screen =
   | { type: "wallpaper" }
   | { type: "map" };
 
-function requestGeolocation(): Promise<{ lat: number; lng: number } | null> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-    );
-  });
-}
-
 export default function Home() {
   const [screen, setScreen] = useState<Screen>({ type: "splash" });
   const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const pendingGeo = useRef<Promise<{ lat: number; lng: number } | null> | null>(null);
+  const pendingGeo = useRef<Promise<GeoPoint | null> | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,9 +42,10 @@ export default function Home() {
   const handleCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const source = (e.currentTarget.dataset.source as "camera" | "gallery") || "camera";
     setPendingImage(URL.createObjectURL(file));
     e.target.value = "";
-    pendingGeo.current = requestGeolocation();
+    pendingGeo.current = readGeoForCapture(file, source);
   }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
@@ -86,6 +77,7 @@ export default function Home() {
         type="file"
         accept="image/*"
         capture="environment"
+        data-source="camera"
         onChange={handleCapture}
         style={{ display: "none" }}
       />
@@ -93,6 +85,7 @@ export default function Home() {
         ref={galleryInputRef}
         type="file"
         accept="image/*"
+        data-source="gallery"
         onChange={handleCapture}
         style={{ display: "none" }}
       />
