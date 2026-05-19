@@ -46,8 +46,7 @@ tile-tales/
         │   ├── WallpaperGenerator.tsx ← Generador de wallpapers (patrones + duotono)
         │   ├── SplashScreen.tsx    ← Splash con tiles animadas en duotono
         │   ├── ScreenTransition.tsx ← Fade+slide entre pantallas
-        │   ├── ScanModal.tsx       ← Scan estilo doc: auto-detect quad + ajuste + warp perspectivo (OpenCV.js)
-        │   └── CropModal.tsx       ← Crop de fotos (galeria)
+        │   └── CropModal.tsx       ← Crop cuadrado de fotos capturadas (camara y galeria)
         └── lib/
             └── store.ts   ← Estado global: tiles, wallpapers, CRUD, localStorage
 ```
@@ -74,7 +73,7 @@ Splash → Grid (home) → Viewer 3D
                      → Map
 ```
 
-## Features implementadas (21 total)
+## Features implementadas (20 total)
 1. Splash screen con tiles animadas en duotono
 2. Grid mosaico (tipo iOS Photos, scroll-to-bottom, pinch-to-zoom 1-6 columnas)
 3. Viewer 3D interactivo (drag to rotate, pinch zoom, auto-rotate Z, wobble, float)

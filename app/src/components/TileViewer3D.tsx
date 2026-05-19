@@ -5,7 +5,6 @@ import { ContactShadows, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { useState, useSyncExternalStore, Suspense, useRef, useCallback, useEffect, useMemo } from "react";
 import CropModal from "./CropModal";
-import ScanModal from "./ScanModal";
 import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, generateTileId, type TileItem } from "@/lib/store";
 
 function useTextTexture(text: string, date: string) {
@@ -502,8 +501,7 @@ export default function TileViewer3D({
   }, [tiles]);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
-  const [pendingScanImage, setPendingScanImage] = useState<string | null>(null);
-  const [pendingCropImage, setPendingCropImage] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [editingMemory, setEditingMemory] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [memoryDraft, setMemoryDraft] = useState("");
@@ -522,55 +520,32 @@ export default function TileViewer3D({
   const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => setActiveIndex((i) => Math.min(tiles.length - 1, i + 1)), [tiles.length]);
 
-  const handleCameraCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPendingScanImage(URL.createObjectURL(file));
+    setPendingImage(URL.createObjectURL(file));
     e.target.value = "";
     requestGeolocation().then((geo) => { pendingGeo.current = geo; });
   }, []);
 
-  const handleGalleryCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPendingCropImage(URL.createObjectURL(file));
-    e.target.value = "";
-    requestGeolocation().then((geo) => { pendingGeo.current = geo; });
-  }, []);
-
-  const saveNewTile = useCallback((url: string) => {
+  const handleCropConfirm = useCallback((croppedUrl: string) => {
     const id = generateTileId();
     const name = `Tile #${tiles.length + 1}`;
     const geo = pendingGeo.current;
     addTile({
-      id, name, file: url, memory: "", date: "", tags: [], favorite: false,
+      id, name, file: croppedUrl, memory: "", date: "", tags: [], favorite: false,
       ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
     });
     pendingGeo.current = null;
     setActiveIndex(tiles.length);
-  }, [tiles.length]);
-
-  const handleScanConfirm = useCallback((warpedUrl: string) => {
-    saveNewTile(warpedUrl);
-    if (pendingScanImage) URL.revokeObjectURL(pendingScanImage);
-    setPendingScanImage(null);
-  }, [pendingScanImage, saveNewTile]);
-
-  const handleScanCancel = useCallback(() => {
-    if (pendingScanImage) URL.revokeObjectURL(pendingScanImage);
-    setPendingScanImage(null);
-  }, [pendingScanImage]);
-
-  const handleCropConfirm = useCallback((croppedUrl: string) => {
-    saveNewTile(croppedUrl);
-    if (pendingCropImage) URL.revokeObjectURL(pendingCropImage);
-    setPendingCropImage(null);
-  }, [pendingCropImage, saveNewTile]);
+    if (pendingImage) URL.revokeObjectURL(pendingImage);
+    setPendingImage(null);
+  }, [tiles.length, pendingImage]);
 
   const handleCropCancel = useCallback(() => {
-    if (pendingCropImage) URL.revokeObjectURL(pendingCropImage);
-    setPendingCropImage(null);
-  }, [pendingCropImage]);
+    if (pendingImage) URL.revokeObjectURL(pendingImage);
+    setPendingImage(null);
+  }, [pendingImage]);
 
   return (
     <div
@@ -589,14 +564,14 @@ export default function TileViewer3D({
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={handleCameraCapture}
+        onChange={handleCapture}
         style={{ display: "none" }}
       />
       <input
         ref={galleryInputRef}
         type="file"
         accept="image/*"
-        onChange={handleGalleryCapture}
+        onChange={handleCapture}
         style={{ display: "none" }}
       />
 
@@ -1177,19 +1152,9 @@ export default function TileViewer3D({
         </div>
       )}
 
-      {/* Scan modal (camera path) */}
-      {pendingScanImage && (
-        <ScanModal
-          imageUrl={pendingScanImage}
-          onConfirm={handleScanConfirm}
-          onCancel={handleScanCancel}
-        />
-      )}
-
-      {/* Crop modal (gallery path) */}
-      {pendingCropImage && (
+      {pendingImage && (
         <CropModal
-          imageUrl={pendingCropImage}
+          imageUrl={pendingImage}
           onConfirm={handleCropConfirm}
           onCancel={handleCropCancel}
         />
