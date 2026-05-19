@@ -16,6 +16,13 @@ export interface SavedWallpaper {
   createdAt: number;
 }
 
+export interface Album {
+  id: string;
+  name: string;
+  tileIds: string[];
+  createdAt: number;
+}
+
 const DEFAULT_TILES: TileItem[] = [
   { id: "t1", name: "Terrazzo Star", file: "/tiles/terrazzo-star.webp", memory: "", date: "", tags: ["geometric"], favorite: false, lat: 38.7223, lng: -9.1393 },
   { id: "t2", name: "Zellige Rose", file: "/tiles/zellige-rose.webp", memory: "", date: "", tags: ["floral", "artisan"], favorite: true, lat: 34.0331, lng: -5.0003 },
@@ -39,8 +46,13 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 
 // Load from localStorage or use defaults
-function loadState(): { tiles: TileItem[]; wallpapers: SavedWallpaper[]; purgedCount: number } {
-  if (typeof window === "undefined") return { tiles: DEFAULT_TILES, wallpapers: [], purgedCount: 0 };
+function loadState(): {
+  tiles: TileItem[];
+  wallpapers: SavedWallpaper[];
+  albums: Album[];
+  purgedCount: number;
+} {
+  if (typeof window === "undefined") return { tiles: DEFAULT_TILES, wallpapers: [], albums: [], purgedCount: 0 };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -57,10 +69,20 @@ function loadState(): { tiles: TileItem[]; wallpapers: SavedWallpaper[]; purgedC
           file: t.file.replace(/\.png$/, ".webp"),
         }));
       const purgedCount = rawTiles.length - tiles.length;
-      return { tiles, wallpapers: parsed.wallpapers || [], purgedCount };
+      const validIds = new Set(tiles.map((t) => t.id));
+      const albums = ((parsed.albums || []) as Album[]).map((a) => ({
+        ...a,
+        tileIds: (a.tileIds || []).filter((tid) => validIds.has(tid)),
+      }));
+      return {
+        tiles,
+        wallpapers: parsed.wallpapers || [],
+        albums,
+        purgedCount,
+      };
     }
   } catch {}
-  return { tiles: DEFAULT_TILES, wallpapers: [], purgedCount: 0 };
+  return { tiles: DEFAULT_TILES, wallpapers: [], albums: [], purgedCount: 0 };
 }
 
 function saveState() {
@@ -68,14 +90,18 @@ function saveState() {
   try {
     // Don't persist wallpaper dataUrls if too large (>5MB total)
     const wpToSave = state.wallpapers.slice(0, 10);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tiles: state.tiles, wallpapers: wpToSave }));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ tiles: state.tiles, wallpapers: wpToSave, albums: state.albums })
+    );
   } catch {}
 }
 
 const initialLoad = loadState();
-let state: { tiles: TileItem[]; wallpapers: SavedWallpaper[] } = {
+let state: { tiles: TileItem[]; wallpapers: SavedWallpaper[]; albums: Album[] } = {
   tiles: initialLoad.tiles,
   wallpapers: initialLoad.wallpapers,
+  albums: initialLoad.albums,
 };
 const initialPurgedCount = initialLoad.purgedCount;
 
@@ -109,6 +135,9 @@ export function deleteTile(id: string) {
   state = {
     ...state,
     tiles: state.tiles.filter((t) => t.id !== id),
+    albums: state.albums.map((a) =>
+      a.tileIds.includes(id) ? { ...a, tileIds: a.tileIds.filter((tid) => tid !== id) } : a
+    ),
   };
   notify();
 }
@@ -144,4 +173,58 @@ export function generateTileId() {
     return `t-${crypto.randomUUID()}`;
   }
   return `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// --- Albums ---
+
+function generateAlbumId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `a-${crypto.randomUUID()}`;
+  }
+  return `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function addAlbum(name: string): Album {
+  const album: Album = {
+    id: generateAlbumId(),
+    name: name.trim() || "Untitled album",
+    tileIds: [],
+    createdAt: Date.now(),
+  };
+  state = { ...state, albums: [album, ...state.albums] };
+  notify();
+  return album;
+}
+
+export function renameAlbum(id: string, name: string) {
+  state = {
+    ...state,
+    albums: state.albums.map((a) => (a.id === id ? { ...a, name: name.trim() || a.name } : a)),
+  };
+  notify();
+}
+
+export function deleteAlbum(id: string) {
+  state = { ...state, albums: state.albums.filter((a) => a.id !== id) };
+  notify();
+}
+
+/** Adds the tile to the album if missing; removes it if already present. */
+export function toggleTileInAlbum(albumId: string, tileId: string) {
+  state = {
+    ...state,
+    albums: state.albums.map((a) => {
+      if (a.id !== albumId) return a;
+      const has = a.tileIds.includes(tileId);
+      return {
+        ...a,
+        tileIds: has ? a.tileIds.filter((t) => t !== tileId) : [...a.tileIds, tileId],
+      };
+    }),
+  };
+  notify();
+}
+
+export function getAlbumsForTile(tileId: string): Album[] {
+  return state.albums.filter((a) => a.tileIds.includes(tileId));
 }

@@ -1,18 +1,54 @@
 @import "tailwindcss";
 
+/* Theme tokens. Default (light) and dark mode variants. Components read
+   via var(--tt-*) so a single attribute on <html data-theme="dark">
+   flips the entire palette without prop-drilling. */
+:root,
+:root[data-theme="light"] {
+  --tt-bg: #f5f2ed;
+  --tt-fg: #1a1a1a;
+  --tt-muted: #8a8578;
+  --tt-border: rgba(0, 0, 0, 0.06);
+  --tt-tile-placeholder: #ece8e1;
+  --tt-canvas-bg: #f5f2ed;
+  --tt-overlay-bg: rgba(255, 255, 255, 0.85);
+  --tt-overlay-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --tt-bottombar-bg: rgba(245, 242, 237, 0.92);
+  --tt-chip-bg: rgba(0, 0, 0, 0.06);
+  --tt-chip-bg-active: #1a1a1a;
+  --tt-chip-fg-active: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  --tt-bg: #141414;
+  --tt-fg: #f0ece4;
+  --tt-muted: #888378;
+  --tt-border: rgba(255, 255, 255, 0.08);
+  --tt-tile-placeholder: #232323;
+  --tt-canvas-bg: #0e0e0e;
+  --tt-overlay-bg: rgba(40, 40, 40, 0.85);
+  --tt-overlay-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  --tt-bottombar-bg: rgba(20, 20, 20, 0.92);
+  --tt-chip-bg: rgba(255, 255, 255, 0.08);
+  --tt-chip-bg-active: #f0ece4;
+  --tt-chip-fg-active: #1a1a1a;
+}
+
 @theme inline {
-  --color-background: #f5f2ed;
-  --color-foreground: #1a1a1a;
+  --color-background: var(--tt-bg);
+  --color-foreground: var(--tt-fg);
   --color-card-bg: #ffffff;
-  --color-muted: #8a8578;
+  --color-muted: var(--tt-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+html,
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--tt-bg);
+  color: var(--tt-fg);
   font-family: var(--font-sans), system-ui, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Hide scrollbar on tile selector */

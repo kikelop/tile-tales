@@ -5,6 +5,7 @@ import { getState, subscribe, getAllTags, type TileItem } from "@/lib/store";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
 import { haptic } from "@/lib/haptic";
 import { isIdbRef } from "@/lib/blob-storage";
+import { getActiveTheme, setTheme, type Theme } from "@/lib/theme";
 
 const ONBOARDING_DISMISSED_KEY = "tile-tales-onboarding-dismissed";
 
@@ -88,12 +89,14 @@ export default function TileGrid({
   onChooseLibrary,
   onOpenWallpaper,
   onOpenMap,
+  onOpenAlbums,
 }: {
   onSelectTile: (index: number) => void;
   onTakePhoto: () => void;
   onChooseLibrary: () => void;
   onOpenWallpaper: () => void;
   onOpenMap: () => void;
+  onOpenAlbums: () => void;
 }) {
   const { tiles } = useStore();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -107,6 +110,14 @@ export default function TileGrid({
     if (typeof window === "undefined") return true;
     try { return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "1"; } catch { return false; }
   });
+  const [theme, setThemeState] = useState<Theme>(() => getActiveTheme());
+
+  const toggleTheme = useCallback(() => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    setThemeState(next);
+    haptic(6);
+  }, [theme]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinchStart = useRef(0);
   const colsAtPinchStart = useRef(3);
@@ -219,7 +230,8 @@ export default function TileGrid({
       style={{
         position: "fixed",
         inset: 0,
-        background: "#f5f2ed",
+        background: "var(--tt-bg)",
+        color: "var(--tt-fg)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -281,7 +293,7 @@ export default function TileGrid({
                 fontSize: "clamp(24px, 6vw, 32px)",
                 fontWeight: 700,
                 letterSpacing: "-0.03em",
-                color: "#1a1a1a",
+                color: "var(--tt-fg)",
               }}
             >
               Tile Tales
@@ -289,7 +301,7 @@ export default function TileGrid({
             <span
               style={{
                 fontSize: 13,
-                color: "#8a8578",
+                color: "var(--tt-muted)",
                 fontWeight: 500,
                 letterSpacing: "-0.01em",
                 flex: 1,
@@ -298,6 +310,42 @@ export default function TileGrid({
               {counterText}
             </span>
             <button
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={toggleTheme}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                border: "none",
+                background: "var(--tt-chip-bg)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                WebkitTapHighlightColor: "transparent",
+                flexShrink: 0,
+                color: "var(--tt-fg)",
+              }}
+            >
+              {theme === "dark" ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="m4.93 4.93 1.41 1.41" />
+                  <path d="m17.66 17.66 1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="m6.34 17.66-1.41 1.41" />
+                  <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
+            <button
               aria-label="Search"
               onClick={() => { setSearchOpen(true); haptic(6); }}
               style={{
@@ -305,16 +353,17 @@ export default function TileGrid({
                 height: 36,
                 borderRadius: 18,
                 border: "none",
-                background: "rgba(0,0,0,0.04)",
+                background: "var(--tt-chip-bg)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 WebkitTapHighlightColor: "transparent",
                 flexShrink: 0,
+                color: "var(--tt-fg)",
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="7" />
                 <path d="m20 20-3.5-3.5" />
               </svg>
@@ -327,17 +376,18 @@ export default function TileGrid({
                 height: 36,
                 borderRadius: 18,
                 border: "none",
-                background: showSortMenu ? "#1a1a1a" : "rgba(0,0,0,0.04)",
+                background: showSortMenu ? "var(--tt-chip-bg-active)" : "var(--tt-chip-bg)",
+                color: showSortMenu ? "var(--tt-chip-fg-active)" : "var(--tt-fg)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 WebkitTapHighlightColor: "transparent",
                 flexShrink: 0,
-                transition: "background 0.15s",
+                transition: "background 0.15s, color 0.15s",
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={showSortMenu ? "#fff" : "#1a1a1a"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 6h18" />
                 <path d="M7 12h10" />
                 <path d="M11 18h2" />
@@ -504,9 +554,9 @@ export default function TileGrid({
       <div
         style={{
           flexShrink: 0,
-          background: "rgba(245, 242, 237, 0.92)",
+          background: "var(--tt-bottombar-bg)",
           backdropFilter: "blur(12px)",
-          borderTop: "1px solid rgba(0,0,0,0.06)",
+          borderTop: "1px solid var(--tt-border)",
           padding: "10px 12px max(10px, env(safe-area-inset-bottom, 10px))",
           display: "flex",
           alignItems: "center",
@@ -533,8 +583,8 @@ export default function TileGrid({
                 padding: "6px 14px",
                 borderRadius: 20,
                 border: "none",
-                background: activeFilter === f.id ? "#1a1a1a" : "rgba(0,0,0,0.06)",
-                color: activeFilter === f.id ? "#fff" : "#1a1a1a",
+                background: activeFilter === f.id ? "var(--tt-chip-bg-active)" : "var(--tt-chip-bg)",
+                color: activeFilter === f.id ? "var(--tt-chip-fg-active)" : "var(--tt-fg)",
                 fontSize: 13,
                 fontWeight: 500,
                 cursor: "pointer",
@@ -550,13 +600,15 @@ export default function TileGrid({
         </div>
 
         <button
-          onClick={onOpenMap}
+          onClick={onOpenAlbums}
+          aria-label="Albums"
           style={{
             width: 40,
             height: 40,
             borderRadius: 20,
             border: "none",
-            background: "rgba(0,0,0,0.06)",
+            background: "var(--tt-chip-bg)",
+            color: "var(--tt-fg)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -565,7 +617,30 @@ export default function TileGrid({
             WebkitTapHighlightColor: "transparent",
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4h7l2 3h7a1 1 0 0 1 1 1v12a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+          </svg>
+        </button>
+
+        <button
+          onClick={onOpenMap}
+          aria-label="Map"
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            border: "none",
+            background: "var(--tt-chip-bg)",
+            color: "var(--tt-fg)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
@@ -573,12 +648,14 @@ export default function TileGrid({
 
         <button
           onClick={onOpenWallpaper}
+          aria-label="Wallpaper"
           style={{
             width: 40,
             height: 40,
             borderRadius: 20,
             border: "none",
-            background: "rgba(0,0,0,0.06)",
+            background: "var(--tt-chip-bg)",
+            color: "var(--tt-fg)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -587,7 +664,7 @@ export default function TileGrid({
             WebkitTapHighlightColor: "transparent",
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="7" height="7" />
             <rect x="14" y="3" width="7" height="7" />
             <rect x="3" y="14" width="7" height="7" />

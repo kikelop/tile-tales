@@ -11,6 +11,8 @@ import { useCaptureTile } from "@/lib/useCaptureTile";
 
 const TileMap = dynamic(() => import("@/components/TileMap"), { ssr: false });
 const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), { ssr: false });
+const Albums = dynamic(() => import("@/components/Albums"), { ssr: false });
+const AlbumDetail = dynamic(() => import("@/components/Albums").then((m) => ({ default: m.AlbumDetail })), { ssr: false });
 
 const MIN_SPLASH_MS = 2500;
 
@@ -19,7 +21,9 @@ type Screen =
   | { type: "grid" }
   | { type: "viewer"; initialIndex: number }
   | { type: "wallpaper" }
-  | { type: "map" };
+  | { type: "map" }
+  | { type: "albums" }
+  | { type: "album"; id: string };
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>({ type: "splash" });
@@ -75,6 +79,7 @@ export default function Home() {
                 onChooseLibrary={() => galleryInputRef.current?.click()}
                 onOpenWallpaper={() => setScreen({ type: "wallpaper" })}
                 onOpenMap={() => setScreen({ type: "map" })}
+                onOpenAlbums={() => setScreen({ type: "albums" })}
               />
               {pendingImage && (
                 <CropModal
@@ -101,6 +106,21 @@ export default function Home() {
             <TileViewer3D
               initialIndex={screen.initialIndex}
               onBack={() => setScreen({ type: "grid" })}
+            />
+          )}
+
+          {screen.type === "albums" && (
+            <Albums
+              onBack={() => setScreen({ type: "grid" })}
+              onOpenAlbum={(id) => setScreen({ type: "album", id })}
+            />
+          )}
+
+          {screen.type === "album" && (
+            <AlbumDetail
+              albumId={screen.id}
+              onBack={() => setScreen({ type: "albums" })}
+              onSelectTile={(index) => setScreen({ type: "viewer", initialIndex: index })}
             />
           )}
         </ScreenTransition>

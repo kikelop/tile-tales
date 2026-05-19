@@ -91,7 +91,8 @@ export default function TileMap({
       style={{
         position: "fixed",
         inset: 0,
-        background: "#f5f2ed",
+        background: "var(--tt-bg)",
+        color: "var(--tt-fg)",
         display: "flex",
         flexDirection: "column",
       }}

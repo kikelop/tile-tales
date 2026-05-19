@@ -8,6 +8,7 @@ import CropModal from "./CropModal";
 import Scene from "./viewer/TileScene";
 import SelectorThumb from "./viewer/SelectorThumb";
 import FlipHint from "./viewer/FlipHint";
+import AlbumsField from "./viewer/AlbumsField";
 import { getState, subscribe, updateTile, deleteTile, toggleFavorite } from "@/lib/store";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
@@ -16,6 +17,7 @@ import { deleteTileBlob, isIdbRef, idbRefToId, getTileBlobUrl, revokeTileBlobUrl
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
 import { useReverseGeocode } from "@/lib/useReverseGeocode";
 import { useCaptureTile } from "@/lib/useCaptureTile";
+import { getActiveTheme, type Theme } from "@/lib/theme";
 
 
 export default function TileViewer3D({
@@ -27,7 +29,7 @@ export default function TileViewer3D({
   initialIndex?: number;
   onBack: () => void;
 }) {
-  const { tiles } = useSyncExternalStore(subscribe, getState, getState);
+  const { tiles, albums } = useSyncExternalStore(subscribe, getState, getState);
 
   // Preload tile textures into Drei's cache, but only the ones we haven't
   // seen before — otherwise toggleFavorite / updateTile would re-trigger
@@ -129,6 +131,17 @@ export default function TileViewer3D({
   const activeTileFile = tiles[safeIndex]?.file;
   const activeTileUrl = useTileFileUrl(activeTileFile);
   const geoLabel = useReverseGeocode(geoDraft?.lat, geoDraft?.lng);
+  const [theme, setTheme] = useState<Theme>(() => getActiveTheme());
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const observer = new MutationObserver(() => {
+      const next = (document.documentElement.getAttribute("data-theme") as Theme) || "light";
+      setTheme(next);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+  const canvasBg = theme === "dark" ? "#0e0e0e" : "#f5f2ed";
 
 
   const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
@@ -141,7 +154,8 @@ export default function TileViewer3D({
         inset: 0,
         display: "flex",
         flexDirection: "column",
-        background: "#f5f2ed",
+        background: "var(--tt-bg)",
+        color: "var(--tt-fg)",
         touchAction: "none",
       }}
     >
@@ -176,7 +190,7 @@ export default function TileViewer3D({
             }}
             dpr={[1, 2]}
           >
-            <color attach="background" args={["#f5f2ed"]} />
+            <color attach="background" args={[canvasBg]} />
             <Scene
               textureUrl={activeTileUrl}
               memory={tiles[safeIndex].memory}
@@ -896,6 +910,12 @@ export default function TileViewer3D({
                 </div>
               )}
             </div>
+
+            {/* Albums editor */}
+            <AlbumsField
+              tileId={tiles[safeIndex]?.id}
+              albums={albums}
+            />
 
             <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
               <button
