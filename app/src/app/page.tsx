@@ -7,7 +7,8 @@ import TileGrid from "@/components/TileGrid";
 import CropModal from "@/components/CropModal";
 import WallpaperGenerator from "@/components/WallpaperGenerator";
 import ScreenTransition from "@/components/ScreenTransition";
-import { addTile, generateTileId } from "@/lib/store";
+import { addTile, updateTile, generateTileId } from "@/lib/store";
+import { toast } from "@/lib/toast";
 
 const TileMap = dynamic(() => import("@/components/TileMap"), { ssr: false });
 const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), { ssr: false });
@@ -35,7 +36,7 @@ function requestGeolocation(): Promise<{ lat: number; lng: number } | null> {
 export default function Home() {
   const [screen, setScreen] = useState<Screen>({ type: "splash" });
   const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const pendingGeo = useRef<{ lat: number; lng: number } | null>(null);
+  const pendingGeo = useRef<Promise<{ lat: number; lng: number } | null> | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,19 +54,24 @@ export default function Home() {
     if (!file) return;
     setPendingImage(URL.createObjectURL(file));
     e.target.value = "";
-    requestGeolocation().then((geo) => { pendingGeo.current = geo; });
+    pendingGeo.current = requestGeolocation();
   }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
     const id = generateTileId();
-    const geo = pendingGeo.current;
     addTile({
       id, name: "New tile", file: croppedUrl, memory: "", date: "", tags: [], favorite: false,
-      ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
     });
+    const geoPromise = pendingGeo.current;
     pendingGeo.current = null;
+    if (geoPromise) {
+      geoPromise.then((geo) => {
+        if (geo) updateTile(id, { lat: geo.lat, lng: geo.lng });
+      });
+    }
     if (pendingImage) URL.revokeObjectURL(pendingImage);
     setPendingImage(null);
+    toast("Tile saved");
   }, [pendingImage]);
 
   const handleCropCancel = useCallback(() => {

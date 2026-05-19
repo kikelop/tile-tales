@@ -6,6 +6,8 @@ import * as THREE from "three";
 import { useState, useSyncExternalStore, Suspense, useRef, useCallback, useEffect, useMemo } from "react";
 import CropModal from "./CropModal";
 import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, generateTileId, type TileItem } from "@/lib/store";
+import { haptic } from "@/lib/haptic";
+import { toast } from "@/lib/toast";
 
 function useTextTexture(text: string, date: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -219,14 +221,38 @@ function RotatableTile({
   const quaternion = useRef(new THREE.Quaternion());
   const autoRotateSpeed = useRef(0.08);
   const velocity = useRef({ x: 0, y: 0 });
+  const initialQuaternion = useRef(new THREE.Quaternion());
+  const slerpFrom = useRef(new THREE.Quaternion());
+  const slerpProgress = useRef(1); // 1 = idle
+  const lastTapTime = useRef(0);
+  const lastTapPos = useRef({ x: 0, y: 0 });
   const { gl, camera } = useThree();
 
   useEffect(() => {
     const euler = new THREE.Euler(initialRotation[0], initialRotation[1], initialRotation[2]);
     quaternion.current.setFromEuler(euler);
+    initialQuaternion.current.setFromEuler(euler);
   }, []); // only on mount
 
   const onPointerDown = useCallback((e: PointerEvent) => {
+    const now = Date.now();
+    const dt = now - lastTapTime.current;
+    const dx = e.clientX - lastTapPos.current.x;
+    const dy = e.clientY - lastTapPos.current.y;
+    const dist = Math.hypot(dx, dy);
+    if (dt < 300 && dist < 40) {
+      slerpFrom.current.copy(quaternion.current);
+      slerpProgress.current = 0;
+      velocity.current = { x: 0, y: 0 };
+      isDragging.current = false;
+      autoRotateSpeed.current = 0;
+      lastTapTime.current = 0;
+      haptic(8);
+      gl.domElement.setPointerCapture(e.pointerId);
+      return;
+    }
+    lastTapTime.current = now;
+    lastTapPos.current = { x: e.clientX, y: e.clientY };
     isDragging.current = true;
     autoRotateSpeed.current = 0;
     prevPointer.current = { x: e.clientX, y: e.clientY };
@@ -251,7 +277,7 @@ function RotatableTile({
   const onPointerUp = useCallback((e: PointerEvent) => {
     isDragging.current = false;
     autoRotateSpeed.current = 0.08;
-    gl.domElement.releasePointerCapture(e.pointerId);
+    try { gl.domElement.releasePointerCapture(e.pointerId); } catch {}
   }, [gl]);
 
   const onWheel = useCallback((e: WheelEvent) => {
@@ -343,7 +369,12 @@ function RotatableTile({
 
 
 
-    if (!isDragging.current) {
+    if (slerpProgress.current < 1) {
+      slerpProgress.current = Math.min(1, slerpProgress.current + delta / 0.4);
+      const sp = 1 - Math.pow(1 - slerpProgress.current, 3);
+      quaternion.current.copy(slerpFrom.current).slerp(initialQuaternion.current, sp);
+      if (slerpProgress.current >= 1) autoRotateSpeed.current = 0.08;
+    } else if (!isDragging.current) {
       // User flick inertia
       if (Math.abs(velocity.current.x) > 0.0001 || Math.abs(velocity.current.y) > 0.0001) {
         const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), velocity.current.x);
@@ -508,9 +539,23 @@ export default function TileViewer3D({
   const [dateDraft, setDateDraft] = useState("");
   const [tagsDraft, setTagsDraft] = useState("");
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [flipHintVisible, setFlipHintVisible] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const pendingGeo = useRef<{ lat: number; lng: number } | null>(null);
+  const pendingGeo = useRef<Promise<{ lat: number; lng: number } | null> | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (localStorage.getItem("tile-tales-flip-hint-seen") === "1") return;
+    } catch {}
+    const t1 = setTimeout(() => setFlipHintVisible(true), 1800);
+    const t2 = setTimeout(() => {
+      setFlipHintVisible(false);
+      try { localStorage.setItem("tile-tales-flip-hint-seen", "1"); } catch {}
+    }, 1800 + 3500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
 
   // Clamp activeIndex if tiles change
   const safeIndex = Math.min(activeIndex, Math.max(0, tiles.length - 1));
@@ -525,18 +570,23 @@ export default function TileViewer3D({
     if (!file) return;
     setPendingImage(URL.createObjectURL(file));
     e.target.value = "";
-    requestGeolocation().then((geo) => { pendingGeo.current = geo; });
+    pendingGeo.current = requestGeolocation();
   }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
     const id = generateTileId();
     const name = `Tile #${tiles.length + 1}`;
-    const geo = pendingGeo.current;
     addTile({
       id, name, file: croppedUrl, memory: "", date: "", tags: [], favorite: false,
-      ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
     });
+    const geoPromise = pendingGeo.current;
     pendingGeo.current = null;
+    if (geoPromise) {
+      geoPromise.then((geo) => {
+        if (geo) updateTile(id, { lat: geo.lat, lng: geo.lng });
+      });
+    }
+    toast("Tile saved");
     setActiveIndex(tiles.length);
     if (pendingImage) URL.revokeObjectURL(pendingImage);
     setPendingImage(null);
@@ -660,7 +710,13 @@ export default function TileViewer3D({
           >
             {/* Favorite button */}
             <button
-              onClick={() => toggleFavorite(tiles[safeIndex].id)}
+              onClick={() => {
+                const tile = tiles[safeIndex];
+                if (!tile) return;
+                toggleFavorite(tile.id);
+                haptic(10);
+                toast(tile.favorite ? "Removed from favorites" : "Added to favorites");
+              }}
               style={{
                 width: 44,
                 height: 44,
@@ -758,6 +814,8 @@ export default function TileViewer3D({
                       text: tile.memory || `Check out this tile: ${tile.name}`,
                       files: [file],
                     });
+                    haptic(15);
+                    toast("Shared");
                   } else {
                     // Desktop fallback: download
                     const url = URL.createObjectURL(blob);
@@ -766,6 +824,7 @@ export default function TileViewer3D({
                     a.download = file.name;
                     a.click();
                     URL.revokeObjectURL(url);
+                    toast("Downloaded");
                   }
                 } catch {
                   // User cancelled share or error — silently ignore
@@ -822,6 +881,41 @@ export default function TileViewer3D({
               <path d="m15 5 4 4" />
             </svg>
           </button>
+          </div>
+        )}
+
+        {/* First-visit hint: flip to see memory */}
+        {tiles.length > 0 && (
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: 24,
+              transform: `translate(-50%, ${flipHintVisible ? 0 : 8}px)`,
+              opacity: flipHintVisible ? 1 : 0,
+              transition: "opacity 0.3s ease, transform 0.3s ease",
+              background: "rgba(26,26,26,0.85)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 500,
+              padding: "8px 14px",
+              borderRadius: 18,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              pointerEvents: "none",
+              zIndex: 10,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 1 1-3-6.7" />
+              <polyline points="21 4 21 10 15 10" />
+            </svg>
+            Drag to flip and see the memory
           </div>
         )}
       </div>
@@ -1102,6 +1196,8 @@ export default function TileViewer3D({
                   if (tile) {
                     const tags = tagsDraft.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
                     updateTile(tile.id, { name: nameDraft, memory: memoryDraft, date: dateDraft, tags });
+                    haptic(8);
+                    toast("Tile updated");
                   }
                   setEditingMemory(false);
                 }}
@@ -1127,9 +1223,13 @@ export default function TileViewer3D({
                 if (tile && tiles.length > 1) {
                   deleteTile(tile.id);
                   setEditingMemory(false);
+                  haptic([10, 40, 10]);
+                  toast("Tile deleted");
                 } else if (tile) {
                   deleteTile(tile.id);
                   setEditingMemory(false);
+                  haptic([10, 40, 10]);
+                  toast("Tile deleted");
                   onBack();
                 }
               }}

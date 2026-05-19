@@ -92,6 +92,9 @@ export default function TileGrid({
         style={{
           padding: "max(16px, env(safe-area-inset-top, 16px)) 16px 12px",
           flexShrink: 0,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 10,
         }}
       >
         <h1
@@ -105,6 +108,18 @@ export default function TileGrid({
         >
           Tile Tales
         </h1>
+        <span
+          style={{
+            fontSize: 13,
+            color: "#8a8578",
+            fontWeight: 500,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {activeFilter === "all"
+            ? `${tiles.length} ${tiles.length === 1 ? "tile" : "tiles"}`
+            : `${filteredTiles.length} of ${tiles.length}`}
+        </span>
       </div>
 
       {/* Mosaic grid */}
