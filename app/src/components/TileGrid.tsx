@@ -1,8 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from "react";
-import { getState, subscribe, getAllTags, toggleFavorite, type TileItem } from "@/lib/store";
+import { getState, subscribe, getAllTags, type TileItem } from "@/lib/store";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
+import { haptic } from "@/lib/haptic";
+
+type SortMode = "recent" | "az" | "favorites";
+const SORT_STORAGE_KEY = "tile-tales-sort";
+
+function loadSortPref(): SortMode {
+  if (typeof window === "undefined") return "recent";
+  try {
+    const raw = localStorage.getItem(SORT_STORAGE_KEY);
+    if (raw === "recent" || raw === "az" || raw === "favorites") return raw;
+  } catch {}
+  return "recent";
+}
 
 function TileThumb({ tile, onClick }: { tile: TileItem; onClick: () => void }) {
   const url = useTileFileUrl(tile.file);
@@ -83,11 +96,20 @@ export default function TileGrid({
   const [activeFilter, setActiveFilter] = useState("all");
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [columns, setColumns] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 ? 5 : 3);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [sortMode, setSortModeState] = useState<SortMode>(() => loadSortPref());
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinchStart = useRef(0);
   const colsAtPinchStart = useRef(3);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Build filter list dynamically: All + Favorites + all tags from tiles
+  const setSortMode = useCallback((mode: SortMode) => {
+    setSortModeState(mode);
+    try { localStorage.setItem(SORT_STORAGE_KEY, mode); } catch {}
+  }, []);
+
   const filters = useMemo(() => {
     const tags = getAllTags();
     return [
@@ -97,24 +119,56 @@ export default function TileGrid({
     ];
   }, [tiles]);
 
-  // Filter tiles
-  const filteredTiles = useMemo(() => {
-    if (activeFilter === "all") return tiles;
-    if (activeFilter === "favorites") return tiles.filter((t) => t.favorite);
-    if (activeFilter.startsWith("tag:")) {
+  const visibleTiles = useMemo(() => {
+    // 1. Apply filter
+    let list: TileItem[];
+    if (activeFilter === "all") list = tiles;
+    else if (activeFilter === "favorites") list = tiles.filter((t) => t.favorite);
+    else if (activeFilter.startsWith("tag:")) {
       const tag = activeFilter.slice(4);
-      return tiles.filter((t) => t.tags.includes(tag));
+      list = tiles.filter((t) => t.tags.includes(tag));
+    } else {
+      list = tiles;
     }
-    return tiles;
-  }, [tiles, activeFilter]);
+    // 2. Apply search
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length > 0) {
+      list = list.filter((t) => {
+        if (t.name.toLowerCase().includes(q)) return true;
+        return t.tags.some((tag) => tag.toLowerCase().includes(q));
+      });
+    }
+    // 3. Apply sort
+    if (sortMode === "az") {
+      list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortMode === "favorites") {
+      list = [...list].sort((a, b) => {
+        if (a.favorite === b.favorite) return 0;
+        return a.favorite ? -1 : 1;
+      });
+    }
+    // "recent": tiles are appended via addTile, so the current array order is
+    // already chronological (mocks first, then user captures). We just want
+    // newest on top instead of bottom.
+    else if (sortMode === "recent") {
+      list = [...list].reverse();
+    }
+    return list;
+  }, [tiles, activeFilter, searchQuery, sortMode]);
 
-  // Scroll to bottom on mount
+  // Scroll to top whenever the visible list changes due to sort/filter/search.
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, []);
+    if (el) el.scrollTop = 0;
+  }, [sortMode, activeFilter, searchQuery]);
 
-  // Pinch-to-zoom
+  // Focus the search input as soon as it appears.
+  useEffect(() => {
+    if (searchOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [searchOpen]);
+
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -135,6 +189,17 @@ export default function TileGrid({
     if (newCols !== columns) setColumns(newCols);
   }, [columns]);
 
+  const counterText =
+    activeFilter === "all" && !searchQuery
+      ? `${tiles.length} ${tiles.length === 1 ? "tile" : "tiles"}`
+      : `${visibleTiles.length} of ${tiles.length}`;
+
+  const sortLabel: Record<SortMode, string> = {
+    recent: "Recent first",
+    az: "A–Z",
+    favorites: "Favorites first",
+  };
+
   return (
     <div
       style={{
@@ -152,34 +217,174 @@ export default function TileGrid({
           padding: "max(16px, env(safe-area-inset-top, 16px)) 16px 12px",
           flexShrink: 0,
           display: "flex",
-          alignItems: "baseline",
+          alignItems: "center",
           gap: 10,
+          minHeight: 56,
         }}
       >
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "clamp(24px, 6vw, 32px)",
-            fontWeight: 700,
-            letterSpacing: "-0.03em",
-            color: "#1a1a1a",
-          }}
-        >
-          Tile Tales
-        </h1>
-        <span
-          style={{
-            fontSize: 13,
-            color: "#8a8578",
-            fontWeight: 500,
-            letterSpacing: "-0.01em",
-          }}
-        >
-          {activeFilter === "all"
-            ? `${tiles.length} ${tiles.length === 1 ? "tile" : "tiles"}`
-            : `${filteredTiles.length} of ${tiles.length}`}
-        </span>
+        {searchOpen ? (
+          <>
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or tag"
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: 14,
+                border: "1px solid #e0d8cc",
+                background: "#faf8f5",
+                fontSize: 15,
+                outline: "none",
+                color: "#1a1a1a",
+                letterSpacing: "-0.01em",
+              }}
+            />
+            <button
+              onClick={() => { setSearchOpen(false); setSearchQuery(""); haptic(6); }}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 16,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#1a1a1a",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "clamp(24px, 6vw, 32px)",
+                fontWeight: 700,
+                letterSpacing: "-0.03em",
+                color: "#1a1a1a",
+              }}
+            >
+              Tile Tales
+            </h1>
+            <span
+              style={{
+                fontSize: 13,
+                color: "#8a8578",
+                fontWeight: 500,
+                letterSpacing: "-0.01em",
+                flex: 1,
+              }}
+            >
+              {counterText}
+            </span>
+            <button
+              aria-label="Search"
+              onClick={() => { setSearchOpen(true); haptic(6); }}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                border: "none",
+                background: "rgba(0,0,0,0.04)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                WebkitTapHighlightColor: "transparent",
+                flexShrink: 0,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+            </button>
+            <button
+              aria-label="Sort"
+              onClick={() => { setShowSortMenu((v) => !v); haptic(6); }}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                border: "none",
+                background: showSortMenu ? "#1a1a1a" : "rgba(0,0,0,0.04)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                WebkitTapHighlightColor: "transparent",
+                flexShrink: 0,
+                transition: "background 0.15s",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={showSortMenu ? "#fff" : "#1a1a1a"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18" />
+                <path d="M7 12h10" />
+                <path d="M11 18h2" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
+
+      {/* Sort menu popover */}
+      {showSortMenu && (
+        <>
+          <div
+            onClick={() => setShowSortMenu(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 49 }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "max(64px, env(safe-area-inset-top, 16px) + 56px)",
+              right: 16,
+              background: "#fff",
+              borderRadius: 14,
+              boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
+              overflow: "hidden",
+              zIndex: 50,
+              minWidth: 180,
+            }}
+          >
+            {(["recent", "az", "favorites"] as SortMode[]).map((mode, i) => (
+              <button
+                key={mode}
+                onClick={() => { setSortMode(mode); setShowSortMenu(false); haptic(6); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "none",
+                  borderTop: i === 0 ? "none" : "1px solid #f0ece6",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  color: "#1a1a1a",
+                  WebkitTapHighlightColor: "transparent",
+                  fontWeight: sortMode === mode ? 600 : 400,
+                  textAlign: "left",
+                }}
+              >
+                <span>{sortLabel[mode]}</span>
+                {sortMode === mode && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Mosaic grid */}
       <div
@@ -193,9 +398,13 @@ export default function TileGrid({
           touchAction: "pan-y pinch-zoom",
         }}
       >
-        {filteredTiles.length === 0 ? (
+        {visibleTiles.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", padding: 32 }}>
-            <p style={{ color: "#8a8578", fontSize: 15 }}>No tiles match this filter</p>
+            <p style={{ color: "#8a8578", fontSize: 15, textAlign: "center" }}>
+              {searchQuery
+                ? `No tiles match "${searchQuery}"`
+                : "No tiles match this filter"}
+            </p>
           </div>
         ) : (
           <div
@@ -206,7 +415,7 @@ export default function TileGrid({
               transition: "grid-template-columns 0.2s ease",
             }}
           >
-            {filteredTiles.map((tile) => {
+            {visibleTiles.map((tile) => {
               const originalIndex = tiles.findIndex((t) => t.id === tile.id);
               return (
                 <TileThumb
@@ -233,7 +442,6 @@ export default function TileGrid({
           gap: 8,
         }}
       >
-        {/* Filter chips */}
         <div
           className="hide-scrollbar"
           style={{
@@ -270,7 +478,6 @@ export default function TileGrid({
           ))}
         </div>
 
-        {/* Map button */}
         <button
           onClick={onOpenMap}
           style={{
@@ -293,7 +500,6 @@ export default function TileGrid({
           </svg>
         </button>
 
-        {/* Wallpaper button */}
         <button
           onClick={onOpenWallpaper}
           style={{
@@ -318,7 +524,6 @@ export default function TileGrid({
           </svg>
         </button>
 
-        {/* Add button */}
         <button
           onClick={() => setShowAddMenu((v) => !v)}
           style={{

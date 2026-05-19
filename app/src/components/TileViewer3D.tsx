@@ -213,11 +213,15 @@ function RotatableTile({
   memory,
   date,
   initialRotation,
+  onSwipeLeft,
+  onSwipeRight,
 }: {
   textureUrl: string;
   memory: string;
   date: string;
   initialRotation: [number, number, number];
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const isDragging = useRef(false);
@@ -231,6 +235,15 @@ function RotatableTile({
   const slerpProgress = useRef(1); // 1 = idle
   const lastTapTime = useRef(0);
   const lastTapPos = useRef({ x: 0, y: 0 });
+  // Swipe-vs-rotate intent disambiguation.
+  const startPointer = useRef({ x: 0, y: 0 });
+  const totalDelta = useRef({ x: 0, y: 0 });
+  const intent = useRef<"rotate" | "swipe" | null>(null);
+  // Keep callbacks in refs so we don't re-attach listeners every render.
+  const swipeLeftRef = useRef(onSwipeLeft);
+  const swipeRightRef = useRef(onSwipeRight);
+  useEffect(() => { swipeLeftRef.current = onSwipeLeft; }, [onSwipeLeft]);
+  useEffect(() => { swipeRightRef.current = onSwipeRight; }, [onSwipeRight]);
   const { gl, camera } = useThree();
 
   useEffect(() => {
@@ -241,23 +254,26 @@ function RotatableTile({
 
   const onPointerDown = useCallback((e: PointerEvent) => {
     const now = Date.now();
-    const dt = now - lastTapTime.current;
-    const dx = e.clientX - lastTapPos.current.x;
-    const dy = e.clientY - lastTapPos.current.y;
-    const dist = Math.hypot(dx, dy);
-    if (dt < 300 && dist < 40) {
+    const dxLastTap = e.clientX - lastTapPos.current.x;
+    const dyLastTap = e.clientY - lastTapPos.current.y;
+    const distLastTap = Math.hypot(dxLastTap, dyLastTap);
+    if (now - lastTapTime.current < 300 && distLastTap < 40) {
       slerpFrom.current.copy(quaternion.current);
       slerpProgress.current = 0;
       velocity.current = { x: 0, y: 0 };
       isDragging.current = false;
       autoRotateSpeed.current = 0;
       lastTapTime.current = 0;
+      intent.current = null;
       haptic(8);
       gl.domElement.setPointerCapture(e.pointerId);
       return;
     }
     lastTapTime.current = now;
     lastTapPos.current = { x: e.clientX, y: e.clientY };
+    startPointer.current = { x: e.clientX, y: e.clientY };
+    totalDelta.current = { x: 0, y: 0 };
+    intent.current = null;
     isDragging.current = true;
     autoRotateSpeed.current = 0;
     prevPointer.current = { x: e.clientX, y: e.clientY };
@@ -265,7 +281,28 @@ function RotatableTile({
   }, [gl]);
 
   const onPointerMove = useCallback((e: PointerEvent) => {
-    if (!isDragging.current || touchCount.current > 1) return;
+    if (touchCount.current > 1) return;
+
+    const totalDx = e.clientX - startPointer.current.x;
+    const totalDy = e.clientY - startPointer.current.y;
+    totalDelta.current = { x: totalDx, y: totalDy };
+
+    // Decide swipe vs rotate after the first ~8px of travel.
+    if (intent.current === null) {
+      if (Math.hypot(totalDx, totalDy) < 8) return;
+      if (Math.abs(totalDx) > Math.abs(totalDy) * 1.5) {
+        intent.current = "swipe";
+        isDragging.current = false;
+        velocity.current = { x: 0, y: 0 };
+        return;
+      }
+      intent.current = "rotate";
+      prevPointer.current = { x: e.clientX, y: e.clientY };
+      return;
+    }
+
+    if (intent.current === "swipe") return;
+    if (!isDragging.current) return;
 
     const dx = (e.clientX - prevPointer.current.x) * 0.01;
     const dy = (e.clientY - prevPointer.current.y) * 0.01;
@@ -280,6 +317,15 @@ function RotatableTile({
   }, []);
 
   const onPointerUp = useCallback((e: PointerEvent) => {
+    if (intent.current === "swipe") {
+      const swept = totalDelta.current.x;
+      if (Math.abs(swept) > 60) {
+        if (swept < 0) swipeLeftRef.current?.();
+        else swipeRightRef.current?.();
+        haptic(8);
+      }
+    }
+    intent.current = null;
     isDragging.current = false;
     autoRotateSpeed.current = 0.08;
     try { gl.domElement.releasePointerCapture(e.pointerId); } catch {}
@@ -523,7 +569,21 @@ function ExitingTile({ textureUrl, memory, date, exitTo, startQuaternion }: { te
 }
 
 
-function Scene({ textureUrl, memory, date, onReady }: { textureUrl: string; memory: string; date: string; onReady?: () => void }) {
+function Scene({
+  textureUrl,
+  memory,
+  date,
+  onReady,
+  onSwipeLeft,
+  onSwipeRight,
+}: {
+  textureUrl: string;
+  memory: string;
+  date: string;
+  onReady?: () => void;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
+}) {
   return (
     <>
       <AdaptiveCamera onReady={onReady} />
@@ -538,6 +598,8 @@ function Scene({ textureUrl, memory, date, onReady }: { textureUrl: string; memo
           memory={memory}
           date={date}
           initialRotation={[1.57, 0.78, -0.01]}
+          onSwipeLeft={onSwipeLeft}
+          onSwipeRight={onSwipeRight}
         />
         <ContactShadows
           position={[0, -3, 0]}
@@ -710,7 +772,14 @@ export default function TileViewer3D({
             dpr={[1, 2]}
           >
             <color attach="background" args={["#f5f2ed"]} />
-            <Scene textureUrl={activeTileUrl} memory={tiles[safeIndex].memory} date={tiles[safeIndex].date} onReady={onReady} />
+            <Scene
+              textureUrl={activeTileUrl}
+              memory={tiles[safeIndex].memory}
+              date={tiles[safeIndex].date}
+              onReady={onReady}
+              onSwipeLeft={goNext}
+              onSwipeRight={goPrev}
+            />
           </Canvas>
         ) : tiles.length === 0 ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>

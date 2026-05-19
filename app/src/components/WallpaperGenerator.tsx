@@ -4,6 +4,22 @@ import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from "
 import { getState, subscribe, addWallpaper, type TileItem } from "@/lib/store";
 import { isIdbRef, idbRefToId, getTileBlobUrl } from "@/lib/blob-storage";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
+import { haptic } from "@/lib/haptic";
+
+interface DuotonePreset {
+  id: string;
+  label: string;
+  dark: string;
+  light: string;
+}
+
+const DUOTONE_PRESETS: DuotonePreset[] = [
+  { id: "ocean", label: "Ocean", dark: "#1a4d6b", light: "#d5e7ed" },
+  { id: "sunset", label: "Sunset", dark: "#7a2e44", light: "#f7d8a4" },
+  { id: "forest", label: "Forest", dark: "#2d4a2e", light: "#d8e0c0" },
+  { id: "vintage", label: "Vintage", dark: "#5c3a21", light: "#e8d8b8" },
+  { id: "noir", label: "Noir", dark: "#1a1a1a", light: "#e0e0e0" },
+];
 
 function WallpaperTileThumb({
   tile,
@@ -743,6 +759,61 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
               </>
             )}
           </div>
+
+          {/* Duotone preset chips */}
+          {duotone && (
+            <div
+              className="hide-scrollbar"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "10px 16px 0",
+                overflowX: "auto",
+                WebkitOverflowScrolling: "touch",
+                scrollbarWidth: "none",
+              }}
+            >
+              {DUOTONE_PRESETS.map((p) => {
+                const active = duoDark.toLowerCase() === p.dark.toLowerCase() && duoLight.toLowerCase() === p.light.toLowerCase();
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => { setDuoDark(p.dark); setDuoLight(p.light); haptic(6); }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px 6px 6px",
+                      borderRadius: 18,
+                      border: active ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
+                      background: "rgba(0,0,0,0.04)",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "#1a1a1a",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      WebkitTapHighlightColor: "transparent",
+                      transition: "border-color 0.15s",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        background: `linear-gradient(135deg, ${p.dark} 50%, ${p.light} 50%)`,
+                        boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
