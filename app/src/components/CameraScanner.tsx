@@ -232,19 +232,40 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
 
     const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1920 } },
-          audio: false,
-        });
+        if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+          const isStandalone = typeof window !== "undefined" && (
+            window.matchMedia?.("(display-mode: standalone)").matches ||
+            (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+          );
+          throw new Error(
+            isStandalone
+              ? "Camera API unavailable in installed app. Open the site in Safari instead."
+              : "Camera API not supported in this browser."
+          );
+        }
+
+        // 12s safety timeout — getUserMedia can hang silently if permission
+        // was previously denied and the prompt is suppressed.
+        const stream = await Promise.race([
+          navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1920 } },
+            audio: false,
+          }),
+          new Promise<MediaStream>((_, reject) =>
+            setTimeout(() => reject(new Error("Camera prompt timed out — check site permissions")), 12000)
+          ),
+        ]);
+
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
         streamRef.current = stream;
         const video = videoRef.current;
-        if (!video) return;
+        if (!video) throw new Error("Video element missing");
         video.srcObject = stream;
         video.setAttribute("playsinline", "true");
+        video.muted = true;
         await video.play();
         setVideoSize({ w: video.videoWidth, h: video.videoHeight });
         setStage("live");
@@ -252,11 +273,12 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
         const err = e as Error;
         console.error("camera error:", err);
         if (!cancelled) {
-          setErrorMsg(
-            err.name === "NotAllowedError"
-              ? "Camera permission denied. Enable it in settings."
-              : "Couldn't access camera."
-          );
+          let msg = err.message || "Couldn't access camera.";
+          if (err.name === "NotAllowedError") msg = "Camera permission denied. Enable it for this site in iOS Settings → Safari.";
+          else if (err.name === "NotFoundError") msg = "No camera found on this device.";
+          else if (err.name === "NotReadableError") msg = "Camera is being used by another app.";
+          else if (err.name) msg = `${err.name}: ${err.message}`;
+          setErrorMsg(msg);
           setStage("error");
         }
       }
