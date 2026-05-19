@@ -36,8 +36,46 @@ export async function readGeoForCapture(
   source: "camera" | "gallery"
 ): Promise<GeoPoint | null> {
   if (source === "gallery") {
-    const exif = await readExifGps(file);
-    if (exif) return exif;
+    // For library imports we trust EXIF or nothing — the user's current
+    // position is rarely where the photo was actually taken.
+    return readExifGps(file);
   }
   return requestGeolocation();
+}
+
+export interface PlaceResult {
+  label: string;
+  lat: number;
+  lng: number;
+}
+
+export async function searchPlaces(
+  query: string,
+  signal?: AbortSignal
+): Promise<PlaceResult[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=6&addressdetails=0`;
+    const res = await fetch(url, {
+      signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as Array<{
+      display_name?: string;
+      lat?: string;
+      lon?: string;
+    }>;
+    return data
+      .map((d) => {
+        const lat = d.lat ? parseFloat(d.lat) : NaN;
+        const lng = d.lon ? parseFloat(d.lon) : NaN;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return { label: d.display_name ?? `${lat}, ${lng}`, lat, lng };
+      })
+      .filter((x): x is PlaceResult => x !== null);
+  } catch {
+    return [];
+  }
 }

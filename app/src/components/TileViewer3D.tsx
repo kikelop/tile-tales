@@ -8,7 +8,7 @@ import CropModal from "./CropModal";
 import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, generateTileId, type TileItem } from "@/lib/store";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
-import { readGeoForCapture, requestGeolocation, type GeoPoint } from "@/lib/geo";
+import { readGeoForCapture, requestGeolocation, searchPlaces, type GeoPoint, type PlaceResult } from "@/lib/geo";
 
 function useTextTexture(text: string, date: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -530,6 +530,43 @@ export default function TileViewer3D({
   const [tagsDraft, setTagsDraft] = useState("");
   const [geoDraft, setGeoDraft] = useState<GeoPoint | null>(null);
   const [fetchingGeo, setFetchingGeo] = useState(false);
+  const [searchingPlace, setSearchingPlace] = useState(false);
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
+  const [placeLoading, setPlaceLoading] = useState(false);
+
+  useEffect(() => {
+    if (!searchingPlace) return;
+    const q = placeQuery.trim();
+    if (q.length < 2) {
+      setPlaceResults([]);
+      setPlaceLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setPlaceLoading(true);
+    const timer = setTimeout(async () => {
+      const results = await searchPlaces(q, controller.signal);
+      if (!controller.signal.aborted) {
+        setPlaceResults(results);
+        setPlaceLoading(false);
+      }
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [placeQuery, searchingPlace]);
+
+  // Reset place search whenever the edit modal closes
+  useEffect(() => {
+    if (!editingMemory) {
+      setSearchingPlace(false);
+      setPlaceQuery("");
+      setPlaceResults([]);
+      setPlaceLoading(false);
+    }
+  }, [editingMemory]);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [flipHintVisible, setFlipHintVisible] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -1218,37 +1255,153 @@ export default function TileViewer3D({
                   </button>
                 )}
               </div>
-              <button
-                onClick={async () => {
-                  if (fetchingGeo) return;
-                  setFetchingGeo(true);
-                  haptic(6);
-                  const geo = await requestGeolocation();
-                  setFetchingGeo(false);
-                  if (geo) {
-                    setGeoDraft(geo);
-                    toast("Location updated");
-                  } else {
-                    toast("Couldn't get location");
-                  }
-                }}
-                disabled={fetchingGeo}
-                style={{
-                  marginTop: 8,
-                  width: "100%",
-                  padding: "10px 0",
-                  borderRadius: 12,
-                  border: "1px solid #e0d8cc",
-                  background: "transparent",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: fetchingGeo ? "#9a9288" : "#1a1a1a",
-                  cursor: fetchingGeo ? "default" : "pointer",
-                  WebkitTapHighlightColor: "transparent",
-                }}
-              >
-                {fetchingGeo ? "Getting location…" : "Use my current location"}
-              </button>
+
+              {!searchingPlace ? (
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    onClick={async () => {
+                      if (fetchingGeo) return;
+                      setFetchingGeo(true);
+                      haptic(6);
+                      const geo = await requestGeolocation();
+                      setFetchingGeo(false);
+                      if (geo) {
+                        setGeoDraft(geo);
+                        toast("Location updated");
+                      } else {
+                        toast("Couldn't get location");
+                      }
+                    }}
+                    disabled={fetchingGeo}
+                    style={{
+                      flex: 1,
+                      padding: "10px 8px",
+                      borderRadius: 12,
+                      border: "1px solid #e0d8cc",
+                      background: "transparent",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: fetchingGeo ? "#9a9288" : "#1a1a1a",
+                      cursor: fetchingGeo ? "default" : "pointer",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  >
+                    {fetchingGeo ? "Getting…" : "Use my location"}
+                  </button>
+                  <button
+                    onClick={() => { setSearchingPlace(true); haptic(6); }}
+                    style={{
+                      flex: 1,
+                      padding: "10px 8px",
+                      borderRadius: 12,
+                      border: "1px solid #e0d8cc",
+                      background: "transparent",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#1a1a1a",
+                      cursor: "pointer",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  >
+                    Search a place
+                  </button>
+                </div>
+              ) : (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={placeQuery}
+                      onChange={(e) => setPlaceQuery(e.target.value)}
+                      placeholder="e.g. Lisboa, Portugal"
+                      style={{
+                        flex: 1,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid #e0d8cc",
+                        background: "#faf8f5",
+                        fontSize: 14,
+                        outline: "none",
+                        boxSizing: "border-box",
+                        color: "#1a1a1a",
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        setSearchingPlace(false);
+                        setPlaceQuery("");
+                        setPlaceResults([]);
+                      }}
+                      style={{
+                        padding: "0 14px",
+                        borderRadius: 12,
+                        border: "1px solid #e0d8cc",
+                        background: "transparent",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#1a1a1a",
+                        cursor: "pointer",
+                        WebkitTapHighlightColor: "transparent",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  {placeQuery.trim().length >= 2 && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        maxHeight: 200,
+                        overflowY: "auto",
+                        borderRadius: 12,
+                        border: "1px solid #e0d8cc",
+                        background: "#faf8f5",
+                      }}
+                    >
+                      {placeLoading && placeResults.length === 0 ? (
+                        <p style={{ margin: 0, padding: "12px 14px", fontSize: 13, color: "#9a9288" }}>
+                          Searching…
+                        </p>
+                      ) : placeResults.length === 0 ? (
+                        <p style={{ margin: 0, padding: "12px 14px", fontSize: 13, color: "#9a9288" }}>
+                          No results
+                        </p>
+                      ) : (
+                        placeResults.map((r, i) => (
+                          <button
+                            key={`${r.lat}-${r.lng}-${i}`}
+                            onClick={() => {
+                              setGeoDraft({ lat: r.lat, lng: r.lng });
+                              setSearchingPlace(false);
+                              setPlaceQuery("");
+                              setPlaceResults([]);
+                              haptic(8);
+                              toast("Location set");
+                            }}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "10px 14px",
+                              border: "none",
+                              borderTop: i === 0 ? "none" : "1px solid #ece6dc",
+                              background: "transparent",
+                              fontSize: 13,
+                              color: "#1a1a1a",
+                              cursor: "pointer",
+                              WebkitTapHighlightColor: "transparent",
+                            }}
+                          >
+                            {r.label}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
