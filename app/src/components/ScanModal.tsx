@@ -12,6 +12,7 @@ type Point = { x: number; y: number };
 type Quad = [Point, Point, Point, Point]; // tl, tr, br, bl in natural image coords
 
 const CV_URL = "https://docs.opencv.org/4.10.0/opencv.js";
+const CV_INIT_TIMEOUT_MS = 30000;
 const OUT_SIZE = 1024;
 const PROCESS_MAX_DIM = 800;
 const HANDLE_R = 14;
@@ -39,26 +40,47 @@ function loadOpenCv(): Promise<CvLike> {
   if (window.__tileTalesCvLoader) return window.__tileTalesCvLoader as Promise<CvLike>;
 
   window.__tileTalesCvLoader = new Promise<CvLike>((resolve, reject) => {
-    const tag = document.querySelector(`script[data-cv-loader="1"]`);
-    const settle = () => {
-      const cv = window.cv as CvLike | undefined;
-      if (!cv) { reject(new Error("cv missing")); return; }
-      if (typeof cv.Mat === "function") { resolve(cv); return; }
-      cv.onRuntimeInitialized = () => resolve(cv);
+    let settled = false;
+    const finish = (result: CvLike | Error) => {
+      if (settled) return;
+      settled = true;
+      if (result instanceof Error) reject(result);
+      else resolve(result);
     };
+
+    // Poll for cv readiness — onRuntimeInitialized callback is unreliable
+    // (may have already fired before we get a chance to attach a handler,
+    // especially with HTTP caching or service worker hits).
+    const started = Date.now();
+    const poll = () => {
+      if (settled) return;
+      const cv = window.cv as CvLike | undefined;
+      if (cv && typeof cv.Mat === "function") {
+        finish(cv);
+        return;
+      }
+      if (Date.now() - started > CV_INIT_TIMEOUT_MS) {
+        finish(new Error("Scanner took too long to load"));
+        return;
+      }
+      setTimeout(poll, 100);
+    };
+
+    const tag = document.querySelector(`script[data-cv-loader="1"]`) as HTMLScriptElement | null;
     if (tag) {
-      if ((tag as HTMLScriptElement).dataset.loaded === "1") settle();
-      else tag.addEventListener("load", settle, { once: true });
-      tag.addEventListener("error", () => reject(new Error("opencv load failed")), { once: true });
+      tag.addEventListener("error", () => finish(new Error("opencv script failed")), { once: true });
+      poll();
       return;
     }
     const script = document.createElement("script");
     script.src = CV_URL;
     script.async = true;
     script.dataset.cvLoader = "1";
-    script.onload = () => { script.dataset.loaded = "1"; settle(); };
-    script.onerror = () => reject(new Error("opencv load failed"));
+    script.onload = () => { script.dataset.loaded = "1"; poll(); };
+    script.onerror = () => finish(new Error("opencv script failed to download"));
     document.head.appendChild(script);
+    // Start polling immediately in case onload misses (some iOS PWA quirks)
+    poll();
   });
   return window.__tileTalesCvLoader as Promise<CvLike>;
 }
@@ -211,6 +233,7 @@ export default function ScanModal({ imageUrl, onConfirm, onCancel }: ScanModalPr
   const [pointerPos, setPointerPos] = useState<Point | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cvRef = useRef<any>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -237,16 +260,27 @@ export default function ScanModal({ imageUrl, onConfirm, onCancel }: ScanModalPr
             setStatus("adjusting");
           }
         });
-      }).catch((e) => {
-        console.error(e);
-        setErrorMsg("Scanner failed to load. Check your connection.");
+      }).catch((e: Error) => {
+        console.error("opencv load error:", e);
+        // Reset loader so the retry button gets a fresh attempt
+        if (typeof window !== "undefined") {
+          window.__tileTalesCvLoader = undefined;
+          document.querySelectorAll('script[data-cv-loader="1"]').forEach((s) => s.remove());
+        }
+        setErrorMsg(e?.message ? `${e.message}. Check your connection and retry.` : "Scanner failed to load.");
         setStatus("error");
       });
     };
     img.onerror = () => { if (!cancelled) { setErrorMsg("Image failed to load."); setStatus("error"); } };
     img.src = imageUrl;
     return () => { cancelled = true; };
-  }, [imageUrl]);
+  }, [imageUrl, retryToken]);
+
+  const handleRetry = useCallback(() => {
+    setErrorMsg(null);
+    setStatus("loading");
+    setRetryToken((t) => t + 1);
+  }, []);
 
   useEffect(() => {
     const update = () => {
@@ -491,9 +525,26 @@ export default function ScanModal({ imageUrl, onConfirm, onCancel }: ScanModalPr
 
         {status === "error" && (
           <div style={overlayStyle}>
-            <p style={{ color: "#fff", fontSize: 14, textAlign: "center", padding: "0 32px" }}>
+            <p style={{ color: "#fff", fontSize: 14, textAlign: "center", padding: "0 32px", maxWidth: 320 }}>
               {errorMsg ?? "Something went wrong."}
             </p>
+            <button
+              onClick={handleRetry}
+              style={{
+                marginTop: 20,
+                padding: "12px 24px",
+                border: "1px solid #fff",
+                borderRadius: 12,
+                background: "transparent",
+                color: "#fff",
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: "pointer",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              Retry
+            </button>
           </div>
         )}
       </div>
