@@ -579,7 +579,7 @@ export default function TileViewer3D({
         inset: 0,
         display: "flex",
         flexDirection: "column",
-        background: "#0000ff",
+        background: "#f5f2ed",
         touchAction: "none",
       }}
     >
