@@ -88,7 +88,7 @@ Splash → Grid (home) → Viewer 3D
 12. Wallpaper flow: seleccionar → crear → preview → save/download
 13. Mapa con Leaflet: pins con miniatura, popup → abrir en 3D
 14. Boton + flotante: take photo / choose from library (en grid y viewer)
-15. localStorage persistence (tiles, wallpapers, sobrevive refresh)
+15. Persistencia: metadata de tiles en `localStorage`, blobs de tiles capturados en **IndexedDB** (`tile-tales` DB → `tile-blobs` store). Se mantienen al cerrar la PWA. Migration filtra automaticamente las refs `blob:` muertas de versiones anteriores.
 16. PWA: manifest.json, service worker cache, instalable en home screen
 17. Imagenes optimizadas a WebP (32MB → 720KB)
 18. Texture preloading para cambio instantaneo entre tiles
@@ -106,6 +106,10 @@ Funciona pero hay margen para pulirlo:
 - Resultados de Nominatim a veces son verbosos ("Lisboa, Área Metropolitana de Lisboa, Portugal, Europa, ...") — truncar / quedarse con los primeros 2-3 segmentos.
 - Picker en mini-mapa como alternativa al buscador (mas visual). Pendiente decidir si compensa el espacio extra en el bottom sheet.
 - Feedback visual mas claro entre "Use my location" y el resultado (transicion del display).
+
+### 1bis. Posibles refinamientos sobre el fix de IndexedDB
+- Toast en el primer load tras migration si se purgaron tiles rotos (informa al usuario de que sus tiles broken han desaparecido).
+- Boton "Export collection" que vuelque tiles + blobs a un ZIP descargable (Sprint 3 del AUDIT). Antes era inviable porque los blobs eran fantasma; ahora es real.
 
 ### 2. UX core (ver docs/AUDIT.md Sprint 2)
 - Swipe entre tiles en viewer

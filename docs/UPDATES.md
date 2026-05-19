@@ -112,3 +112,30 @@ Funciona pero el usuario marco que la UX "no es lo mejor". Pendientes para proxi
 - Truncar `display_name` de Nominatim (suele venir muy verboso).
 - Considerar picker en mini-mapa como alternativa al buscador.
 - Transicion visual mas clara entre "Use my location" y el resultado.
+
+## 2026-05-19 (noche) — Fix critico: persistencia de tiles capturados (IDB)
+
+Commit `bf1dc32`. Bug grave detectado por el usuario via captura: al cerrar y reabrir la PWA, **todos los tiles que el usuario habia anadido aparecian como imagenes rotas**. Solo los 14 mocks de `/public/tiles/*.webp` sobrevivian. Bug original del proyecto, lleva ahi desde el dia 1.
+
+### Causa raiz
+`CropModal` devolvia `URL.createObjectURL(blob)` y el `addTile` guardaba ese URL en `tile.file`, que iba a localStorage tal cual:
+```js
+addTile({ file: "blob:https://app-five-xi-20.vercel.app/abc-123", ... });
+```
+Los blob URLs son validos **solo durante la sesion del documento que los creo**. Al recargar (o cerrar/reabrir la PWA), apuntan a nada → imagen rota. La data binaria nunca se persistia, solo la referencia volatil.
+
+### Solucion: IndexedDB para los blobs
+- `lib/blob-storage.ts` — wrapper IDB con `saveTileBlob`, `loadTileBlob`, `deleteTileBlob`, `getTileBlobUrl` (con cache en memoria de object URLs). DB `tile-tales`, store `tile-blobs`.
+- `lib/useTileFileUrl.ts` — hook React que resuelve `tile.file`. Si empieza por `idb:` carga async desde IDB; si no, lo devuelve tal cual (compatibilidad con los mocks `/tiles/*.webp`).
+- `CropModal` cambia su contrato: `onConfirm` ahora recibe un `Blob`, no un URL. El caller decide como persistir.
+- `handleCropConfirm` en `page.tsx` y `TileViewer3D.tsx`: `saveTileBlob(id, blob)` primero, luego `addTile({ file: "idb:<id>" })`.
+- Todos los renders consumen el hook: `TileGrid` (sub-componente `TileThumb`), `TileMap` (sub-componente `TileMarker`), `TileViewer3D` (preload + Scene activo + thumbnails selector + share card), `WallpaperGenerator` (selector + image loader Promise.all).
+- `deleteTile` ahora tambien borra el blob de IDB si era un tile custom.
+
+### Migration de tiles rotos
+`loadState` ahora filtra cualquier tile con `file.startsWith("blob:")`. La data binaria de esos tiles esta perdida para siempre — el usuario tendra que re-capturarlos. La purga es silenciosa; el siguiente cambio de estado persiste el localStorage limpio.
+
+### Notas operativas
+- Es la primera vez que tocamos IDB en este proyecto. Mantenemos localStorage para los tiles array y wallpapers (compactos, JSON-friendly) y reservamos IDB para los blobs (pesados).
+- `getTileBlobUrl` cachea object URLs en un `Map<id, string>` para no crear uno por render. `revokeTileBlobUrl` esta exportado para futuras limpiezas si la cache crece demasiado, aunque ahora mismo no se llama (los URLs viven mientras la app este abierta).
+- `useTexture.preload` ahora solo se llama con URLs reales (await get blob URL primero).
