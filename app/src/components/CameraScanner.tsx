@@ -225,6 +225,11 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
   const [capturedUrl, setCapturedUrl] = useState<string | null>(null);
   const [activeHandle, setActiveHandle] = useState<number | null>(null);
   const [pointerPos, setPointerPos] = useState<Point | null>(null);
+  const [debugLines, setDebugLines] = useState<string[]>([]);
+  const debugLog = useCallback((line: string) => {
+    setDebugLines((prev) => [...prev.slice(-9), `${Date.now() % 100000}: ${line}`]);
+  }, []);
+  const [debugTick, setDebugTick] = useState(0);
 
   // Start camera + load OpenCV in parallel
   useEffect(() => {
@@ -232,6 +237,7 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
 
     const startCamera = async () => {
       try {
+        debugLog(`mediaDevices: ${typeof navigator !== "undefined" ? !!navigator.mediaDevices : "no nav"}`);
         if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
           const isStandalone = typeof window !== "undefined" && (
             window.matchMedia?.("(display-mode: standalone)").matches ||
@@ -244,8 +250,7 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
           );
         }
 
-        // 12s safety timeout — getUserMedia can hang silently if permission
-        // was previously denied and the prompt is suppressed.
+        debugLog("calling getUserMedia...");
         const stream = await Promise.race([
           navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1920 } },
@@ -255,6 +260,7 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
             setTimeout(() => reject(new Error("Camera prompt timed out — check site permissions")), 12000)
           ),
         ]);
+        debugLog(`stream got, tracks=${stream.getVideoTracks().length}`);
 
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -263,31 +269,33 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
         streamRef.current = stream;
         const video = videoRef.current;
         if (!video) throw new Error("Video element missing");
+        debugLog(`video el found, rs=${video.readyState}`);
         video.setAttribute("playsinline", "true");
         video.muted = true;
         video.srcObject = stream;
-        // Transition to live BEFORE play() — iOS won't play a display:none video,
-        // and the overlay was hiding it during "permission" stage.
-        if (video.readyState >= 1 && video.videoWidth > 0) {
-          setVideoSize({ w: video.videoWidth, h: video.videoHeight });
-        } else {
-          await new Promise<void>((resolve) => {
-            const onMeta = () => {
-              video.removeEventListener("loadedmetadata", onMeta);
-              setVideoSize({ w: video.videoWidth, h: video.videoHeight });
-              resolve();
-            };
-            video.addEventListener("loadedmetadata", onMeta);
-            setTimeout(() => { video.removeEventListener("loadedmetadata", onMeta); resolve(); }, 3000);
-          });
-        }
+        debugLog(`srcObject set, rs=${video.readyState}`);
+
+        // Pass to live immediately and rely on the video element to start
+        // rendering frames once metadata is ready. Don't gate the UI on
+        // loadedmetadata — on some iOS PWA builds it never fires even
+        // though the stream is live.
         setStage("live");
-        // Play after the element is visible — failures here are non-fatal,
-        // the user can interact and the video usually resumes.
-        video.play().catch((err) => console.warn("video.play() rejected:", err));
+        video.play()
+          .then(() => debugLog(`play() OK, rs=${video.readyState} vw=${video.videoWidth}`))
+          .catch((err) => debugLog(`play() ERR: ${err?.message ?? err}`));
+
+        video.addEventListener("loadedmetadata", () => {
+          debugLog(`loadedmetadata vw=${video.videoWidth} vh=${video.videoHeight}`);
+          setVideoSize({ w: video.videoWidth, h: video.videoHeight });
+        }, { once: true });
+        video.addEventListener("playing", () => {
+          debugLog(`playing vw=${video.videoWidth} vh=${video.videoHeight}`);
+          setVideoSize({ w: video.videoWidth, h: video.videoHeight });
+        }, { once: true });
       } catch (e) {
         const err = e as Error;
         console.error("camera error:", err);
+        debugLog(`ERROR: ${err.name || "?"} — ${err.message ?? err}`);
         if (!cancelled) {
           let msg = err.message || "Couldn't access camera.";
           if (err.name === "NotAllowedError") msg = "Camera permission denied. Enable it for this site in iOS Settings → Safari.";
@@ -317,6 +325,12 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
         streamRef.current = null;
       }
     };
+  }, []);
+
+  // Poll video element state into debug panel
+  useEffect(() => {
+    const id = setInterval(() => setDebugTick((t) => t + 1), 800);
+    return () => clearInterval(id);
   }, []);
 
   // Track display bounds
@@ -498,6 +512,14 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
     }
   }, [capturedQuad, onConfirm]);
 
+  const v = videoRef.current;
+  const liveDebug = v ? `rs=${v.readyState} pa=${v.paused} vw=${v.videoWidth} vh=${v.videoHeight} cw=${v.clientWidth} ch=${v.clientHeight}` : "no video el";
+  const trackDebug = streamRef.current
+    ? `active=${streamRef.current.active} tracks=${streamRef.current.getVideoTracks().map(t => `${t.readyState}/${t.muted ? "muted" : "ok"}`).join(",")}`
+    : "no stream";
+  // debugTick keeps this re-rendering even when nothing else changes
+  void debugTick;
+
   const displayQuadLive = stage === "live" && liveQuad ? (liveQuad.map(toDisplay) as Quad) : null;
   const displayQuadCaptured = stage === "captured" && capturedQuad ? (capturedQuad.map(toDisplay) as Quad) : null;
   const activeDisplayQuad = displayQuadLive ?? displayQuadCaptured;
@@ -530,6 +552,33 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
         touchAction: "none",
       }}
     >
+      {/* Debug panel — top-left, always visible */}
+      <div style={{
+        position: "absolute",
+        top: "max(40px, env(safe-area-inset-top, 40px))",
+        left: 8,
+        right: 8,
+        zIndex: 1000,
+        background: "rgba(0,0,0,0.75)",
+        color: "#0f0",
+        fontFamily: "monospace",
+        fontSize: 10,
+        padding: "6px 8px",
+        borderRadius: 6,
+        lineHeight: 1.3,
+        pointerEvents: "none",
+        maxHeight: "30vh",
+        overflow: "hidden",
+      }}>
+        <div>stage={stage} videoSize={videoSize.w}x{videoSize.h}</div>
+        <div>{liveDebug}</div>
+        <div>{trackDebug}</div>
+        <div>cv={cvRef.current ? "ready" : "loading"}</div>
+        <div style={{ marginTop: 4, borderTop: "1px solid #050", paddingTop: 4 }}>
+          {debugLines.map((l, i) => <div key={i}>{l}</div>)}
+        </div>
+      </div>
+
       <div ref={containerRef} style={{ flex: 1, position: "relative", overflow: "hidden" }}>
         {/* Live video (always mounted; iOS won't play a display:none video) */}
         <video
