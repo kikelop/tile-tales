@@ -263,12 +263,28 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
         streamRef.current = stream;
         const video = videoRef.current;
         if (!video) throw new Error("Video element missing");
-        video.srcObject = stream;
         video.setAttribute("playsinline", "true");
         video.muted = true;
-        await video.play();
-        setVideoSize({ w: video.videoWidth, h: video.videoHeight });
+        video.srcObject = stream;
+        // Transition to live BEFORE play() — iOS won't play a display:none video,
+        // and the overlay was hiding it during "permission" stage.
+        if (video.readyState >= 1 && video.videoWidth > 0) {
+          setVideoSize({ w: video.videoWidth, h: video.videoHeight });
+        } else {
+          await new Promise<void>((resolve) => {
+            const onMeta = () => {
+              video.removeEventListener("loadedmetadata", onMeta);
+              setVideoSize({ w: video.videoWidth, h: video.videoHeight });
+              resolve();
+            };
+            video.addEventListener("loadedmetadata", onMeta);
+            setTimeout(() => { video.removeEventListener("loadedmetadata", onMeta); resolve(); }, 3000);
+          });
+        }
         setStage("live");
+        // Play after the element is visible — failures here are non-fatal,
+        // the user can interact and the video usually resumes.
+        video.play().catch((err) => console.warn("video.play() rejected:", err));
       } catch (e) {
         const err = e as Error;
         console.error("camera error:", err);
@@ -515,7 +531,7 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
       }}
     >
       <div ref={containerRef} style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-        {/* Live video */}
+        {/* Live video (always mounted; iOS won't play a display:none video) */}
         <video
           ref={videoRef}
           muted
@@ -523,13 +539,13 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
           autoPlay
           style={{
             position: "absolute",
-            left: bounds.left,
-            top: bounds.top,
-            width: bounds.width,
-            height: bounds.height,
-            objectFit: "cover",
-            display: stage === "live" ? "block" : "none",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: stage === "captured" ? "none" : "block",
             pointerEvents: "none",
+            background: "#000",
           }}
         />
 
@@ -542,10 +558,10 @@ export default function CameraScanner({ onConfirm, onCancel }: CameraScannerProp
             draggable={false}
             style={{
               position: "absolute",
-              left: bounds.left,
-              top: bounds.top,
-              width: bounds.width,
-              height: bounds.height,
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
               pointerEvents: "none",
               userSelect: "none",
             }}
