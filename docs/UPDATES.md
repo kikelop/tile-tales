@@ -64,14 +64,23 @@
 - Desplegado en prod: commit `13a48ce`
 - **Nota**: Geolocalizacion no verificada en prod — revisar en proxima sesion
 
-## 2026-05-19 — Scan de documento en captura camara
-- Nuevo `ScanModal.tsx`: experiencia estilo Adobe Scan / Apple Notes para fotos de azulejos
-  - Carga diferida de OpenCV.js (~8MB) desde CDN al abrir la modal (cacheado por SW para sesiones siguientes)
-  - Auto-deteccion: Canny + findContours + approxPolyDP, se queda con el quad de mayor area >5% del frame
-  - 4 esquinas siempre arrastrables con touch target generoso (44px)
-  - Lupa con zoom 2x en la esquina opuesta al dedo durante el arrastre
-  - Boton de reset para re-detectar
-  - Warp perspectivo via `getPerspectiveTransform` + `warpPerspective` a canvas cuadrado 1024x1024
-- Split del flujo de captura: `handleCameraCapture` (→ ScanModal) vs `handleGalleryCapture` (→ CropModal) en `page.tsx` y `TileViewer3D.tsx`. La galeria sigue usando el crop manual normal.
-- `next.config.ts`: fijado `turbopack.root` para que la build no confunda con un `package-lock.json` huerfano en `~/`
-- Build verificada en local (Next 16.2.1, Turbopack, TS limpio)
+## 2026-05-19 — Scan de documento: intentado en web, descartado, pospuesto a app nativa
+
+Sesion larga de prueba, debug y revert. Cronologia:
+
+1. **Infra previa**: arreglado `next.config.ts` con `turbopack.root` (lockfile huerfano en `~/`), `vercel.json` raiz borrado (`rootDirectory` deprecado en schema actual), proyecto re-linkeado al deployment `app` de Vercel (URL real `app-five-xi-20.vercel.app`, no `app-rho-seven-17` como decia el CLAUDE.md viejo). Vercel git integration nativa no estaba disparando — deploy manual con `vercel --prod --yes` desde `app/`. Colores de fondo revertidos al canonico `#f5f2ed` en `globals.css`, `SplashScreen`, `TileGrid`, `TileViewer3D` (eran restos de pushes de prueba rojo/azul/rosa).
+
+2. **Intento 1 — ScanModal sobre foto nativa** (commit `c4d17ea`): `+ take photo` → input file capture environment → ScanModal con OpenCV.js → auto-deteccion (Canny + findContours + approxPolyDP) + 4 esquinas arrastrables + lupa + warp perspectivo a 1024x1024. **No cargaba en la PWA**: spinner "Loading scanner..." infinito.
+
+3. **Bug raiz identificado**: el service worker (`app/public/sw.js`) interceptaba TODAS las requests, incluido el `<script>` cross-origin a `docs.opencv.org/4.10.0/opencv.js`. En iOS PWA standalone esto tainta la respuesta y el script no ejecuta — `script.onload` dispara pero `window.cv` queda undefined para siempre. Fix: el SW ahora hace `if (url.origin !== self.location.origin) return;` antes de cualquier `event.respondWith`. Cache name bumped a `v2` para forzar activacion limpia. Util mas alla del scanner, se queda.
+
+4. **Intento 2 — CameraScanner live** (commit `0db1673`): a peticion del user para que el modo scanner SEA la camara, no un paso posterior. Componente con `getUserMedia({ facingMode: environment })`, `<video>` fullscreen, overlay SVG con quad detectado en realtime cada 200ms, shutter freeze + 4 esquinas ajustables + warp. **No funciona en PWA iOS standalone**: tras un par de iteraciones (display:none video, dimensiones cero, error reporting, panel de debug en pantalla), el log mostro `mediaDevices: true` → `calling getUserMedia...` → silencio total. La camara se enciende fisicamente (LED rojo + indicador de grabacion en status bar de iOS) pero la Promise de `getUserMedia` NUNCA resuelve ni rechaza. **WebKit bloquea silenciosamente** el stream a PWAs standalone. Sin workaround a nivel JS. Confirmado con panel de debug verde renderizado encima del modal.
+
+5. **Revert** (commit `0d39660`): flujo vuelve a como estaba antes del experimento — `+ take photo` y `+ choose from library` → input file → CropModal (cuadrado, zoom, rotacion fina) → 3D viewer. Sin ScanModal, sin CameraScanner. Ambos componentes borrados del repo, recuperables desde git history. El fix del service worker se queda.
+
+**Scan pospuesto a la app nativa iOS** (`ios/TileTales/`) cuando se retome. Stack natural alli: SwiftUI + Vision `VNDetectRectanglesRequest` + Core Image `CIPerspectiveCorrection`. Sin las limitaciones de PWA WebKit.
+
+**Otros cleanup de la sesion**:
+- Borrado `vercel.json` huerfano del repo raiz (`rootDirectory` no valido en schema actual)
+- URL prod canonica = `https://app-five-xi-20.vercel.app` (corregida en CLAUDE.md, antes apuntaba a una URL desconectada)
+- Service worker v2 con skip cross-origin (mejora general)

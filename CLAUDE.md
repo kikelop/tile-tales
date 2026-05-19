@@ -7,7 +7,7 @@ App de coleccion de azulejos callejeros con visualizacion 3D. Web first, PWA ins
 - **Web**: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + Three.js/React Three Fiber + Drei
 - **Estado**: Store custom con subscribers en `app/src/lib/store.ts` + localStorage persistence
 - **Mapa**: Leaflet + react-leaflet
-- **Deploy**: Vercel (`app-rho-seven-17.vercel.app`, cuenta `enriquelopezde...`), root directory = `app/`, auto-deploy desde `main`
+- **Deploy**: Vercel proyecto `app` en team `kikes-projects-ec907ff6`. URL prod canonica: **`https://app-five-xi-20.vercel.app`**. Root directory configurado en dashboard (no en `vercel.json`, ese campo esta deprecado). La Vercel Git Integration nativa no esta disparando — usar **deploy manual** desde `app/`: `vercel --prod --yes`. La GitHub Action `.github/workflows` esta rota tambien (proyecto no enlazado en runner). Push a `main` actualiza GitHub pero NO prod hasta que se haga `vercel --prod`.
 - **iOS**: SwiftUI + SceneKit + MapKit (proyecto en `ios/TileTales/`, pendiente de Xcode)
 - **Backend**: Pendiente (Supabase planificado)
 
@@ -94,7 +94,6 @@ Splash → Grid (home) → Viewer 3D
 18. Texture preloading para cambio instantaneo entre tiles
 19. Geolocalizacion automatica al capturar foto (navigator.geolocation) — **PENDIENTE DE VERIFICAR EN PROD**
 20. Compartir tile: share card con imagen + nombre + ubicacion (Web Share API / download)
-21. Scan en captura camara: OpenCV.js auto-detecta el cuadrilatero del azulejo + 4 esquinas arrastrables con lupa + warp perspectivo a 1024x1024 cuadrado. Solo se activa al "take photo" (galeria usa CropModal). OpenCV.js cargado bajo demanda desde CDN (~8MB primera vez, cacheado luego).
 
 ## Bugs / pendiente de verificar
 - **Geolocalizacion**: El codigo esta desplegado pero el usuario no lo vio funcionar en prod. Revisar en proxima sesion: ¿pide permiso? ¿guarda lat/lng? ¿aparece en mapa?
@@ -124,7 +123,15 @@ Splash → Grid (home) → Viewer 3D
 - Build + test en simulador
 - Iterar UI para que coincida con la web
 
-### 5. Social con Supabase (mas adelante)
+### 5. Scan estilo doc (cuadrilatero + warp perspectivo) — POSPUESTO a app nativa
+Intentado en web 2026-05-19 y descartado:
+- **Flujo "foto nativa → ScanModal con OpenCV.js"**: funcionaba tecnicamente tras arreglar el SW (ver abajo), pero la deteccion automatica en azulejos de pared (poco contraste con el fondo) fallaba mas de la cuenta y el modal extra entre captura y guardado anadia friccion sin compensar.
+- **Flujo "camara live con getUserMedia + overlay realtime"**: bloqueado por iOS. En PWA standalone instalada en home screen, `navigator.mediaDevices.getUserMedia()` se llama, la camara se activa fisicamente (LED rojo + indicador de grabacion en status bar) pero la Promise nunca resuelve ni rechaza. WebKit lo bloquea silenciosamente — solo funciona desde Safari abierto, no desde la PWA. Confirmado con panel de debug en pantalla.
+- **Decision**: dejarlo para cuando la app pase a nativa iOS (Swift + Vision `VNDetectRectanglesRequest`, o ARKit). El framework nativo no tiene estas limitaciones.
+- **Codigo recuperable** en git history: `c4d17ea` (ScanModal sobre foto estatica con OpenCV.js + 4 esquinas + lupa), `0db1673` (CameraScanner live con getUserMedia + overlay realtime).
+- **Side-effect util conservado**: el service worker (`app/public/sw.js`) ahora NO intercepta requests cross-origin (cache name bumped a `v2`). Era el bug raiz que rompia la carga de OpenCV.js — util tener ese fix por si alguna libreria externa se anade en el futuro.
+
+### 6. Social con Supabase (mas adelante)
 - Auth (login/registro)
 - Storage para imagenes de tiles
 - Base de datos para colecciones
@@ -136,7 +143,7 @@ Splash → Grid (home) → Viewer 3D
 3. Componentes funcionales con TypeScript
 4. CSS con Tailwind + inline styles (patron actual del proyecto)
 5. Commits en ingles, formato convencional
-6. Deploy: automatico al pushear a `main` (Vercel git integration). Fallback manual: `cd app && vercel --prod --yes`
+6. Deploy: **manual obligatorio**, `cd app && vercel --prod --yes` (la Vercel git integration y la GitHub Action estan rotas — push a main NO actualiza prod por si solo)
 7. Push: `git push origin main`
 8. Iteracion rapida, sin pausas de validacion, efectos sutiles y elegantes
 9. Siempre verificar build antes de commit: `cd app && npx next build`
