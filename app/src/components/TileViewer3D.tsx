@@ -5,13 +5,14 @@ import { ContactShadows, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { useState, useSyncExternalStore, Suspense, useRef, useCallback, useEffect, useMemo } from "react";
 import CropModal from "./CropModal";
-import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, generateTileId, type TileItem } from "@/lib/store";
+import { getState, subscribe, updateTile, deleteTile, toggleFavorite, type TileItem } from "@/lib/store";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
-import { readGeoForCapture, requestGeolocation, searchPlaces, reverseGeocode, type GeoPoint, type PlaceResult } from "@/lib/geo";
-import { saveTileBlob, deleteTileBlob, idToIdbRef, isIdbRef, idbRefToId, getTileBlobUrl } from "@/lib/blob-storage";
+import { requestGeolocation, searchPlaces, reverseGeocode, type GeoPoint, type PlaceResult } from "@/lib/geo";
+import { deleteTileBlob, isIdbRef, idbRefToId, getTileBlobUrl, revokeTileBlobUrl } from "@/lib/blob-storage";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
 import { useReverseGeocode } from "@/lib/useReverseGeocode";
+import { useCaptureTile } from "@/lib/useCaptureTile";
 
 function useTextTexture(text: string, date: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -561,9 +562,14 @@ export default function TileViewer3D({
 }) {
   const { tiles } = useSyncExternalStore(subscribe, getState, getState);
 
-  // Preload all tile textures into Drei's cache. Resolve idb:* refs first.
+  // Preload tile textures into Drei's cache, but only the ones we haven't
+  // seen before — otherwise toggleFavorite / updateTile would re-trigger
+  // every preload on every store change.
+  const preloadedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     tiles.forEach((t) => {
+      if (preloadedRef.current.has(t.id)) return;
+      preloadedRef.current.add(t.id);
       if (isIdbRef(t.file)) {
         getTileBlobUrl(idbRefToId(t.file)).then((url) => {
           if (url) useTexture.preload(url);
@@ -575,7 +581,6 @@ export default function TileViewer3D({
   }, [tiles]);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [editingMemory, setEditingMemory] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [memoryDraft, setMemoryDraft] = useState("");
@@ -622,9 +627,20 @@ export default function TileViewer3D({
   }, [editingMemory]);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [flipHintVisible, setFlipHintVisible] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-  const pendingGeo = useRef<Promise<GeoPoint | null> | null>(null);
+  const {
+    pendingImage,
+    cameraInputRef,
+    galleryInputRef,
+    handleCapture,
+    handleCropConfirm,
+    handleCropCancel,
+  } = useCaptureTile({
+    getTileName: (count) => `Tile #${count + 1}`,
+    afterAdd: () => {
+      // Jump to the new tile (always appended to the end).
+      setActiveIndex(getState().tiles.length - 1);
+    },
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -650,45 +666,6 @@ export default function TileViewer3D({
 
   const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => setActiveIndex((i) => Math.min(tiles.length - 1, i + 1)), [tiles.length]);
-
-  const handleCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const source = (e.currentTarget.dataset.source as "camera" | "gallery") || "camera";
-    setPendingImage(URL.createObjectURL(file));
-    e.target.value = "";
-    pendingGeo.current = readGeoForCapture(file, source);
-  }, []);
-
-  const handleCropConfirm = useCallback(async (blob: Blob) => {
-    const id = generateTileId();
-    const name = `Tile #${tiles.length + 1}`;
-    try {
-      await saveTileBlob(id, blob);
-    } catch {
-      toast("Couldn't save image");
-      return;
-    }
-    addTile({
-      id, name, file: idToIdbRef(id), memory: "", date: "", tags: [], favorite: false,
-    });
-    const geoPromise = pendingGeo.current;
-    pendingGeo.current = null;
-    if (geoPromise) {
-      geoPromise.then((geo) => {
-        if (geo) updateTile(id, { lat: geo.lat, lng: geo.lng });
-      });
-    }
-    toast("Tile saved");
-    setActiveIndex(tiles.length);
-    if (pendingImage) URL.revokeObjectURL(pendingImage);
-    setPendingImage(null);
-  }, [tiles.length, pendingImage]);
-
-  const handleCropCancel = useCallback(() => {
-    if (pendingImage) URL.revokeObjectURL(pendingImage);
-    setPendingImage(null);
-  }, [pendingImage]);
 
   return (
     <div
@@ -1534,7 +1511,9 @@ export default function TileViewer3D({
                 if (!tile) return;
                 const lastOne = tiles.length <= 1;
                 if (isIdbRef(tile.file)) {
-                  deleteTileBlob(idbRefToId(tile.file));
+                  const blobId = idbRefToId(tile.file);
+                  deleteTileBlob(blobId);
+                  revokeTileBlobUrl(blobId);
                 }
                 deleteTile(tile.id);
                 setEditingMemory(false);

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { subscribeToast } from "@/lib/toast";
+import { subscribeToast, toast } from "@/lib/toast";
+import { STORAGE_FAILURE_EVENT } from "@/lib/blob-storage";
+import { getInitialPurgedCount } from "@/lib/store";
 
 export default function Toaster() {
   const [message, setMessage] = useState<string | null>(null);
@@ -22,10 +24,28 @@ export default function Toaster() {
       }, 2000);
     });
 
+    // Storage failure (private mode, blocked IDB): warn once per session.
+    const onStorageFailure = () => {
+      toast("Storage unavailable — captures won't persist");
+    };
+    window.addEventListener(STORAGE_FAILURE_EVENT, onStorageFailure);
+
+    // Migration toast: if loadState filtered out broken tiles, let the
+    // user know instead of silently shrinking the grid.
+    const purged = getInitialPurgedCount();
+    let migrationTimeout: ReturnType<typeof setTimeout> | null = null;
+    if (purged > 0) {
+      migrationTimeout = setTimeout(() => {
+        toast(`Cleaned up ${purged} broken tile${purged > 1 ? "s" : ""}`);
+      }, 800);
+    }
+
     return () => {
       unsub();
+      window.removeEventListener(STORAGE_FAILURE_EVENT, onStorageFailure);
       if (hideTimeout) clearTimeout(hideTimeout);
       if (clearTimeoutId) clearTimeout(clearTimeoutId);
+      if (migrationTimeout) clearTimeout(migrationTimeout);
     };
   }, []);
 

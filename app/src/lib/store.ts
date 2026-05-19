@@ -39,26 +39,28 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 
 // Load from localStorage or use defaults
-function loadState(): { tiles: TileItem[]; wallpapers: SavedWallpaper[] } {
-  if (typeof window === "undefined") return { tiles: DEFAULT_TILES, wallpapers: [] };
+function loadState(): { tiles: TileItem[]; wallpapers: SavedWallpaper[]; purgedCount: number } {
+  if (typeof window === "undefined") return { tiles: DEFAULT_TILES, wallpapers: [], purgedCount: 0 };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      const rawTiles = (parsed.tiles || []) as TileItem[];
       // Migration: drop tiles with dead blob URLs (pre-IDB captures that
       // can't be recovered), ensure fields exist, normalize legacy paths.
-      const tiles = (parsed.tiles || [])
-        .filter((t: TileItem) => typeof t?.file === "string" && !t.file.startsWith("blob:"))
-        .map((t: TileItem) => ({
+      const tiles = rawTiles
+        .filter((t) => typeof t?.file === "string" && !t.file.startsWith("blob:"))
+        .map((t) => ({
           ...t,
           tags: t.tags || [],
           favorite: t.favorite ?? false,
           file: t.file.replace(/\.png$/, ".webp"),
         }));
-      return { tiles, wallpapers: parsed.wallpapers || [] };
+      const purgedCount = rawTiles.length - tiles.length;
+      return { tiles, wallpapers: parsed.wallpapers || [], purgedCount };
     }
   } catch {}
-  return { tiles: DEFAULT_TILES, wallpapers: [] };
+  return { tiles: DEFAULT_TILES, wallpapers: [], purgedCount: 0 };
 }
 
 function saveState() {
@@ -70,10 +72,19 @@ function saveState() {
   } catch {}
 }
 
-let state = loadState();
+const initialLoad = loadState();
+let state: { tiles: TileItem[]; wallpapers: SavedWallpaper[] } = {
+  tiles: initialLoad.tiles,
+  wallpapers: initialLoad.wallpapers,
+};
+const initialPurgedCount = initialLoad.purgedCount;
 
 export function getState() {
   return state;
+}
+
+export function getInitialPurgedCount(): number {
+  return initialPurgedCount;
 }
 
 function notify() {
@@ -128,7 +139,9 @@ export function addWallpaper(dataUrl: string): SavedWallpaper {
   return wp;
 }
 
-let nextId = state.tiles.length + 1;
 export function generateTileId() {
-  return `t${nextId++}`;
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `t-${crypto.randomUUID()}`;
+  }
+  return `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }

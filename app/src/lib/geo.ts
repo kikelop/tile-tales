@@ -49,6 +49,25 @@ export interface PlaceResult {
   lng: number;
 }
 
+// fetch wrapper that aborts after `timeoutMs`. Returns the Response or
+// throws (timeout/AbortError or network error). Callers handle the
+// rejection — Nominatim consumers fall back to null silently.
+function fetchWithTimeout(
+  url: string,
+  opts: RequestInit & { timeoutMs?: number } = {}
+): Promise<Response> {
+  const { timeoutMs = 5000, signal: externalSignal, ...rest } = opts;
+  const controller = new AbortController();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...rest, signal: controller.signal }).finally(() =>
+    clearTimeout(timer)
+  );
+}
+
 // --- Reverse geocoding (lat/lng -> "City, Country") ---
 // Backed by Nominatim, results cached in localStorage so we don't
 // re-hit the endpoint for every render.
@@ -99,9 +118,10 @@ export async function reverseGeocode(
   const promise = (async () => {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2&addressdetails=1&zoom=12`;
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, {
         signal,
         headers: { Accept: "application/json" },
+        timeoutMs: 5000,
       });
       if (!res.ok) return null;
       const data = (await res.json()) as {
@@ -143,9 +163,10 @@ export async function searchPlaces(
   if (q.length < 2) return [];
   try {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=6&addressdetails=0`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       signal,
       headers: { Accept: "application/json" },
+      timeoutMs: 5000,
     });
     if (!res.ok) return [];
     const data = (await res.json()) as Array<{

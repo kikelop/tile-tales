@@ -4,11 +4,23 @@ const DB_NAME = "tile-tales";
 const DB_VERSION = 1;
 const STORE = "tile-blobs";
 export const IDB_PREFIX = "idb:";
+export const STORAGE_FAILURE_EVENT = "tile-tales-storage-failure";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+let warnedStorage = false;
+
+function notifyStorageFailure() {
+  if (warnedStorage) return;
+  warnedStorage = true;
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new CustomEvent(STORAGE_FAILURE_EVENT));
+  } catch {}
+}
 
 function openDB(): Promise<IDBDatabase> {
   if (typeof indexedDB === "undefined") {
+    notifyStorageFailure();
     return Promise.reject(new Error("IndexedDB not available"));
   }
   if (dbPromise) return dbPromise;
@@ -21,7 +33,14 @@ function openDB(): Promise<IDBDatabase> {
       }
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      notifyStorageFailure();
+      reject(req.error);
+    };
+    req.onblocked = () => {
+      notifyStorageFailure();
+      reject(new Error("IndexedDB blocked"));
+    };
   });
   return dbPromise;
 }
@@ -71,15 +90,17 @@ export async function getTileBlobUrl(id: string): Promise<string | null> {
   const pending = pendingUrls.get(id);
   if (pending) return pending;
   const promise = (async () => {
-    const blob = await loadTileBlob(id);
-    if (!blob) {
-      pendingUrls.delete(id);
+    try {
+      const blob = await loadTileBlob(id);
+      if (!blob) return null;
+      const url = URL.createObjectURL(blob);
+      urlCache.set(id, url);
+      return url;
+    } catch {
       return null;
+    } finally {
+      pendingUrls.delete(id);
     }
-    const url = URL.createObjectURL(blob);
-    urlCache.set(id, url);
-    pendingUrls.delete(id);
-    return url;
   })();
   pendingUrls.set(id, promise);
   return promise;
