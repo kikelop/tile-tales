@@ -73,7 +73,7 @@ Splash → Grid (home) → Viewer 3D
                      → Map
 ```
 
-## Features implementadas (25 total)
+## Features implementadas (32 total)
 1. Splash screen con tiles animadas en duotono
 2. Grid mosaico (tipo iOS Photos, scroll-to-bottom, pinch-to-zoom 1-6 columnas)
 3. Viewer 3D interactivo (drag to rotate, pinch zoom, auto-rotate Z, wobble, float)
@@ -99,6 +99,13 @@ Splash → Grid (home) → Viewer 3D
 23. Doble tap en el viewer → slerp suave a la rotacion frontal inicial (0.4s easeOutCubic)
 24. Toast notifications (`lib/toast` + `<Toaster />` global) + haptic feedback (`lib/haptic`) en favorite, share, save, delete, location updates, double tap
 25. Editor de localizacion en el modal del lapiz: display lat/lng, Clear, "Use my location" (GPS), "Search a place" (Nominatim/OSM con debounce 400ms)
+26. Reverse geocoding (lat/lng → "Lisboa, Portugal") con cache localStorage. Aplicado en location editor, popup del mapa y share card.
+27. Busqueda en el grid (header search input, filtra por name/tags) + ordenar tiles (Recent/A–Z/Favorites first, persistido en localStorage).
+28. Swipe horizontal entre tiles en el viewer con threshold de intencion 8px (swipe vs rotate-by-drag).
+29. Presets de duotono en wallpaper (Ocean / Sunset / Forest / Vintage / Noir) con chips visuales.
+30. Onboarding banner para nuevos usuarios + tap en canvas para pausar/reanudar auto-rotate.
+31. **Dark mode** (system + toggle manual). CSS variables centralizadas en `globals.css`, inline boot script en layout.tsx evita flash al cargar, `theme-color` meta media-aware.
+32. **Collections / Albums**. Modelo en store + vista de albums + detalle + chips de seleccion en el modal de edit. Borrar un tile lo quita de cualquier album automaticamente.
 
 ## Proximos pasos (proxima sesion)
 ### 1. Retocar UX del location editor
@@ -108,15 +115,13 @@ Funciona pero hay margen para pulirlo:
 - Feedback visual mas claro entre "Use my location" y el resultado (transicion del display).
 
 ### 1bis. Posibles refinamientos sobre el fix de IndexedDB
-- Toast en el primer load tras migration si se purgaron tiles rotos (informa al usuario de que sus tiles broken han desaparecido).
+- ~~Toast en el primer load tras migration~~ → hecho en F1 (sesion 2026-05-20).
 - Boton "Export collection" que vuelque tiles + blobs a un ZIP descargable (Sprint 3 del AUDIT). Antes era inviable porque los blobs eran fantasma; ahora es real.
 
-### 2. UX core (ver docs/AUDIT.md Sprint 2)
-- Swipe entre tiles en viewer
-- Barra de busqueda en grid
-- Reverse geocoding (lat/lng → nombre ciudad) — Nominatim ya esta integrado, reutilizar
-- Ordenar tiles
-- Presets de duotono en wallpaper
+### 2. Pendientes documentados (no urgentes)
+- Dark mode aplicado a chrome principal (grid + viewer outer + map). Modales y popovers se quedan claros. Si se quiere consistencia total, hay que pasar el modal de edit (TileViewer3D), el modal de crear album (Albums), CropModal y WallpaperGenerator a vars CSS.
+- Split del modal de edit del viewer (TileEditSheet) sigue pendiente. La logica de albums/location/memory esta densamente acoplada al outer; merece su propia sesion.
+- ESLint rules `no-floating-promises` + `no-misused-promises` ya estan activas como warning. Quedan ~12 warnings sin atacar (mostly `void` operator faltante en fire-and-forget que son intencionales).
 
 ### 3. iOS app
 - Instalar Xcode (requiere macOS actualizado)
