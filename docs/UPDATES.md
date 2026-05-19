@@ -84,3 +84,31 @@ Sesion larga de prueba, debug y revert. Cronologia:
 - Borrado `vercel.json` huerfano del repo raiz (`rootDirectory` no valido en schema actual)
 - URL prod canonica = `https://app-five-xi-20.vercel.app` (corregida en CLAUDE.md, antes apuntaba a una URL desconectada)
 - Service worker v2 con skip cross-origin (mejora general)
+
+## 2026-05-19 (tarde) — Geo bug cerrado + Sprint 1 quick wins + Location editor
+
+Tres commits, todo live en prod tras dos deploys (`vercel --prod --yes` desde `app/`).
+
+### Commit 1 — `8c287bd` Geo race + Sprint 1
+- **Geo race condition**: `pendingGeo` guardaba el resultado resuelto de `getCurrentPosition`, no la Promise. Si el usuario confirmaba el crop antes de que el GPS respondiera (lo habitual con `enableHighAccuracy: true` que tarda varios segundos en iOS), el tile se guardaba sin lat/lng silenciosamente. Esto explica el "no lo vi funcionar en prod" arrastrado desde el 12 de abril. Fix: guardar la Promise; en `handleCropConfirm` se hace `addTile` inmediato y se patchea con `updateTile(id, { lat, lng })` cuando la Promise resuelve. Sin bloquear el cierre del modal.
+- **Sprint 1 (AUDIT)**: contador de tiles en header del grid, hint "Drag to flip" al primer abrir del viewer (gated por `localStorage`), doble tap → slerp a rotacion frontal (0.4s easeOutCubic), Toast global + haptic helpers cableados en favorite/share/save/delete.
+- Nuevos: `lib/haptic.ts`, `lib/toast.ts`, `components/Toaster.tsx`.
+
+### Commit 2 — `12b5419` EXIF para galeria + location editor
+- **Galeria lee EXIF GPS** con `exifr` (~10KB gzipped, dynamic import). Si la foto trae GPS embebido, se respeta. Si no, en este commit caia a `getCurrentPosition` como fallback — comportamiento corregido en el siguiente commit.
+- **Editor de localizacion en el modal del lapiz**: display de coords actuales o "No location" + boton "Use my current location" + Clear.
+- Refactor: `requestGeolocation`, `readExifGps`, `readGeoForCapture` extraidos a `lib/geo.ts`. Inputs usan `data-source="camera"|"gallery"` para que un solo handler decida la fuente.
+
+### Commit 3 — `9bfd43f` Place search + galeria sin fallback
+- **Galeria sin EXIF ya no cae a la ubicacion actual**. El comportamiento previo metia Madrid sobre fotos viejas de Portugal subidas desde la camera roll. Ahora el tile queda sin geo y el editor lo permite anadir despues.
+- **Buscador Nominatim** en el editor: input "Search a place" con debounce 400ms y AbortController. Resultados de OpenStreetMap (sin API key), tap selecciona y guarda. Cubre el caso "estoy en Madrid pero la foto es de Lisboa".
+
+### Anecdotas operativas
+- **Deploy debe lanzarse desde `app/`**, no desde la raiz `tile-tales/`. Vercel CLI usa el cwd para decidir que sube. Lanzado desde la raiz, la build remota no encuentra `tsconfig.json` y Next regenera uno sin el alias `@/`. El error sale como `Cannot find module '@/components/Toaster'` aunque local compile. Confirmado en esta sesion: el primer deploy fallo, repetido desde `app/` paso. CLAUDE.md ya lo mencionaba — vale la pena recordarlo aqui.
+- Al instalar `exifr` me confundi de cwd y cree `package.json`/`package-lock.json`/`node_modules/` huerfanos en `tile-tales/` (raiz del repo). Limpiados antes del commit del EXIF.
+
+### UX del location editor — retocar despues
+Funciona pero el usuario marco que la UX "no es lo mejor". Pendientes para proxima iteracion:
+- Truncar `display_name` de Nominatim (suele venir muy verboso).
+- Considerar picker en mini-mapa como alternativa al buscador.
+- Transicion visual mas clara entre "Use my location" y el resultado.

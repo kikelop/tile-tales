@@ -73,7 +73,7 @@ Splash → Grid (home) → Viewer 3D
                      → Map
 ```
 
-## Features implementadas (20 total)
+## Features implementadas (25 total)
 1. Splash screen con tiles animadas en duotono
 2. Grid mosaico (tipo iOS Photos, scroll-to-bottom, pinch-to-zoom 1-6 columnas)
 3. Viewer 3D interactivo (drag to rotate, pinch zoom, auto-rotate Z, wobble, float)
@@ -92,38 +92,35 @@ Splash → Grid (home) → Viewer 3D
 16. PWA: manifest.json, service worker cache, instalable en home screen
 17. Imagenes optimizadas a WebP (32MB → 720KB)
 18. Texture preloading para cambio instantaneo entre tiles
-19. Geolocalizacion automatica al capturar foto (navigator.geolocation) — **PENDIENTE DE VERIFICAR EN PROD**
+19. Geolocalizacion en captura: camara usa `navigator.geolocation`; galeria lee EXIF GPS via `exifr` (sin fallback a la ubicacion actual si la foto no trae GPS — antes estampaba erroneamente Madrid sobre fotos de Portugal). **Verificado live en prod 2026-05-19.**
 20. Compartir tile: share card con imagen + nombre + ubicacion (Web Share API / download)
-
-## Bugs / pendiente de verificar
-- **Geolocalizacion**: El codigo esta desplegado pero el usuario no lo vio funcionar en prod. Revisar en proxima sesion: ¿pide permiso? ¿guarda lat/lng? ¿aparece en mapa?
+21. Contador de tiles en header del grid (filtered count cuando hay filtro activo)
+22. Hint "flip to see memory" al primer abrir del viewer (gated por localStorage)
+23. Doble tap en el viewer → slerp suave a la rotacion frontal inicial (0.4s easeOutCubic)
+24. Toast notifications (`lib/toast` + `<Toaster />` global) + haptic feedback (`lib/haptic`) en favorite, share, save, delete, location updates, double tap
+25. Editor de localizacion en el modal del lapiz: display lat/lng, Clear, "Use my location" (GPS), "Search a place" (Nominatim/OSM con debounce 400ms)
 
 ## Proximos pasos (proxima sesion)
-### 1. Verificar geolocalizacion en prod
-- Probar en mobile real (camara + ubicacion)
-- Debug si no funciona (permisos, HTTPS, timing)
+### 1. Retocar UX del location editor
+Funciona pero hay margen para pulirlo:
+- Resultados de Nominatim a veces son verbosos ("Lisboa, Área Metropolitana de Lisboa, Portugal, Europa, ...") — truncar / quedarse con los primeros 2-3 segmentos.
+- Picker en mini-mapa como alternativa al buscador (mas visual). Pendiente decidir si compensa el espacio extra en el bottom sheet.
+- Feedback visual mas claro entre "Use my location" y el resultado (transicion del display).
 
-### 2. Quick wins UX (ver docs/AUDIT.md Sprint 1)
-- Contador de tiles en header
-- Indicador "flip to see memory" al primer uso
-- Doble tap para resetear rotacion
-- Toast notifications
-- Haptic feedback en botones clave
-
-### 3. UX core (ver docs/AUDIT.md Sprint 2)
+### 2. UX core (ver docs/AUDIT.md Sprint 2)
 - Swipe entre tiles en viewer
 - Barra de busqueda en grid
-- Reverse geocoding (lat/lng → nombre ciudad)
+- Reverse geocoding (lat/lng → nombre ciudad) — Nominatim ya esta integrado, reutilizar
 - Ordenar tiles
 - Presets de duotono en wallpaper
 
-### 4. iOS app
+### 3. iOS app
 - Instalar Xcode (requiere macOS actualizado)
 - Abrir `ios/TileTales/TileTales.xcodeproj`
 - Build + test en simulador
 - Iterar UI para que coincida con la web
 
-### 5. Scan estilo doc (cuadrilatero + warp perspectivo) — POSPUESTO a app nativa
+### 4. Scan estilo doc (cuadrilatero + warp perspectivo) — POSPUESTO a app nativa
 Intentado en web 2026-05-19 y descartado:
 - **Flujo "foto nativa → ScanModal con OpenCV.js"**: funcionaba tecnicamente tras arreglar el SW (ver abajo), pero la deteccion automatica en azulejos de pared (poco contraste con el fondo) fallaba mas de la cuenta y el modal extra entre captura y guardado anadia friccion sin compensar.
 - **Flujo "camara live con getUserMedia + overlay realtime"**: bloqueado por iOS. En PWA standalone instalada en home screen, `navigator.mediaDevices.getUserMedia()` se llama, la camara se activa fisicamente (LED rojo + indicador de grabacion en status bar) pero la Promise nunca resuelve ni rechaza. WebKit lo bloquea silenciosamente — solo funciona desde Safari abierto, no desde la PWA. Confirmado con panel de debug en pantalla.
@@ -131,7 +128,7 @@ Intentado en web 2026-05-19 y descartado:
 - **Codigo recuperable** en git history: `c4d17ea` (ScanModal sobre foto estatica con OpenCV.js + 4 esquinas + lupa), `0db1673` (CameraScanner live con getUserMedia + overlay realtime).
 - **Side-effect util conservado**: el service worker (`app/public/sw.js`) ahora NO intercepta requests cross-origin (cache name bumped a `v2`). Era el bug raiz que rompia la carga de OpenCV.js — util tener ese fix por si alguna libreria externa se anade en el futuro.
 
-### 6. Social con Supabase (mas adelante)
+### 5. Social con Supabase (mas adelante)
 - Auth (login/registro)
 - Storage para imagenes de tiles
 - Base de datos para colecciones
