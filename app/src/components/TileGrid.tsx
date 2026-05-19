@@ -4,6 +4,9 @@ import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore
 import { getState, subscribe, getAllTags, type TileItem } from "@/lib/store";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
 import { haptic } from "@/lib/haptic";
+import { isIdbRef } from "@/lib/blob-storage";
+
+const ONBOARDING_DISMISSED_KEY = "tile-tales-onboarding-dismissed";
 
 type SortMode = "recent" | "az" | "favorites";
 const SORT_STORAGE_KEY = "tile-tales-sort";
@@ -100,6 +103,10 @@ export default function TileGrid({
   const [searchQuery, setSearchQuery] = useState("");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [sortMode, setSortModeState] = useState<SortMode>(() => loadSortPref());
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try { return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "1"; } catch { return false; }
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinchStart = useRef(0);
   const colsAtPinchStart = useRef(3);
@@ -199,6 +206,13 @@ export default function TileGrid({
     az: "A–Z",
     favorites: "Favorites first",
   };
+
+  const hasOwnTiles = useMemo(() => tiles.some((t) => isIdbRef(t.file)), [tiles]);
+  const showOnboarding = !hasOwnTiles && !onboardingDismissed;
+  const dismissOnboarding = useCallback(() => {
+    setOnboardingDismissed(true);
+    try { localStorage.setItem(ONBOARDING_DISMISSED_KEY, "1"); } catch {}
+  }, []);
 
   return (
     <div
@@ -398,6 +412,63 @@ export default function TileGrid({
           touchAction: "pan-y pinch-zoom",
         }}
       >
+        {showOnboarding && (
+          <div
+            style={{
+              margin: "12px 16px 8px",
+              padding: "12px 14px",
+              borderRadius: 14,
+              background: "rgba(26,26,26,0.04)",
+              border: "1px solid rgba(0,0,0,0.06)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                background: "#1a1a1a",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </div>
+            <div style={{ flex: 1, fontSize: 13, color: "#1a1a1a", lineHeight: 1.4 }}>
+              <strong style={{ fontWeight: 600 }}>Start your collection.</strong>{" "}
+              <span style={{ color: "#6a6356" }}>Tap + below to capture your first street tile.</span>
+            </div>
+            <button
+              onClick={dismissOnboarding}
+              aria-label="Dismiss"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "#8a8578",
+                flexShrink: 0,
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        )}
         {visibleTiles.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", padding: 32 }}>
             <p style={{ color: "#8a8578", fontSize: 15, textAlign: "center" }}>

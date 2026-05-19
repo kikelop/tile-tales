@@ -3,9 +3,13 @@
   "short_name": "Tile Tales",
   "description": "Collect and explore street tiles in 3D",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone"],
+  "orientation": "portrait",
   "background_color": "#f5f2ed",
   "theme_color": "#f5f2ed",
+  "categories": ["photography", "lifestyle"],
   "icons": [
     {
       "src": "/icon-192.png",

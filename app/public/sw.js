@@ -1,4 +1,4 @@
-const CACHE_NAME = "tile-tales-v2";
+const CACHE_NAME = "tile-tales-v3";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

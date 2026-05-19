@@ -239,6 +239,8 @@ function RotatableTile({
   const startPointer = useRef({ x: 0, y: 0 });
   const totalDelta = useRef({ x: 0, y: 0 });
   const intent = useRef<"rotate" | "swipe" | null>(null);
+  // Tap on the canvas pauses/resumes the auto-rotate.
+  const autoRotatePaused = useRef(false);
   // Keep callbacks in refs so we don't re-attach listeners every render.
   const swipeLeftRef = useRef(onSwipeLeft);
   const swipeRightRef = useRef(onSwipeRight);
@@ -324,10 +326,19 @@ function RotatableTile({
         else swipeRightRef.current?.();
         haptic(8);
       }
+    } else if (intent.current === null) {
+      // Pointer down → up without ever passing the intent threshold: a tap.
+      // Toggle the auto-rotate. (Double-tap is already handled in
+      // onPointerDown via lastTapTime / lastTapPos, so it doesn't reach here.)
+      const totalDist = Math.hypot(totalDelta.current.x, totalDelta.current.y);
+      if (totalDist < 5) {
+        autoRotatePaused.current = !autoRotatePaused.current;
+        haptic(6);
+      }
     }
     intent.current = null;
     isDragging.current = false;
-    autoRotateSpeed.current = 0.08;
+    autoRotateSpeed.current = autoRotatePaused.current ? 0 : 0.08;
     try { gl.domElement.releasePointerCapture(e.pointerId); } catch {}
   }, [gl]);
 
@@ -366,7 +377,7 @@ function RotatableTile({
   const onTouchEnd = useCallback((e: TouchEvent) => {
     touchCount.current = e.touches.length;
     if (e.touches.length === 0) {
-      autoRotateSpeed.current = 0.08;
+      autoRotateSpeed.current = autoRotatePaused.current ? 0 : 0.08;
     }
   }, []);
 
@@ -424,7 +435,7 @@ function RotatableTile({
       slerpProgress.current = Math.min(1, slerpProgress.current + delta / 0.4);
       const sp = 1 - Math.pow(1 - slerpProgress.current, 3);
       quaternion.current.copy(slerpFrom.current).slerp(initialQuaternion.current, sp);
-      if (slerpProgress.current >= 1) autoRotateSpeed.current = 0.08;
+      if (slerpProgress.current >= 1) autoRotateSpeed.current = autoRotatePaused.current ? 0 : 0.08;
     } else if (!isDragging.current) {
       // User flick inertia
       if (Math.abs(velocity.current.x) > 0.0001 || Math.abs(velocity.current.y) > 0.0001) {
