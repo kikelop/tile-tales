@@ -46,7 +46,8 @@ tile-tales/
         │   ├── WallpaperGenerator.tsx ← Generador de wallpapers (patrones + duotono)
         │   ├── SplashScreen.tsx    ← Splash con tiles animadas en duotono
         │   ├── ScreenTransition.tsx ← Fade+slide entre pantallas
-        │   └── CropModal.tsx       ← Crop de fotos capturadas
+        │   ├── ScanModal.tsx       ← Scan estilo doc: auto-detect quad + ajuste + warp perspectivo (OpenCV.js)
+        │   └── CropModal.tsx       ← Crop de fotos (galeria)
         └── lib/
             └── store.ts   ← Estado global: tiles, wallpapers, CRUD, localStorage
 ```
@@ -73,7 +74,7 @@ Splash → Grid (home) → Viewer 3D
                      → Map
 ```
 
-## Features implementadas (20 total)
+## Features implementadas (21 total)
 1. Splash screen con tiles animadas en duotono
 2. Grid mosaico (tipo iOS Photos, scroll-to-bottom, pinch-to-zoom 1-6 columnas)
 3. Viewer 3D interactivo (drag to rotate, pinch zoom, auto-rotate Z, wobble, float)
@@ -94,6 +95,7 @@ Splash → Grid (home) → Viewer 3D
 18. Texture preloading para cambio instantaneo entre tiles
 19. Geolocalizacion automatica al capturar foto (navigator.geolocation) — **PENDIENTE DE VERIFICAR EN PROD**
 20. Compartir tile: share card con imagen + nombre + ubicacion (Web Share API / download)
+21. Scan en captura camara: OpenCV.js auto-detecta el cuadrilatero del azulejo + 4 esquinas arrastrables con lupa + warp perspectivo a 1024x1024 cuadrado. Solo se activa al "take photo" (galeria usa CropModal). OpenCV.js cargado bajo demanda desde CDN (~8MB primera vez, cacheado luego).
 
 ## Bugs / pendiente de verificar
 - **Geolocalizacion**: El codigo esta desplegado pero el usuario no lo vio funcionar en prod. Revisar en proxima sesion: ¿pide permiso? ¿guarda lat/lng? ¿aparece en mapa?

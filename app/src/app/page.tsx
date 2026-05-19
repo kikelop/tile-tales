@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import SplashScreen from "@/components/SplashScreen";
 import TileGrid from "@/components/TileGrid";
 import CropModal from "@/components/CropModal";
+import ScanModal from "@/components/ScanModal";
 import WallpaperGenerator from "@/components/WallpaperGenerator";
 import ScreenTransition from "@/components/ScreenTransition";
 import { addTile, generateTileId } from "@/lib/store";
@@ -37,7 +38,8 @@ function requestGeolocation(): Promise<{ lat: number; lng: number } | null> {
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>({ type: "splash" });
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [pendingScanImage, setPendingScanImage] = useState<string | null>(null);
+  const [pendingCropImage, setPendingCropImage] = useState<string | null>(null);
   const pendingGeo = useRef<{ lat: number; lng: number } | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -52,31 +54,53 @@ export default function Home() {
     return () => clearTimeout(timeout);
   }, [screen.type]);
 
-  const handleCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPendingImage(URL.createObjectURL(file));
+    setPendingScanImage(URL.createObjectURL(file));
     e.target.value = "";
-    // Request geolocation in parallel with crop
     requestGeolocation().then((geo) => { pendingGeo.current = geo; });
   }, []);
 
-  const handleCropConfirm = useCallback((croppedUrl: string) => {
+  const handleGalleryCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingCropImage(URL.createObjectURL(file));
+    e.target.value = "";
+    requestGeolocation().then((geo) => { pendingGeo.current = geo; });
+  }, []);
+
+  const saveTile = useCallback((url: string) => {
     const id = generateTileId();
     const geo = pendingGeo.current;
     addTile({
-      id, name: "New tile", file: croppedUrl, memory: "", date: "", tags: [], favorite: false,
+      id, name: "New tile", file: url, memory: "", date: "", tags: [], favorite: false,
       ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
     });
     pendingGeo.current = null;
-    if (pendingImage) URL.revokeObjectURL(pendingImage);
-    setPendingImage(null);
-  }, [pendingImage]);
+  }, []);
+
+  const handleScanConfirm = useCallback((warpedUrl: string) => {
+    saveTile(warpedUrl);
+    if (pendingScanImage) URL.revokeObjectURL(pendingScanImage);
+    setPendingScanImage(null);
+  }, [pendingScanImage, saveTile]);
+
+  const handleScanCancel = useCallback(() => {
+    if (pendingScanImage) URL.revokeObjectURL(pendingScanImage);
+    setPendingScanImage(null);
+  }, [pendingScanImage]);
+
+  const handleCropConfirm = useCallback((croppedUrl: string) => {
+    saveTile(croppedUrl);
+    if (pendingCropImage) URL.revokeObjectURL(pendingCropImage);
+    setPendingCropImage(null);
+  }, [pendingCropImage, saveTile]);
 
   const handleCropCancel = useCallback(() => {
-    if (pendingImage) URL.revokeObjectURL(pendingImage);
-    setPendingImage(null);
-  }, [pendingImage]);
+    if (pendingCropImage) URL.revokeObjectURL(pendingCropImage);
+    setPendingCropImage(null);
+  }, [pendingCropImage]);
 
   return (
     <>
@@ -86,14 +110,14 @@ export default function Home() {
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={handleCapture}
+        onChange={handleCameraCapture}
         style={{ display: "none" }}
       />
       <input
         ref={galleryInputRef}
         type="file"
         accept="image/*"
-        onChange={handleCapture}
+        onChange={handleGalleryCapture}
         style={{ display: "none" }}
       />
 
@@ -112,9 +136,16 @@ export default function Home() {
                 onOpenWallpaper={() => setScreen({ type: "wallpaper" })}
                 onOpenMap={() => setScreen({ type: "map" })}
               />
-              {pendingImage && (
+              {pendingScanImage && (
+                <ScanModal
+                  imageUrl={pendingScanImage}
+                  onConfirm={handleScanConfirm}
+                  onCancel={handleScanCancel}
+                />
+              )}
+              {pendingCropImage && (
                 <CropModal
-                  imageUrl={pendingImage}
+                  imageUrl={pendingCropImage}
                   onConfirm={handleCropConfirm}
                   onCancel={handleCropCancel}
                 />

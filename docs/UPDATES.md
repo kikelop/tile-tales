@@ -63,3 +63,15 @@
   - 4 sprints de implementacion
 - Desplegado en prod: commit `13a48ce`
 - **Nota**: Geolocalizacion no verificada en prod — revisar en proxima sesion
+
+## 2026-05-19 — Scan de documento en captura camara
+- Nuevo `ScanModal.tsx`: experiencia estilo Adobe Scan / Apple Notes para fotos de azulejos
+  - Carga diferida de OpenCV.js (~8MB) desde CDN al abrir la modal (cacheado por SW para sesiones siguientes)
+  - Auto-deteccion: Canny + findContours + approxPolyDP, se queda con el quad de mayor area >5% del frame
+  - 4 esquinas siempre arrastrables con touch target generoso (44px)
+  - Lupa con zoom 2x en la esquina opuesta al dedo durante el arrastre
+  - Boton de reset para re-detectar
+  - Warp perspectivo via `getPerspectiveTransform` + `warpPerspective` a canvas cuadrado 1024x1024
+- Split del flujo de captura: `handleCameraCapture` (→ ScanModal) vs `handleGalleryCapture` (→ CropModal) en `page.tsx` y `TileViewer3D.tsx`. La galeria sigue usando el crop manual normal.
+- `next.config.ts`: fijado `turbopack.root` para que la build no confunda con un `package-lock.json` huerfano en `~/`
+- Build verificada en local (Next 16.2.1, Turbopack, TS limpio)
