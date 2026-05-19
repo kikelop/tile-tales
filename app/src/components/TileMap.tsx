@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { getState, subscribe, type TileItem } from "@/lib/store";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
+import { useReverseGeocode } from "@/lib/useReverseGeocode";
 
 function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
@@ -38,6 +39,7 @@ function TileMarker({
   onSelectTile: (index: number) => void;
 }) {
   const url = useTileFileUrl(tile.file);
+  const label = useReverseGeocode(tile.lat, tile.lng);
   if (!url) return null;
   return (
     <Marker position={[tile.lat!, tile.lng!]} icon={tileIconWithUrl(url)}>
@@ -53,6 +55,9 @@ function TileMarker({
             style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, display: "block", margin: "0 auto 8px" }}
           />
           <strong>{tile.name}</strong>
+          {label && (
+            <div style={{ fontSize: 11, color: "#8a8578", marginTop: 4 }}>{label}</div>
+          )}
         </div>
       </Popup>
     </Marker>

@@ -8,9 +8,10 @@ import CropModal from "./CropModal";
 import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, generateTileId, type TileItem } from "@/lib/store";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
-import { readGeoForCapture, requestGeolocation, searchPlaces, type GeoPoint, type PlaceResult } from "@/lib/geo";
+import { readGeoForCapture, requestGeolocation, searchPlaces, reverseGeocode, type GeoPoint, type PlaceResult } from "@/lib/geo";
 import { saveTileBlob, deleteTileBlob, idToIdbRef, isIdbRef, idbRefToId, getTileBlobUrl } from "@/lib/blob-storage";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
+import { useReverseGeocode } from "@/lib/useReverseGeocode";
 
 function useTextTexture(text: string, date: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -644,6 +645,7 @@ export default function TileViewer3D({
 
   const activeTileFile = tiles[safeIndex]?.file;
   const activeTileUrl = useTileFileUrl(activeTileFile);
+  const geoLabel = useReverseGeocode(geoDraft?.lat, geoDraft?.lng);
 
 
   const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
@@ -894,8 +896,18 @@ export default function TileViewer3D({
                   ctx.textBaseline = "bottom";
                   ctx.fillText(tile.name, pad + 28, 1080 - pad - 24);
 
-                  // Location or date subtitle
-                  const subtitle = tile.date || (tile.lat && tile.lng ? `${tile.lat.toFixed(2)}, ${tile.lng.toFixed(2)}` : "");
+                  // Location or date subtitle. Try the reverse-geocoded label
+                  // first; fall back to coords if the lookup never resolved.
+                  let locationLabel: string | null = null;
+                  if (tile.lat != null && tile.lng != null) {
+                    locationLabel = await reverseGeocode(tile.lat, tile.lng);
+                  }
+                  const subtitle =
+                    tile.date ||
+                    locationLabel ||
+                    (tile.lat != null && tile.lng != null
+                      ? `${tile.lat.toFixed(2)}, ${tile.lng.toFixed(2)}`
+                      : "");
                   if (subtitle) {
                     ctx.fillStyle = "rgba(255,255,255,0.75)";
                     ctx.font = "28px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -1283,9 +1295,19 @@ export default function TileViewer3D({
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <span style={{ flex: 1, fontSize: 13, color: geoDraft ? "#1a1a1a" : "#9a9288", fontVariantNumeric: "tabular-nums" }}>
+                <span
+                  style={{
+                    flex: 1,
+                    fontSize: 13,
+                    color: geoDraft ? "#1a1a1a" : "#9a9288",
+                    fontVariantNumeric: geoLabel ? "normal" : "tabular-nums",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {geoDraft
-                    ? `${geoDraft.lat.toFixed(4)}, ${geoDraft.lng.toFixed(4)}`
+                    ? geoLabel ?? `${geoDraft.lat.toFixed(4)}, ${geoDraft.lng.toFixed(4)}`
                     : "No location"}
                 </span>
                 {geoDraft && (
