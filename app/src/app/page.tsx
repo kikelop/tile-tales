@@ -10,6 +10,7 @@ import ScreenTransition from "@/components/ScreenTransition";
 import { addTile, updateTile, generateTileId } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { readGeoForCapture, type GeoPoint } from "@/lib/geo";
+import { saveTileBlob, idToIdbRef } from "@/lib/blob-storage";
 
 const TileMap = dynamic(() => import("@/components/TileMap"), { ssr: false });
 const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), { ssr: false });
@@ -48,10 +49,16 @@ export default function Home() {
     pendingGeo.current = readGeoForCapture(file, source);
   }, []);
 
-  const handleCropConfirm = useCallback((croppedUrl: string) => {
+  const handleCropConfirm = useCallback(async (blob: Blob) => {
     const id = generateTileId();
+    try {
+      await saveTileBlob(id, blob);
+    } catch {
+      toast("Couldn't save image");
+      return;
+    }
     addTile({
-      id, name: "New tile", file: croppedUrl, memory: "", date: "", tags: [], favorite: false,
+      id, name: "New tile", file: idToIdbRef(id), memory: "", date: "", tags: [], favorite: false,
     });
     const geoPromise = pendingGeo.current;
     pendingGeo.current = null;

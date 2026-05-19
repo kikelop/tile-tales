@@ -4,7 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 
 interface CropModalProps {
   imageUrl: string;
-  onConfirm: (croppedUrl: string) => void;
+  onConfirm: (blob: Blob) => void;
   onCancel: () => void;
 }
 
@@ -221,7 +221,7 @@ export default function CropModal({ imageUrl, onConfirm, onCancel }: CropModalPr
     ctx.drawImage(tempCanvas, cropLeft, cropTop, cropPx, cropPx, 0, 0, CROP_SIZE, CROP_SIZE);
 
     canvas.toBlob((blob) => {
-      if (blob) onConfirm(URL.createObjectURL(blob));
+      if (blob) onConfirm(blob);
     }, "image/jpeg", 0.92);
   }, [offset, scale, rotation, imgNatural, onConfirm]);
 

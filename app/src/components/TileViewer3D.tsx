@@ -9,6 +9,8 @@ import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, g
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
 import { readGeoForCapture, requestGeolocation, searchPlaces, type GeoPoint, type PlaceResult } from "@/lib/geo";
+import { saveTileBlob, deleteTileBlob, idToIdbRef, isIdbRef, idbRefToId, getTileBlobUrl } from "@/lib/blob-storage";
+import { useTileFileUrl } from "@/lib/useTileFileUrl";
 
 function useTextTexture(text: string, date: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -423,6 +425,48 @@ function RotatableTile({
   );
 }
 
+function SelectorThumb({
+  tile,
+  active,
+  onClick,
+}: {
+  tile: TileItem;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const url = useTileFileUrl(tile.file);
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: "clamp(52px, 12vw, 72px)",
+        height: "clamp(52px, 12vw, 72px)",
+        borderRadius: "clamp(8px, 2vw, 12px)",
+        overflow: "hidden",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        outline: active ? "2px solid #1a1a1a" : "2px solid transparent",
+        outlineOffset: 2,
+        opacity: active ? 1 : 0.6,
+        transition: "all 0.2s",
+        background: "#ece8e1",
+        flexShrink: 0,
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      {url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={tile.name}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      )}
+    </button>
+  );
+}
+
 function AdaptiveCamera({ onReady }: { onReady?: () => void }) {
   const { camera, size } = useThree();
   const readyFired = useRef(false);
@@ -516,9 +560,17 @@ export default function TileViewer3D({
 }) {
   const { tiles } = useSyncExternalStore(subscribe, getState, getState);
 
-  // Preload all tile textures into Drei's cache
+  // Preload all tile textures into Drei's cache. Resolve idb:* refs first.
   useEffect(() => {
-    tiles.forEach((t) => useTexture.preload(t.file));
+    tiles.forEach((t) => {
+      if (isIdbRef(t.file)) {
+        getTileBlobUrl(idbRefToId(t.file)).then((url) => {
+          if (url) useTexture.preload(url);
+        });
+      } else {
+        useTexture.preload(t.file);
+      }
+    });
   }, [tiles]);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
@@ -590,6 +642,9 @@ export default function TileViewer3D({
   const safeIndex = Math.min(activeIndex, Math.max(0, tiles.length - 1));
   useEffect(() => { setActiveIndex(safeIndex); }, [safeIndex]);
 
+  const activeTileFile = tiles[safeIndex]?.file;
+  const activeTileUrl = useTileFileUrl(activeTileFile);
+
 
   const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => setActiveIndex((i) => Math.min(tiles.length - 1, i + 1)), [tiles.length]);
@@ -603,11 +658,17 @@ export default function TileViewer3D({
     pendingGeo.current = readGeoForCapture(file, source);
   }, []);
 
-  const handleCropConfirm = useCallback((croppedUrl: string) => {
+  const handleCropConfirm = useCallback(async (blob: Blob) => {
     const id = generateTileId();
     const name = `Tile #${tiles.length + 1}`;
+    try {
+      await saveTileBlob(id, blob);
+    } catch {
+      toast("Couldn't save image");
+      return;
+    }
     addTile({
-      id, name, file: croppedUrl, memory: "", date: "", tags: [], favorite: false,
+      id, name, file: idToIdbRef(id), memory: "", date: "", tags: [], favorite: false,
     });
     const geoPromise = pendingGeo.current;
     pendingGeo.current = null;
@@ -659,7 +720,7 @@ export default function TileViewer3D({
 
       {/* Canvas */}
       <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
-        {tiles.length > 0 ? (
+        {tiles.length > 0 && activeTileUrl ? (
           <Canvas
             camera={{ position: [0, 0.3, 6], fov: 35 }}
             gl={{
@@ -670,11 +731,15 @@ export default function TileViewer3D({
             dpr={[1, 2]}
           >
             <color attach="background" args={["#f5f2ed"]} />
-            <Scene textureUrl={tiles[safeIndex].file} memory={tiles[safeIndex].memory} date={tiles[safeIndex].date} onReady={onReady} />
+            <Scene textureUrl={activeTileUrl} memory={tiles[safeIndex].memory} date={tiles[safeIndex].date} onReady={onReady} />
           </Canvas>
-        ) : (
+        ) : tiles.length === 0 ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
             <p style={{ color: "#8a8578", fontSize: 16 }}>No tiles yet — tap + to add one</p>
+          </div>
+        ) : (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+            <p style={{ color: "#8a8578", fontSize: 14 }}>Loading tile…</p>
           </div>
         )}
 
@@ -776,6 +841,14 @@ export default function TileViewer3D({
                 const tile = tiles[safeIndex];
                 if (!tile) return;
                 try {
+                  // Resolve idb:* refs to a real URL before drawing.
+                  const imgSrc = isIdbRef(tile.file)
+                    ? await getTileBlobUrl(idbRefToId(tile.file))
+                    : tile.file;
+                  if (!imgSrc) {
+                    toast("Couldn't load image");
+                    return;
+                  }
                   // Create a share card with tile image + name + location
                   const canvas = document.createElement("canvas");
                   canvas.width = 1080;
@@ -788,7 +861,7 @@ export default function TileViewer3D({
                   await new Promise<void>((resolve, reject) => {
                     img.onload = () => resolve();
                     img.onerror = reject;
-                    img.src = tile.file;
+                    img.src = imgSrc;
                   });
 
                   // Fill background
@@ -974,33 +1047,12 @@ export default function TileViewer3D({
         }}
       >
         {tiles.map((tile, i) => (
-          <button
+          <SelectorThumb
             key={tile.id}
+            tile={tile}
+            active={i === safeIndex}
             onClick={() => setActiveIndex(i)}
-            style={{
-              width: "clamp(52px, 12vw, 72px)",
-              height: "clamp(52px, 12vw, 72px)",
-              borderRadius: "clamp(8px, 2vw, 12px)",
-              overflow: "hidden",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              outline: i === safeIndex ? "2px solid #1a1a1a" : "2px solid transparent",
-              outlineOffset: 2,
-              opacity: i === safeIndex ? 1 : 0.6,
-              transition: "all 0.2s",
-              background: "transparent",
-              flexShrink: 0,
-              WebkitTapHighlightColor: "transparent",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={tile.file}
-              alt={tile.name}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          </button>
+          />
         ))}
       </div>
 
@@ -1457,18 +1509,16 @@ export default function TileViewer3D({
             <button
               onClick={() => {
                 const tile = tiles[safeIndex];
-                if (tile && tiles.length > 1) {
-                  deleteTile(tile.id);
-                  setEditingMemory(false);
-                  haptic([10, 40, 10]);
-                  toast("Tile deleted");
-                } else if (tile) {
-                  deleteTile(tile.id);
-                  setEditingMemory(false);
-                  haptic([10, 40, 10]);
-                  toast("Tile deleted");
-                  onBack();
+                if (!tile) return;
+                const lastOne = tiles.length <= 1;
+                if (isIdbRef(tile.file)) {
+                  deleteTileBlob(idbRefToId(tile.file));
                 }
+                deleteTile(tile.id);
+                setEditingMemory(false);
+                haptic([10, 40, 10]);
+                toast("Tile deleted");
+                if (lastOne) onBack();
               }}
               style={{
                 width: "100%",

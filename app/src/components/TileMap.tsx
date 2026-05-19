@@ -5,12 +5,13 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { getState, subscribe, type TileItem } from "@/lib/store";
+import { useTileFileUrl } from "@/lib/useTileFileUrl";
 
 function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
 }
 
-function tileIcon(tile: TileItem) {
+function tileIconWithUrl(url: string) {
   return L.divIcon({
     className: "",
     html: `<div style="
@@ -20,11 +21,42 @@ function tileIcon(tile: TileItem) {
       overflow: hidden;
       border: 3px solid #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    "><img src="${tile.file}" style="width:100%;height:100%;object-fit:cover;display:block;" /></div>`,
+    "><img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block;" /></div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     popupAnchor: [0, -24],
   });
+}
+
+function TileMarker({
+  tile,
+  originalIndex,
+  onSelectTile,
+}: {
+  tile: TileItem;
+  originalIndex: number;
+  onSelectTile: (index: number) => void;
+}) {
+  const url = useTileFileUrl(tile.file);
+  if (!url) return null;
+  return (
+    <Marker position={[tile.lat!, tile.lng!]} icon={tileIconWithUrl(url)}>
+      <Popup>
+        <div
+          style={{ textAlign: "center", cursor: "pointer" }}
+          onClick={() => onSelectTile(originalIndex)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={tile.name}
+            style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, display: "block", margin: "0 auto 8px" }}
+          />
+          <strong>{tile.name}</strong>
+        </div>
+      </Popup>
+    </Marker>
+  );
 }
 
 export default function TileMap({
@@ -118,22 +150,12 @@ export default function TileMap({
         {geoTiles.map((tile) => {
           const originalIndex = tiles.findIndex((t) => t.id === tile.id);
           return (
-            <Marker key={tile.id} position={[tile.lat!, tile.lng!]} icon={tileIcon(tile)}>
-              <Popup>
-                <div
-                  style={{ textAlign: "center", cursor: "pointer" }}
-                  onClick={() => onSelectTile(originalIndex)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={tile.file}
-                    alt={tile.name}
-                    style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, display: "block", margin: "0 auto 8px" }}
-                  />
-                  <strong>{tile.name}</strong>
-                </div>
-              </Popup>
-            </Marker>
+            <TileMarker
+              key={tile.id}
+              tile={tile}
+              originalIndex={originalIndex}
+              onSelectTile={onSelectTile}
+            />
           );
         })}
       </MapContainer>

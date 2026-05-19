@@ -1,7 +1,66 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from "react";
-import { getState, subscribe, getAllTags, toggleFavorite } from "@/lib/store";
+import { getState, subscribe, getAllTags, toggleFavorite, type TileItem } from "@/lib/store";
+import { useTileFileUrl } from "@/lib/useTileFileUrl";
+
+function TileThumb({ tile, onClick }: { tile: TileItem; onClick: () => void }) {
+  const url = useTileFileUrl(tile.file);
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        aspectRatio: "1",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        background: "#ece8e1",
+        overflow: "hidden",
+        display: "block",
+        position: "relative",
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={tile.name}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+            transition: "transform 0.2s",
+          }}
+          onPointerEnter={(e) => {
+            (e.target as HTMLImageElement).style.transform = "scale(1.05)";
+          }}
+          onPointerLeave={(e) => {
+            (e.target as HTMLImageElement).style.transform = "scale(1)";
+          }}
+        />
+      ) : (
+        <div style={{ width: "100%", height: "100%", background: "#ece8e1" }} />
+      )}
+      {tile.favorite && (
+        <div
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            fontSize: 22,
+            lineHeight: 1,
+            color: "#fff",
+            textShadow: "0 1px 4px rgba(0,0,0,0.5)",
+          }}
+        >
+          ♥
+        </div>
+      )}
+    </button>
+  );
+}
 
 function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
@@ -148,59 +207,13 @@ export default function TileGrid({
             }}
           >
             {filteredTiles.map((tile) => {
-              // Find original index in full tiles array for navigation
               const originalIndex = tiles.findIndex((t) => t.id === tile.id);
               return (
-                <button
+                <TileThumb
                   key={tile.id}
+                  tile={tile}
                   onClick={() => onSelectTile(originalIndex)}
-                  style={{
-                    aspectRatio: "1",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    background: "#ece8e1",
-                    overflow: "hidden",
-                    display: "block",
-                    position: "relative",
-                    WebkitTapHighlightColor: "transparent",
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={tile.file}
-                    alt={tile.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                      transition: "transform 0.2s",
-                    }}
-                    onPointerEnter={(e) => {
-                      (e.target as HTMLImageElement).style.transform = "scale(1.05)";
-                    }}
-                    onPointerLeave={(e) => {
-                      (e.target as HTMLImageElement).style.transform = "scale(1)";
-                    }}
-                  />
-                  {/* Favorite indicator */}
-                  {tile.favorite && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 6,
-                        right: 6,
-                        fontSize: 22,
-                        lineHeight: 1,
-                        color: "#fff",
-                        textShadow: "0 1px 4px rgba(0,0,0,0.5)",
-                      }}
-                    >
-                      ♥
-                    </div>
-                  )}
-                </button>
+                />
               );
             })}
           </div>

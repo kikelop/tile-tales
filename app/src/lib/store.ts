@@ -45,13 +45,16 @@ function loadState(): { tiles: TileItem[]; wallpapers: SavedWallpaper[] } {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Migration: ensure fields exist + convert .png paths to .webp
-      const tiles = (parsed.tiles || []).map((t: TileItem) => ({
-        ...t,
-        tags: t.tags || [],
-        favorite: t.favorite ?? false,
-        file: t.file.replace(/\.png$/, ".webp"),
-      }));
+      // Migration: drop tiles with dead blob URLs (pre-IDB captures that
+      // can't be recovered), ensure fields exist, normalize legacy paths.
+      const tiles = (parsed.tiles || [])
+        .filter((t: TileItem) => typeof t?.file === "string" && !t.file.startsWith("blob:"))
+        .map((t: TileItem) => ({
+          ...t,
+          tags: t.tags || [],
+          favorite: t.favorite ?? false,
+          file: t.file.replace(/\.png$/, ".webp"),
+        }));
       return { tiles, wallpapers: parsed.wallpapers || [] };
     }
   } catch {}

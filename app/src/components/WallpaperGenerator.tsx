@@ -2,6 +2,77 @@
 
 import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from "react";
 import { getState, subscribe, addWallpaper, type TileItem } from "@/lib/store";
+import { isIdbRef, idbRefToId, getTileBlobUrl } from "@/lib/blob-storage";
+import { useTileFileUrl } from "@/lib/useTileFileUrl";
+
+function WallpaperTileThumb({
+  tile,
+  isSelected,
+  selIndex,
+  disabled,
+  onClick,
+}: {
+  tile: TileItem;
+  isSelected: boolean;
+  selIndex: number;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const url = useTileFileUrl(tile.file);
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: 64,
+        height: 64,
+        minWidth: 64,
+        borderRadius: 10,
+        overflow: "hidden",
+        border: "none",
+        padding: 0,
+        cursor: disabled && !isSelected ? "not-allowed" : "pointer",
+        outline: isSelected ? "2.5px solid #1a1a1a" : "2px solid transparent",
+        outlineOffset: 2,
+        opacity: disabled && !isSelected ? 0.35 : isSelected ? 1 : 0.65,
+        transition: "all 0.2s",
+        background: "#ece8e1",
+        flexShrink: 0,
+        position: "relative",
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      {url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={tile.name}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      )}
+      {isSelected && (
+        <div
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            width: 20,
+            height: 20,
+            borderRadius: 10,
+            background: "#1a1a1a",
+            color: "#fff",
+            fontSize: 11,
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {selIndex + 1}
+        </div>
+      )}
+    </button>
+  );
+}
 
 type PatternMode = "grid" | "mirror" | "brick" | "diamond" | "pinwheel";
 
@@ -217,16 +288,18 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
     let cancelled = false;
 
     Promise.all(
-      selected.map(
-        (tile) =>
-          new Promise<HTMLImageElement>((resolve) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => resolve(img);
-            img.onerror = () => resolve(img);
-            img.src = tile.file;
-          })
-      )
+      selected.map(async (tile) => {
+        const src = isIdbRef(tile.file)
+          ? await getTileBlobUrl(idbRefToId(tile.file))
+          : tile.file;
+        return new Promise<HTMLImageElement>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(img);
+          if (src) img.src = src;
+        });
+      })
     ).then((imgs) => {
       if (!cancelled) setLoadedImages(imgs);
     });
@@ -708,63 +781,16 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
           scrollbarWidth: "none",
         }}
       >
-        {tiles.map((tile) => {
-          const isSelected = selectedIds.includes(tile.id);
-          const selIndex = selectedIds.indexOf(tile.id);
-
-          return (
-            <button
-              key={tile.id}
-              onClick={() => toggleTile(tile.id)}
-              style={{
-                width: 64,
-                height: 64,
-                minWidth: 64,
-                borderRadius: 10,
-                overflow: "hidden",
-                border: "none",
-                padding: 0,
-                cursor: selectedIds.length >= 4 && !isSelected ? "not-allowed" : "pointer",
-                outline: isSelected ? "2.5px solid #1a1a1a" : "2px solid transparent",
-                outlineOffset: 2,
-                opacity: selectedIds.length >= 4 && !isSelected ? 0.35 : isSelected ? 1 : 0.65,
-                transition: "all 0.2s",
-                background: "#ece8e1",
-                flexShrink: 0,
-                position: "relative",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={tile.file}
-                alt={tile.name}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
-              {isSelected && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    width: 20,
-                    height: 20,
-                    borderRadius: 10,
-                    background: "#1a1a1a",
-                    color: "#fff",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {selIndex + 1}
-                </div>
-              )}
-            </button>
-          );
-        })}
+        {tiles.map((tile) => (
+          <WallpaperTileThumb
+            key={tile.id}
+            tile={tile}
+            isSelected={selectedIds.includes(tile.id)}
+            selIndex={selectedIds.indexOf(tile.id)}
+            disabled={selectedIds.length >= 4}
+            onClick={() => toggleTile(tile.id)}
+          />
+        ))}
       </div>
     </div>
   );
