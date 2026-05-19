@@ -1,19 +1,26 @@
-const CACHE_NAME = "tile-tales-v1";
+const CACHE_NAME = "tile-tales-v2";
 
-// Cache tile images and app shell on install
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => clients.claim())
+  );
 });
 
-// Cache-first strategy for images, network-first for everything else
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Cache-first for tile images and static assets
+  // Never intercept cross-origin requests — the browser handles CORS, caching,
+  // and integrity for those (e.g. CDN scripts, WASM). Intercepting them can
+  // taint the response and break <script> execution silently.
+  if (url.origin !== self.location.origin) return;
+
+  // Cache-first for tile images and static texture assets
   if (url.pathname.startsWith("/tiles/") || url.pathname.endsWith(".webp") || url.pathname.endsWith(".png")) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
@@ -30,7 +37,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Network-first for HTML/JS (always get latest)
+  // Network-first for everything else from our origin (always get latest)
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );

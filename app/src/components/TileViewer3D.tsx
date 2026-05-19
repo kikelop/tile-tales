@@ -5,7 +5,7 @@ import { ContactShadows, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { useState, useSyncExternalStore, Suspense, useRef, useCallback, useEffect, useMemo } from "react";
 import CropModal from "./CropModal";
-import ScanModal from "./ScanModal";
+import CameraScanner from "./CameraScanner";
 import { getState, subscribe, updateTile, deleteTile, toggleFavorite, addTile, generateTileId, type TileItem } from "@/lib/store";
 
 function useTextTexture(text: string, date: string) {
@@ -502,7 +502,7 @@ export default function TileViewer3D({
   }, [tiles]);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
-  const [pendingScanImage, setPendingScanImage] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [pendingCropImage, setPendingCropImage] = useState<string | null>(null);
   const [editingMemory, setEditingMemory] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -510,7 +510,6 @@ export default function TileViewer3D({
   const [dateDraft, setDateDraft] = useState("");
   const [tagsDraft, setTagsDraft] = useState("");
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const pendingGeo = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -522,11 +521,8 @@ export default function TileViewer3D({
   const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => setActiveIndex((i) => Math.min(tiles.length - 1, i + 1)), [tiles.length]);
 
-  const handleCameraCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPendingScanImage(URL.createObjectURL(file));
-    e.target.value = "";
+  const handleTakePhoto = useCallback(() => {
+    setCameraOpen(true);
     requestGeolocation().then((geo) => { pendingGeo.current = geo; });
   }, []);
 
@@ -552,14 +548,12 @@ export default function TileViewer3D({
 
   const handleScanConfirm = useCallback((warpedUrl: string) => {
     saveNewTile(warpedUrl);
-    if (pendingScanImage) URL.revokeObjectURL(pendingScanImage);
-    setPendingScanImage(null);
-  }, [pendingScanImage, saveNewTile]);
+    setCameraOpen(false);
+  }, [saveNewTile]);
 
   const handleScanCancel = useCallback(() => {
-    if (pendingScanImage) URL.revokeObjectURL(pendingScanImage);
-    setPendingScanImage(null);
-  }, [pendingScanImage]);
+    setCameraOpen(false);
+  }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
     saveNewTile(croppedUrl);
@@ -583,15 +577,7 @@ export default function TileViewer3D({
         touchAction: "none",
       }}
     >
-      {/* Hidden file inputs */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleCameraCapture}
-        style={{ display: "none" }}
-      />
+      {/* Hidden file input (gallery only — camera path uses CameraScanner) */}
       <input
         ref={galleryInputRef}
         type="file"
@@ -950,7 +936,7 @@ export default function TileViewer3D({
             <button
               onClick={() => {
                 setShowAddMenu(false);
-                cameraInputRef.current?.click();
+                handleTakePhoto();
               }}
               style={{
                 display: "flex",
@@ -1177,13 +1163,9 @@ export default function TileViewer3D({
         </div>
       )}
 
-      {/* Scan modal (camera path) */}
-      {pendingScanImage && (
-        <ScanModal
-          imageUrl={pendingScanImage}
-          onConfirm={handleScanConfirm}
-          onCancel={handleScanCancel}
-        />
+      {/* Camera scanner (camera path) */}
+      {cameraOpen && (
+        <CameraScanner onConfirm={handleScanConfirm} onCancel={handleScanCancel} />
       )}
 
       {/* Crop modal (gallery path) */}

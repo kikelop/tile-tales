@@ -5,16 +5,13 @@ import dynamic from "next/dynamic";
 import SplashScreen from "@/components/SplashScreen";
 import TileGrid from "@/components/TileGrid";
 import CropModal from "@/components/CropModal";
-import ScanModal from "@/components/ScanModal";
 import WallpaperGenerator from "@/components/WallpaperGenerator";
 import ScreenTransition from "@/components/ScreenTransition";
 import { addTile, generateTileId } from "@/lib/store";
 
 const TileMap = dynamic(() => import("@/components/TileMap"), { ssr: false });
-
-const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), {
-  ssr: false,
-});
+const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), { ssr: false });
+const CameraScanner = dynamic(() => import("@/components/CameraScanner"), { ssr: false });
 
 const MIN_SPLASH_MS = 2500;
 
@@ -38,10 +35,9 @@ function requestGeolocation(): Promise<{ lat: number; lng: number } | null> {
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>({ type: "splash" });
-  const [pendingScanImage, setPendingScanImage] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [pendingCropImage, setPendingCropImage] = useState<string | null>(null);
   const pendingGeo = useRef<{ lat: number; lng: number } | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Splash timer
@@ -54,11 +50,8 @@ export default function Home() {
     return () => clearTimeout(timeout);
   }, [screen.type]);
 
-  const handleCameraCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPendingScanImage(URL.createObjectURL(file));
-    e.target.value = "";
+  const handleTakePhoto = useCallback(() => {
+    setCameraOpen(true);
     requestGeolocation().then((geo) => { pendingGeo.current = geo; });
   }, []);
 
@@ -82,14 +75,12 @@ export default function Home() {
 
   const handleScanConfirm = useCallback((warpedUrl: string) => {
     saveTile(warpedUrl);
-    if (pendingScanImage) URL.revokeObjectURL(pendingScanImage);
-    setPendingScanImage(null);
-  }, [pendingScanImage, saveTile]);
+    setCameraOpen(false);
+  }, [saveTile]);
 
   const handleScanCancel = useCallback(() => {
-    if (pendingScanImage) URL.revokeObjectURL(pendingScanImage);
-    setPendingScanImage(null);
-  }, [pendingScanImage]);
+    setCameraOpen(false);
+  }, []);
 
   const handleCropConfirm = useCallback((croppedUrl: string) => {
     saveTile(croppedUrl);
@@ -104,15 +95,6 @@ export default function Home() {
 
   return (
     <>
-      {/* Hidden file inputs */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleCameraCapture}
-        style={{ display: "none" }}
-      />
       <input
         ref={galleryInputRef}
         type="file"
@@ -131,18 +113,11 @@ export default function Home() {
             <>
               <TileGrid
                 onSelectTile={(index) => setScreen({ type: "viewer", initialIndex: index })}
-                onTakePhoto={() => cameraInputRef.current?.click()}
+                onTakePhoto={handleTakePhoto}
                 onChooseLibrary={() => galleryInputRef.current?.click()}
                 onOpenWallpaper={() => setScreen({ type: "wallpaper" })}
                 onOpenMap={() => setScreen({ type: "map" })}
               />
-              {pendingScanImage && (
-                <ScanModal
-                  imageUrl={pendingScanImage}
-                  onConfirm={handleScanConfirm}
-                  onCancel={handleScanCancel}
-                />
-              )}
               {pendingCropImage && (
                 <CropModal
                   imageUrl={pendingCropImage}
@@ -171,6 +146,10 @@ export default function Home() {
             />
           )}
         </ScreenTransition>
+      )}
+
+      {cameraOpen && (
+        <CameraScanner onConfirm={handleScanConfirm} onCancel={handleScanCancel} />
       )}
     </>
   );
