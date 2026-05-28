@@ -90,6 +90,7 @@ export default function TileGrid({
   onOpenWallpaper,
   onOpenMap,
   onOpenAlbums,
+  onOpenStats,
 }: {
   onSelectTile: (index: number) => void;
   onTakePhoto: () => void;
@@ -97,6 +98,7 @@ export default function TileGrid({
   onOpenWallpaper: () => void;
   onOpenMap: () => void;
   onOpenAlbums: () => void;
+  onOpenStats: () => void;
 }) {
   const { tiles } = useStore();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -298,17 +300,34 @@ export default function TileGrid({
             >
               Tile Tales
             </h1>
-            <span
+            <button
+              onClick={() => { onOpenStats(); haptic(6); }}
+              aria-label="View stats"
               style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 0",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
                 fontSize: 13,
                 color: "var(--tt-muted)",
                 fontWeight: 500,
                 letterSpacing: "-0.01em",
-                flex: 1,
+                textAlign: "left",
+                WebkitTapHighlightColor: "transparent",
               }}
             >
               {counterText}
-            </span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                <path d="M3 3v18h18" />
+                <path d="M18 17V9" />
+                <path d="M13 17V5" />
+                <path d="M8 17v-3" />
+              </svg>
+            </button>
             <button
               aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               onClick={toggleTheme}

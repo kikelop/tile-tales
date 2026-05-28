@@ -98,6 +98,7 @@ export default function TileViewer3D({
   const [flipHintVisible, setFlipHintVisible] = useState(false);
   const {
     pendingImage,
+    queueCount,
     cameraInputRef,
     galleryInputRef,
     handleCapture,
@@ -173,6 +174,7 @@ export default function TileViewer3D({
         ref={galleryInputRef}
         type="file"
         accept="image/*"
+        multiple
         data-source="gallery"
         onChange={handleCapture}
         style={{ display: "none" }}
@@ -1005,6 +1007,7 @@ export default function TileViewer3D({
       {pendingImage && (
         <CropModal
           imageUrl={pendingImage}
+          queueCount={queueCount}
           onConfirm={handleCropConfirm}
           onCancel={handleCropCancel}
         />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { addTile, updateTile, generateTileId, getState } from "./store";
 import { readGeoForCapture, type GeoPoint } from "./geo";
 import { saveTileBlob, idToIdbRef } from "./blob-storage";
@@ -13,31 +13,60 @@ interface UseCaptureTileOptions {
   afterAdd?: (id: string) => void;
 }
 
+/** One image waiting to go through the crop modal, with its geo read already
+ * in flight (EXIF for gallery, GPS for camera) so it resolves while the user
+ * crops. */
+interface QueueItem {
+  url: string;
+  geo: Promise<GeoPoint | null> | null;
+}
+
 /**
  * Shared capture flow used by both the grid (page.tsx) and the viewer
- * (TileViewer3D.tsx). Owns: pending blob URL for the crop preview, the
- * geolocation promise that runs in parallel with the user's crop, IDB
- * persistence of the cropped blob, and the resulting addTile + lat/lng
- * patch when geo resolves.
+ * (TileViewer3D.tsx). Owns a QUEUE of pending images so a multi-select gallery
+ * import walks the crop modal one tile at a time. Per item it owns: the blob
+ * URL for the crop preview, the geolocation promise running in parallel with
+ * the crop, IDB persistence of the cropped blob, and the resulting addTile +
+ * lat/lng patch when geo resolves.
  */
 export function useCaptureTile(opts: UseCaptureTileOptions = {}) {
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const pendingGeo = useRef<Promise<GeoPoint | null> | null>(null);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const queueRef = useRef<QueueItem[]>([]);
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const { getTileName, afterAdd } = opts;
 
+  const pendingImage = queue[0]?.url ?? null;
+  const queueCount = queue.length;
+
   const handleCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     const source = (e.currentTarget.dataset.source as "camera" | "gallery") || "camera";
-    setPendingImage(URL.createObjectURL(file));
+    const items: QueueItem[] = files.map((file) => ({
+      url: URL.createObjectURL(file),
+      geo: readGeoForCapture(file, source),
+    }));
+    setQueue((prev) => [...prev, ...items]);
     e.target.value = "";
-    pendingGeo.current = readGeoForCapture(file, source);
+  }, []);
+
+  // Revoke the head's preview URL and drop it from the queue.
+  const dropHead = useCallback(() => {
+    setQueue((prev) => {
+      if (prev[0]) URL.revokeObjectURL(prev[0].url);
+      return prev.slice(1);
+    });
   }, []);
 
   const handleCropConfirm = useCallback(
     async (blob: Blob) => {
+      const item = queueRef.current[0];
+      const geoPromise = item?.geo ?? null;
+      const remaining = queueRef.current.length - 1;
+
       const id = generateTileId();
       let saved = false;
       try {
@@ -46,11 +75,7 @@ export function useCaptureTile(opts: UseCaptureTileOptions = {}) {
       } catch {
         toast("Couldn't save image");
       }
-      // Revoke the crop preview URL whether or not the save succeeded.
-      setPendingImage((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return null;
-      });
+      dropHead();
       if (!saved) return;
 
       const count = getState().tiles.length;
@@ -64,28 +89,25 @@ export function useCaptureTile(opts: UseCaptureTileOptions = {}) {
         tags: [],
         favorite: false,
       });
-      const geoPromise = pendingGeo.current;
-      pendingGeo.current = null;
       if (geoPromise) {
-        geoPromise.then((geo) => {
+        void geoPromise.then((geo) => {
           if (geo) updateTile(id, { lat: geo.lat, lng: geo.lng });
         });
       }
       afterAdd?.(id);
-      toast("Tile saved");
+      toast(remaining > 0 ? `Tile saved · ${remaining} left` : "Tile saved");
     },
-    [getTileName, afterAdd]
+    [getTileName, afterAdd, dropHead]
   );
 
+  // Cancel skips the current image and advances to the next in the queue.
   const handleCropCancel = useCallback(() => {
-    setPendingImage((current) => {
-      if (current) URL.revokeObjectURL(current);
-      return null;
-    });
-  }, []);
+    dropHead();
+  }, [dropHead]);
 
   return {
     pendingImage,
+    queueCount,
     cameraInputRef,
     galleryInputRef,
     handleCapture,

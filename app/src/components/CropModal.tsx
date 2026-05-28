@@ -6,11 +6,13 @@ interface CropModalProps {
   imageUrl: string;
   onConfirm: (blob: Blob) => void;
   onCancel: () => void;
+  /** Number of images still waiting in the import queue, including this one. */
+  queueCount?: number;
 }
 
 const CROP_SIZE = 1024;
 
-export default function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
+export default function CropModal({ imageUrl, onConfirm, onCancel, queueCount = 1 }: CropModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
@@ -279,6 +281,27 @@ export default function CropModal({ imageUrl, onConfirm, onCancel }: CropModalPr
           }}
         />
         <CropOverlay containerRef={containerRef} />
+        {queueCount > 1 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "max(16px, env(safe-area-inset-top, 16px))",
+              left: "50%",
+              transform: "translateX(-50%)",
+              padding: "6px 14px",
+              borderRadius: 16,
+              background: "rgba(0,0,0,0.6)",
+              backdropFilter: "blur(8px)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
+              pointerEvents: "none",
+            }}
+          >
+            {queueCount} photos left
+          </div>
+        )}
       </div>
 
       {/* Controls */}
@@ -314,7 +337,7 @@ export default function CropModal({ imageUrl, onConfirm, onCancel }: CropModalPr
         }}
       >
         <button onClick={onCancel} style={btnStyle("#333", "#fff")}>
-          Cancel
+          {queueCount > 1 ? "Skip" : "Cancel"}
         </button>
         <button onClick={handleConfirm} style={btnStyle("#fff", "#000")}>
           Use photo
