@@ -106,6 +106,9 @@ Splash → Grid (home) → Viewer 3D
 30. Onboarding banner para nuevos usuarios + tap en canvas para pausar/reanudar auto-rotate.
 31. **Dark mode** (system + toggle manual). CSS variables centralizadas en `globals.css`, inline boot script en layout.tsx evita flash al cargar, `theme-color` meta media-aware.
 32. **Collections / Albums**. Modelo en store + vista de albums + detalle + chips de seleccion en el modal de edit. Borrar un tile lo quita de cualquier album automaticamente.
+33. **Import multiple**. `useCaptureTile` gestiona una COLA de imagenes pendientes (antes una sola). El `<input>` de galeria lleva `multiple`; cada foto recorre el crop modal una a una con su lectura EXIF/GPS propia en paralelo. CropModal muestra pill "N photos left" y cambia Cancel→Skip durante el lote; cada guardado avisa "Tile saved · N left".
+34. **Stats screen** (`StatsView.tsx`). El contador de tiles del header del grid (ahora boton con glifo de grafica) la abre. Hero total + captured-by-you, cards de Favorites/Located/Countries/Albums, barras de top-tags y desglose por lugar resuelto con `reverseGeocode` (sembrado desde cache, relleno secuencial para respetar rate limit de Nominatim).
+35. **Deep linking**. Hash routing en `page.tsx` (`#/tile/3`, `#/album/<id>`, `#/stats`…). Sync pantalla↔hash con `popstate`: el boton atras del navegador funciona y los links a tile/album son compartibles. Primera nav hace `replaceState`, el resto `pushState`.
 
 ## Proximos pasos (proxima sesion)
 ### 1. Retocar UX del location editor

@@ -1,5 +1,31 @@
 # Tile Tales - Log de Actualizaciones
 
+## 2026-05-28 — F7: cierre de Sprint 3 (multi-import + stats + deep linking)
+
+Commit `e37c586`. Los tres items que faltaban del Sprint 3 del AUDIT (Albums y Dark mode ya se hicieron en F6). Con esto **Sprint 3 queda completo**. Build verde, 14/14 tests, deploy manual a prod (`app-five-xi-20.vercel.app`).
+
+### Import multiple
+`lib/useCaptureTile.ts` pasa de imagen única a una **cola** de `QueueItem[]` (`{ url, geo }`). `handleCapture` lee `e.target.files` completo y encola un item por foto, cada uno con su `readGeoForCapture` (EXIF para galeria, GPS para camara) ya en vuelo. `pendingImage = queue[0]?.url`. Un `queueRef` espeja la cola para que `handleCropConfirm` lea el geo del head sin closure stale. `dropHead` revoca el object URL del head y hace `slice(1)`. Cancel = skip del item actual (avanza la cola), no cancela el lote entero.
+- El `<input>` de galeria (en `page.tsx` y `TileViewer3D.tsx`) lleva `multiple`. El de camara sigue single (`capture`).
+- `CropModal` recibe `queueCount`: pill "N photos left" arriba del crop + boton Cancel→**Skip** cuando hay lote. Cada guardado toasta "Tile saved · N left" (o "Tile saved" si es el ultimo).
+
+### Stats screen
+`components/StatsView.tsx`, pantalla nueva. Se abre desde el **contador de tiles del header del grid**, que ahora es un boton (con glifo de barras) — sin añadir clutter a la bottom bar. Contenido:
+- Hero: total + "N captured by you" (cuenta de `isIdbRef`).
+- Cards: Favorites / Located / Countries / Albums.
+- Top tags: barras horizontales normalizadas al tag mas usado.
+- Places: desglose "City, Country → count". Resuelto con `usePlaceLabels`, que siembra del cache de `reverseGeocode` (sync, sin request) y rellena los que falten **secuencialmente** en un effect para respetar el rate limit ~1req/s de Nominatim. La seccion muestra "loading…" mientras quedan coords sin resolver.
+
+### Deep linking
+Hash routing en `page.tsx`. `screenToHash`/`hashToScreen` mapean el `Screen` interno a `#/`, `#/tile/3`, `#/wallpaper`, `#/map`, `#/albums`, `#/album/<id>`, `#/stats`. Dos effects:
+- `popstate` → `setScreen(hashToScreen(hash))` con flag `skipPush` para no re-empujar.
+- cambio de `screen` → `pushState` del hash, salvo si vino de popstate. La primera nav real usa `replaceState` (ref `initialNav`) para que el back desde el grid salga limpio en vez de quedarse en bucle.
+- El splash, al terminar, navega a `hashToScreen(location.hash)` en vez de forzar grid → un link a `#/tile/2` abre ese tile tras el splash.
+- Caveat: el indice del viewer es posicional, no estable si cambian los tiles. Aceptable para back/share.
+
+### Lint
+Los 6 errors siguen siendo preexistentes (`set-state-in-effect` en CropModal/TileViewer3D + immutability R3F en refs). Los archivos nuevos solo añaden los warnings habituales de floating-promise, marcados con `void`.
+
 ## 2026-03-31 — Setup inicial del proyecto
 - Creada estructura de carpetas del proyecto en `/Documents/tile-tales/`
 - Archivos de contexto: CLAUDE.md, PROJECT.md, UPDATES.md, DECISIONS.md, ROADMAP.md, REFERENCES.md
