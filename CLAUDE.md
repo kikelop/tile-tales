@@ -115,6 +115,14 @@ Splash → Grid (home) → Viewer 3D
 39. **Export / Import backup**. `lib/backup.ts` (jszip dynamic-imported). Export → ZIP con `collection.json` (tiles+albums) + `blobs/<id>` por cada tile capturado (los samples van por path, no se empaquetan). Import → restaura blobs a IDB y mergea metadata por id (idempotente, salta los ya existentes; descarta tiles capturados sin blob en el ZIP). UI en la pantalla de Stats (seccion Backup). `store.importData` hace el merge. Tests en `backup.test.ts` (round-trip, ghost-blob skip, manifest invalido) + `store.test.ts` (importData dedup).
 
 ## Proximos pasos (proxima sesion)
+
+### 🎯 OBJETIVO DE LA PROXIMA SESION: review integral para dejar la app terminada
+Kike quiere hacer **review de TODAS las features** (las 39, F1→F8) y pulir lo que no esté como a él le gusta, para dar la app por **terminada** a su gusto. No es seguir metiendo features nuevas — es auditar, criticar y rematar lo existente.
+- **Como arrancar**: abrir prod (`app-five-xi-20.vercel.app`) en movil y desktop, recorrer pantalla por pantalla (Splash → Grid → Viewer → Map → Wallpaper → Albums → Stats → CropModal) en claro Y oscuro. Anotar fricciones.
+- **Candidatos calientes ya conocidos** (de los pendientes de abajo): dark mode del edit sheet del viewer + WallpaperGenerator (siguen claros, cantan en dark), split del TileEditSheet, picker en mini-mapa, clustering del mapa.
+- **Forma de trabajo**: Kike lidera el review (el conoce su gusto); Claude ejecuta los arreglos. Probable que convenga un pase de pulido transversal (ritmo, anchos, consistencia de copy EN, microinteracciones) como se hizo en el portfolio.
+- Lo de abajo es el inventario de pendientes que alimenta ese review.
+
 ### 1. Retocar UX del location editor
 - ~~Truncar `display_name` verboso de Nominatim~~ → hecho en F8 (`trimDisplayName`).
 - ~~Feedback visual entre "Use my location" y el resultado~~ → hecho en F8 (fila verde + "naming…").
