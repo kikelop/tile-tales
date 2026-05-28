@@ -109,22 +109,22 @@ Splash → Grid (home) → Viewer 3D
 33. **Import multiple**. `useCaptureTile` gestiona una COLA de imagenes pendientes (antes una sola). El `<input>` de galeria lleva `multiple`; cada foto recorre el crop modal una a una con su lectura EXIF/GPS propia en paralelo. CropModal muestra pill "N photos left" y cambia Cancel→Skip durante el lote; cada guardado avisa "Tile saved · N left".
 34. **Stats screen** (`StatsView.tsx`). El contador de tiles del header del grid (ahora boton con glifo de grafica) la abre. Hero total + captured-by-you, cards de Favorites/Located/Countries/Albums, barras de top-tags y desglose por lugar resuelto con `reverseGeocode` (sembrado desde cache, relleno secuencial para respetar rate limit de Nominatim).
 35. **Deep linking**. Hash routing en `page.tsx` (`#/tile/3`, `#/album/<id>`, `#/stats`…). Sync pantalla↔hash con `popstate`: el boton atras del navegador funciona y los links a tile/album son compartibles. Primera nav hace `replaceState`, el resto `pushState`.
+36. **Map polish**. Filtro por tags (chips abajo, solo tags presentes en tiles geolocalizadas) + boton flotante "mi ubicacion" (`requestGeolocation` → `flyTo` zoom 13) + dark mode real del mapa (basemap carto `dark_all` vs `light_all` segun tema, header/chips theme-aware via MutationObserver). Clustering (markercluster) **deliberadamente pospuesto**: react-leaflet v5 no tiene integracion estable, merece pasada dedicada.
+37. **Location editor polish**. `searchPlaces` trunca el `display_name` verboso de Nominatim a "primer segmento, pais" (`trimDisplayName`). La fila de localizacion del editor tiene feedback visual: fondo/borde verde + pin relleno cuando hay ubicacion, y "lat, lng · naming…" mientras resuelve el reverse geocode.
+38. **Dark mode en popovers/modales**. Nuevas vars `--tt-popover-bg`/`--tt-popover-divider`/`--tt-input-bg`/`--tt-input-border` en globals.css. Aplicadas a sort menu + add menu (TileGrid) y al modal de crear album (Albums). PENDIENTE aun: el modal de edit del viewer (TileViewer3D) y WallpaperGenerator siguen claros — son superficies grandes, pasada propia.
+39. **Export / Import backup**. `lib/backup.ts` (jszip dynamic-imported). Export → ZIP con `collection.json` (tiles+albums) + `blobs/<id>` por cada tile capturado (los samples van por path, no se empaquetan). Import → restaura blobs a IDB y mergea metadata por id (idempotente, salta los ya existentes; descarta tiles capturados sin blob en el ZIP). UI en la pantalla de Stats (seccion Backup). `store.importData` hace el merge. Tests en `backup.test.ts` (round-trip, ghost-blob skip, manifest invalido) + `store.test.ts` (importData dedup).
 
 ## Proximos pasos (proxima sesion)
 ### 1. Retocar UX del location editor
-Funciona pero hay margen para pulirlo:
-- Resultados de Nominatim a veces son verbosos ("Lisboa, Área Metropolitana de Lisboa, Portugal, Europa, ...") — truncar / quedarse con los primeros 2-3 segmentos.
-- Picker en mini-mapa como alternativa al buscador (mas visual). Pendiente decidir si compensa el espacio extra en el bottom sheet.
-- Feedback visual mas claro entre "Use my location" y el resultado (transicion del display).
-
-### 1bis. Posibles refinamientos sobre el fix de IndexedDB
-- ~~Toast en el primer load tras migration~~ → hecho en F1 (sesion 2026-05-20).
-- Boton "Export collection" que vuelque tiles + blobs a un ZIP descargable (Sprint 3 del AUDIT). Antes era inviable porque los blobs eran fantasma; ahora es real.
+- ~~Truncar `display_name` verboso de Nominatim~~ → hecho en F8 (`trimDisplayName`).
+- ~~Feedback visual entre "Use my location" y el resultado~~ → hecho en F8 (fila verde + "naming…").
+- Picker en mini-mapa como alternativa al buscador (mas visual). Pendiente decidir si compensa el espacio extra en el bottom sheet. **Unico item vivo de este bloque.**
 
 ### 2. Pendientes documentados (no urgentes)
-- Dark mode aplicado a chrome principal (grid + viewer outer + map). Modales y popovers se quedan claros. Si se quiere consistencia total, hay que pasar el modal de edit (TileViewer3D), el modal de crear album (Albums), CropModal y WallpaperGenerator a vars CSS.
-- Split del modal de edit del viewer (TileEditSheet) sigue pendiente. La logica de albums/location/memory esta densamente acoplada al outer; merece su propia sesion.
-- ESLint rules `no-floating-promises` + `no-misused-promises` ya estan activas como warning. Quedan ~12 warnings sin atacar (mostly `void` operator faltante en fire-and-forget que son intencionales).
+- **Dark mode de las superficies grandes que quedan claras**: el modal de edit del viewer (TileViewer3D) y WallpaperGenerator. Son muchas lineas de inline styles hardcoded (#faf8f5/#1a1a1a/#e0d8cc); ya existen las vars `--tt-popover-bg`/`--tt-input-*` para reusar. CropModal se queda negro a proposito (crop fullscreen tipo iOS). Los popovers y el modal de album YA estan migrados (F8).
+- **Map clustering** (markercluster): pospuesto en F8 — react-leaflet v5 no tiene wrapper estable, requiere implementacion propia o integracion manual cuidada. El filtro por tags y el boton "mi ubicacion" ya estan.
+- Split del modal de edit del viewer (TileEditSheet) sigue pendiente. La logica de albums/location/memory esta densamente acoplada al outer; merece su propia sesion. Se solaparia con el dark mode de ese modal — hacerlos juntos.
+- ESLint rules `no-floating-promises` + `no-misused-promises` activas como warning. Quedan ~12 warnings intencionales (`void` faltante en fire-and-forget).
 
 ### 3. iOS app
 - Instalar Xcode (requiere macOS actualizado)

@@ -161,6 +161,26 @@ export function addTile(tile: TileItem) {
   notify();
 }
 
+/** Merges imported tiles and albums into the current state, skipping any whose
+ * id already exists (so restoring a backup is idempotent). Blobs for captured
+ * tiles must already be written to IDB by the caller. */
+export function importData(incoming: { tiles: TileItem[]; albums: Album[] }): {
+  addedTiles: number;
+  addedAlbums: number;
+} {
+  const tileIds = new Set(state.tiles.map((t) => t.id));
+  const newTiles = (incoming.tiles || []).filter((t) => t?.id && !tileIds.has(t.id));
+  const albumIds = new Set(state.albums.map((a) => a.id));
+  const newAlbums = (incoming.albums || []).filter((a) => a?.id && !albumIds.has(a.id));
+  state = {
+    ...state,
+    tiles: [...state.tiles, ...newTiles],
+    albums: [...state.albums, ...newAlbums],
+  };
+  notify();
+  return { addedTiles: newTiles.length, addedAlbums: newAlbums.length };
+}
+
 export function addWallpaper(dataUrl: string): SavedWallpaper {
   const wp: SavedWallpaper = { id: `wp-${Date.now()}`, dataUrl, createdAt: Date.now() };
   state = { ...state, wallpapers: [wp, ...state.wallpapers] };

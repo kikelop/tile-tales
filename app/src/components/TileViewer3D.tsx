@@ -722,28 +722,38 @@ export default function TileViewer3D({
                   gap: 8,
                   padding: "10px 12px",
                   borderRadius: 12,
-                  background: "#faf8f5",
-                  border: "1px solid #e0d8cc",
+                  background: geoDraft ? "#f1f5ee" : "#faf8f5",
+                  border: `1px solid ${geoDraft ? "#cfe0c2" : "#e0d8cc"}`,
+                  transition: "background 0.25s ease, border-color 0.25s ease",
                 }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={geoDraft ? "#1a1a1a" : "#b8b0a3"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={geoDraft ? "#5a8a3c" : "none"} stroke={geoDraft ? "#5a8a3c" : "#b8b0a3"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.25s ease, fill 0.25s ease", flexShrink: 0 }}>
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
+                  <circle cx="12" cy="10" r="3" fill="#fff" stroke={geoDraft ? "#5a8a3c" : "#b8b0a3"} />
                 </svg>
                 <span
                   style={{
                     flex: 1,
                     fontSize: 13,
                     color: geoDraft ? "#1a1a1a" : "#9a9288",
-                    fontVariantNumeric: geoLabel ? "normal" : "tabular-nums",
+                    fontVariantNumeric: geoDraft && !geoLabel ? "tabular-nums" : "normal",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {geoDraft
-                    ? geoLabel ?? `${geoDraft.lat.toFixed(4)}, ${geoDraft.lng.toFixed(4)}`
-                    : "No location"}
+                  {geoDraft ? (
+                    geoLabel ? (
+                      geoLabel
+                    ) : (
+                      <>
+                        {`${geoDraft.lat.toFixed(4)}, ${geoDraft.lng.toFixed(4)}`}
+                        <span style={{ color: "#9a9288" }}> · naming…</span>
+                      </>
+                    )
+                  ) : (
+                    "No location"
+                  )}
                 </span>
                 {geoDraft && (
                   <button

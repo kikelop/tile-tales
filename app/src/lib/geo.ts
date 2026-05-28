@@ -155,6 +155,15 @@ export async function reverseGeocode(
   return promise;
 }
 
+// Nominatim display_name is verbose ("Lisboa, Área Metropolitana de Lisboa,
+// Portugal, Europa, ..."). Keep the first segment (the place) and the last
+// (the country) so the picker shows "Lisboa, Portugal".
+function trimDisplayName(name: string): string {
+  const parts = name.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length <= 2) return parts.join(", ");
+  return [parts[0], parts[parts.length - 1]].join(", ");
+}
+
 export async function searchPlaces(
   query: string,
   signal?: AbortSignal
@@ -179,7 +188,8 @@ export async function searchPlaces(
         const lat = d.lat ? parseFloat(d.lat) : NaN;
         const lng = d.lon ? parseFloat(d.lon) : NaN;
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        return { label: d.display_name ?? `${lat}, ${lng}`, lat, lng };
+        const label = d.display_name ? trimDisplayName(d.display_name) : `${lat}, ${lng}`;
+        return { label, lat, lng };
       })
       .filter((x): x is PlaceResult => x !== null);
   } catch {

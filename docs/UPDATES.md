@@ -1,5 +1,35 @@
 # Tile Tales - Log de Actualizaciones
 
+## 2026-05-28 — F8: vaciar el backlog viable (map polish + location editor + dark modales + backup)
+
+Misma sesion que F7. "Tirar con todo lo pendiente" antes de una auditoria del usuario. Se cierran los items del backlog que NO estan bloqueados (iOS necesita Xcode, Supabase es multi-sesion, el scan esta pospuesto a nativo). Build verde, **19/19 tests** (5 nuevos), deploy manual a prod.
+
+### Map polish (AUDIT seccion 6)
+`TileMap.tsx` reescrito:
+- **Filtro por tags**: barra de chips abajo, solo los tags presentes en tiles geolocalizadas. `activeTag` filtra los markers.
+- **Boton "mi ubicacion"**: flotante abajo-derecha, `requestGeolocation()` → `map.flyTo([lat,lng], 13)`. Spinner mientras pide, toast si falla. Usa `mapRef` (ref de MapContainer en react-leaflet v5).
+- **Dark mode real del mapa**: basemap carto `dark_all` vs `light_all` segun tema (key fuerza remount del TileLayer al cambiar), header + chips theme-aware via MutationObserver sobre `data-theme`. Antes el header iba hardcoded claro sobre el mapa.
+- **Clustering (6.1) pospuesto a proposito**: react-leaflet v5 no tiene wrapper de markercluster mantenido; meterlo a mano es fragil. Documentado, no hecho.
+
+### Location editor (AUDIT 1.x / pendientes)
+- `geo.ts` `trimDisplayName`: el `display_name` de Nominatim ("Lisboa, Área Metropolitana de Lisboa, Portugal, Europa…") se reduce a "primer segmento, pais" → "Lisboa, Portugal" en los resultados de busqueda. Los de 2 segmentos quedan intactos (el test existente sigue verde).
+- Feedback visual en la fila de localizacion del modal de edit: fondo/borde verde suave + pin relleno cuando hay ubicacion (con transicion 0.25s), y "lat, lng · naming…" mientras el reverse geocode resuelve el nombre.
+
+### Dark mode en popovers/modales
+Nuevas vars en `globals.css`: `--tt-popover-bg`, `--tt-popover-divider`, `--tt-input-bg`, `--tt-input-border` (light + dark). Aplicadas a:
+- Sort menu + Add menu de TileGrid (eran `#fff` fijo → se veian como parche blanco en dark).
+- Modal de crear album (Albums.tsx).
+- CropModal se deja negro a proposito. El modal de edit del viewer y WallpaperGenerator quedan PENDIENTES (superficies grandes, pasada propia — anotado en CLAUDE.md).
+
+### Export / Import backup (AUDIT alta prioridad)
+- `lib/backup.ts` con `jszip` dynamic-imported (patron de exifr). `exportCollection()` → ZIP con `collection.json` (manifest v1: tiles + albums) + `blobs/<id>` por cada tile capturado (`isIdbRef`); los samples van por path y no se empaquetan. `importCollection(file)` → escribe los blobs de vuelta a IDB y mergea metadata.
+- `store.importData({tiles, albums})`: merge por id, salta los ya existentes (idempotente). Tiles capturados cuyo blob no esta en el ZIP se descartan (renderizarian roto).
+- UI en la pantalla de Stats, seccion "Backup": Export (descarga `tile-tales-backup-YYYY-MM-DD.zip`) + Import (file input `.zip`), con toasts de conteo.
+- Tests: `backup.test.ts` (round-trip del manifest, merge de sample tiles, skip de ghost-blob, rechazo de ZIP sin manifest) + `store.test.ts` (importData dedup + idempotencia).
+
+### Estado del backlog tras F8
+Vivo y no bloqueado: picker en mini-mapa (opcional), dark mode del edit sheet + WallpaperGenerator (+ split TileEditSheet, hacer juntos), clustering del mapa. Bloqueado: iOS (Xcode), Supabase (scope grande), scan (nativo).
+
 ## 2026-05-28 — F7: cierre de Sprint 3 (multi-import + stats + deep linking)
 
 Commit `e37c586`. Los tres items que faltaban del Sprint 3 del AUDIT (Albums y Dark mode ya se hicieron en F6). Con esto **Sprint 3 queda completo**. Build verde, 14/14 tests, deploy manual a prod (`app-five-xi-20.vercel.app`).

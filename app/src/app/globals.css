@@ -17,6 +17,11 @@
   --tt-chip-bg: rgba(0, 0, 0, 0.06);
   --tt-chip-bg-active: #1a1a1a;
   --tt-chip-fg-active: #ffffff;
+  /* Solid surfaces: popovers (sort/add menus) and bottom-sheet modals. */
+  --tt-popover-bg: #ffffff;
+  --tt-popover-divider: #f0ece6;
+  --tt-input-bg: #faf8f5;
+  --tt-input-border: #e0d8cc;
 }
 
 :root[data-theme="dark"] {
@@ -32,6 +37,10 @@
   --tt-chip-bg: rgba(255, 255, 255, 0.08);
   --tt-chip-bg-active: #f0ece4;
   --tt-chip-fg-active: #1a1a1a;
+  --tt-popover-bg: #262626;
+  --tt-popover-divider: rgba(255, 255, 255, 0.08);
+  --tt-input-bg: #1e1e1e;
+  --tt-input-border: rgba(255, 255, 255, 0.12);
 }
 
 @theme inline {

@@ -212,14 +212,14 @@ export default function Albums({
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: "#fff",
-              color: "#1a1a1a",
+              background: "var(--tt-popover-bg)",
+              color: "var(--tt-fg)",
               borderRadius: "20px 20px 0 0",
               padding: "24px 24px max(24px, env(safe-area-inset-bottom, 24px))",
               width: "100%",
             }}
           >
-            <p style={{ margin: "0 0 12px", fontSize: 13, color: "#8a8578" }}>Album name</p>
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--tt-muted)" }}>Album name</p>
             <input
               autoFocus
               value={newName}
@@ -230,12 +230,12 @@ export default function Albums({
                 width: "100%",
                 padding: 12,
                 borderRadius: 12,
-                border: "1px solid #e0d8cc",
-                background: "#faf8f5",
+                border: "1px solid var(--tt-input-border)",
+                background: "var(--tt-input-bg)",
                 fontSize: 16,
                 outline: "none",
                 boxSizing: "border-box",
-                color: "#1a1a1a",
+                color: "var(--tt-fg)",
               }}
             />
             <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
@@ -245,12 +245,12 @@ export default function Albums({
                   flex: 1,
                   padding: "12px 0",
                   borderRadius: 12,
-                  border: "1px solid #e0d8cc",
+                  border: "1px solid var(--tt-input-border)",
                   background: "transparent",
                   fontSize: 15,
                   fontWeight: 600,
                   cursor: "pointer",
-                  color: "#1a1a1a",
+                  color: "var(--tt-fg)",
                 }}
               >
                 Cancel
@@ -263,8 +263,8 @@ export default function Albums({
                   padding: "12px 0",
                   borderRadius: 12,
                   border: "none",
-                  background: newName.trim() ? "#1a1a1a" : "#bbb6ad",
-                  color: "#fff",
+                  background: newName.trim() ? "var(--tt-chip-bg-active)" : "var(--tt-chip-bg)",
+                  color: newName.trim() ? "var(--tt-chip-fg-active)" : "var(--tt-muted)",
                   fontSize: 15,
                   fontWeight: 600,
                   cursor: newName.trim() ? "pointer" : "default",

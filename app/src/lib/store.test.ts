@@ -35,4 +35,30 @@ describe("store.loadState migration", () => {
     for (let i = 0; i < 100; i++) ids.add(store.generateTileId());
     expect(ids.size).toBe(100);
   });
+
+  it("importData adds new tiles/albums and skips ids that already exist", async () => {
+    const store = await import("./store");
+    const before = store.getState().tiles.length;
+
+    const res = store.importData({
+      tiles: [
+        { id: "import-1", name: "Imported", file: "/tiles/x.webp", memory: "", date: "", tags: [], favorite: false },
+        // collides with a default mock id → must be skipped
+        { id: "t1", name: "Dup", file: "/tiles/dup.webp", memory: "", date: "", tags: [], favorite: false },
+      ],
+      albums: [{ id: "alb-1", name: "Trip", tileIds: ["import-1"], createdAt: 1 }],
+    });
+
+    expect(res).toEqual({ addedTiles: 1, addedAlbums: 1 });
+    expect(store.getState().tiles.length).toBe(before + 1);
+    expect(store.getState().tiles.some((t) => t.id === "import-1")).toBe(true);
+    expect(store.getState().albums.some((a) => a.id === "alb-1")).toBe(true);
+
+    // Re-importing the same payload is idempotent.
+    const again = store.importData({
+      tiles: [{ id: "import-1", name: "Imported", file: "/tiles/x.webp", memory: "", date: "", tags: [], favorite: false }],
+      albums: [{ id: "alb-1", name: "Trip", tileIds: [], createdAt: 1 }],
+    });
+    expect(again).toEqual({ addedTiles: 0, addedAlbums: 0 });
+  });
 });

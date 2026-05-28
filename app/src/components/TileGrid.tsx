@@ -428,7 +428,8 @@ export default function TileGrid({
               position: "fixed",
               top: "max(64px, env(safe-area-inset-top, 16px) + 56px)",
               right: 16,
-              background: "#fff",
+              background: "var(--tt-popover-bg)",
+              color: "var(--tt-fg)",
               borderRadius: 14,
               boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
               overflow: "hidden",
@@ -447,11 +448,11 @@ export default function TileGrid({
                   width: "100%",
                   padding: "12px 16px",
                   border: "none",
-                  borderTop: i === 0 ? "none" : "1px solid #f0ece6",
+                  borderTop: i === 0 ? "none" : "1px solid var(--tt-popover-divider)",
                   background: "transparent",
                   cursor: "pointer",
                   fontSize: 14,
-                  color: "#1a1a1a",
+                  color: "var(--tt-fg)",
                   WebkitTapHighlightColor: "transparent",
                   fontWeight: sortMode === mode ? 600 : 400,
                   textAlign: "left",
@@ -459,7 +460,7 @@ export default function TileGrid({
               >
                 <span>{sortLabel[mode]}</span>
                 {sortMode === mode && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}
@@ -729,7 +730,8 @@ export default function TileGrid({
               position: "fixed",
               bottom: "max(70px, calc(env(safe-area-inset-bottom, 10px) + 70px))",
               right: "max(12px, env(safe-area-inset-right, 12px))",
-              background: "#fff",
+              background: "var(--tt-popover-bg)",
+              color: "var(--tt-fg)",
               borderRadius: 14,
               boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
               overflow: "hidden",
@@ -741,12 +743,12 @@ export default function TileGrid({
               onClick={() => { setShowAddMenu(false); onTakePhoto(); }}
               style={{
                 display: "flex", alignItems: "center", gap: 12, width: "100%",
-                padding: "14px 18px", border: "none", borderBottom: "1px solid #f0ece6",
-                background: "transparent", cursor: "pointer", fontSize: 15, color: "#1a1a1a",
+                padding: "14px 18px", border: "none", borderBottom: "1px solid var(--tt-popover-divider)",
+                background: "transparent", cursor: "pointer", fontSize: 15, color: "var(--tt-fg)",
                 WebkitTapHighlightColor: "transparent",
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                 <circle cx="12" cy="13" r="4" />
               </svg>
@@ -757,11 +759,11 @@ export default function TileGrid({
               style={{
                 display: "flex", alignItems: "center", gap: 12, width: "100%",
                 padding: "14px 18px", border: "none", background: "transparent",
-                cursor: "pointer", fontSize: 15, color: "#1a1a1a",
+                cursor: "pointer", fontSize: 15, color: "var(--tt-fg)",
                 WebkitTapHighlightColor: "transparent",
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <polyline points="21 15 16 10 5 21" />
