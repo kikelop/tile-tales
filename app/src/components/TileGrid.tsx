@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore
 import { getState, subscribe, getAllTags, type TileItem } from "@/lib/store";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
 import { haptic } from "@/lib/haptic";
-import { isIdbRef } from "@/lib/blob-storage";
 
 const ONBOARDING_DISMISSED_KEY = "tile-tales-onboarding-dismissed";
 
@@ -18,6 +17,19 @@ function loadSortPref(): SortMode {
     if (raw === "recent" || raw === "az" || raw === "favorites") return raw;
   } catch {}
   return "recent";
+}
+
+type GridSize = "L" | "M" | "S";
+const GRID_SIZE_KEY = "tile-tales-grid-size";
+const SIZE_TO_COLS: Record<GridSize, number> = { L: 2, M: 3, S: 5 };
+const SIZE_LABEL: Record<GridSize, string> = { L: "Large", M: "Medium", S: "Small" };
+function loadGridSize(): GridSize {
+  if (typeof window === "undefined") return "M";
+  try {
+    const raw = localStorage.getItem(GRID_SIZE_KEY);
+    if (raw === "L" || raw === "M" || raw === "S") return raw;
+  } catch {}
+  return "M";
 }
 
 function TileThumb({ tile, onClick }: { tile: TileItem; onClick: () => void }) {
@@ -102,10 +114,11 @@ export default function TileGrid({
   const { tiles } = useStore();
   const [activeFilter, setActiveFilter] = useState("all");
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const [columns, setColumns] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 ? 5 : 3);
+  const [gridSize, setGridSizeState] = useState<GridSize>(() => loadGridSize());
+  const [columns, setColumns] = useState(() => SIZE_TO_COLS[loadGridSize()]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showViewMenu, setShowViewMenu] = useState(false);
   const [sortMode, setSortModeState] = useState<SortMode>(() => loadSortPref());
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -119,6 +132,12 @@ export default function TileGrid({
   const setSortMode = useCallback((mode: SortMode) => {
     setSortModeState(mode);
     try { localStorage.setItem(SORT_STORAGE_KEY, mode); } catch {}
+  }, []);
+
+  const setGridSize = useCallback((size: GridSize) => {
+    setGridSizeState(size);
+    setColumns(SIZE_TO_COLS[size]);
+    try { localStorage.setItem(GRID_SIZE_KEY, size); } catch {}
   }, []);
 
   const filters = useMemo(() => {
@@ -211,8 +230,7 @@ export default function TileGrid({
     favorites: "Favorites first",
   };
 
-  const hasOwnTiles = useMemo(() => tiles.some((t) => isIdbRef(t.file)), [tiles]);
-  const showOnboarding = !hasOwnTiles && !onboardingDismissed;
+  const showOnboarding = tiles.length === 0 && !onboardingDismissed;
   const dismissOnboarding = useCallback(() => {
     setOnboardingDismissed(true);
     try { localStorage.setItem(ONBOARDING_DISMISSED_KEY, "1"); } catch {}
@@ -255,7 +273,7 @@ export default function TileGrid({
                 borderRadius: 14,
                 border: "1px solid #e0d8cc",
                 background: "#faf8f5",
-                fontSize: 15,
+                fontSize: 16,
                 outline: "none",
                 color: "#1a1a1a",
                 letterSpacing: "-0.01em",
@@ -291,28 +309,20 @@ export default function TileGrid({
             >
               Tile Tales
             </h1>
+            <span style={{ flex: 1, fontSize: 13, color: "var(--tt-muted)", fontWeight: 500, letterSpacing: "-0.01em" }}>
+              {counterText}
+            </span>
             <button
+              aria-label="Stats"
               onClick={() => { onOpenStats(); haptic(6); }}
-              aria-label="View stats"
               style={{
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "4px 0",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: 13,
-                color: "var(--tt-muted)",
-                fontWeight: 500,
-                letterSpacing: "-0.01em",
-                textAlign: "left",
-                WebkitTapHighlightColor: "transparent",
+                width: 36, height: 36, borderRadius: 18, border: "none",
+                background: "var(--tt-chip-bg)", color: "var(--tt-fg)", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                WebkitTapHighlightColor: "transparent", flexShrink: 0,
               }}
             >
-              {counterText}
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 3v18h18" />
                 <path d="M18 17V9" />
                 <path d="M13 17V5" />
@@ -323,18 +333,10 @@ export default function TileGrid({
               aria-label="Search"
               onClick={() => { setSearchOpen(true); haptic(6); }}
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                border: "none",
-                background: "var(--tt-chip-bg)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                WebkitTapHighlightColor: "transparent",
-                flexShrink: 0,
-                color: "var(--tt-fg)",
+                width: 36, height: 36, borderRadius: 18, border: "none",
+                background: "var(--tt-chip-bg)", color: "var(--tt-fg)", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                WebkitTapHighlightColor: "transparent", flexShrink: 0,
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -343,39 +345,32 @@ export default function TileGrid({
               </svg>
             </button>
             <button
-              aria-label="Sort"
-              onClick={() => { setShowSortMenu((v) => !v); haptic(6); }}
+              aria-label="View options"
+              onClick={() => { setShowViewMenu((v) => !v); haptic(6); }}
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                border: "none",
-                background: showSortMenu ? "var(--tt-chip-bg-active)" : "var(--tt-chip-bg)",
-                color: showSortMenu ? "var(--tt-chip-fg-active)" : "var(--tt-fg)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                WebkitTapHighlightColor: "transparent",
-                flexShrink: 0,
+                width: 36, height: 36, borderRadius: 18, border: "none",
+                background: showViewMenu ? "var(--tt-chip-bg-active)" : "var(--tt-chip-bg)",
+                color: showViewMenu ? "var(--tt-chip-fg-active)" : "var(--tt-fg)",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                WebkitTapHighlightColor: "transparent", flexShrink: 0,
                 transition: "background 0.15s, color 0.15s",
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18" />
-                <path d="M7 12h10" />
-                <path d="M11 18h2" />
+                <line x1="4" y1="6" x2="20" y2="6" /><circle cx="9" cy="6" r="2" fill="var(--tt-chip-bg)" />
+                <line x1="4" y1="12" x2="20" y2="12" /><circle cx="15" cy="12" r="2" fill="var(--tt-chip-bg)" />
+                <line x1="4" y1="18" x2="20" y2="18" /><circle cx="8" cy="18" r="2" fill="var(--tt-chip-bg)" />
               </svg>
             </button>
           </>
         )}
       </div>
 
-      {/* Sort menu popover */}
-      {showSortMenu && (
+      {/* View menu popover: filter + sort + grid size */}
+      {showViewMenu && (
         <>
           <div
-            onClick={() => setShowSortMenu(false)}
+            onClick={() => setShowViewMenu(false)}
             style={{ position: "fixed", inset: 0, zIndex: 49 }}
           />
           <div
@@ -387,40 +382,72 @@ export default function TileGrid({
               color: "var(--tt-fg)",
               borderRadius: 14,
               boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
-              overflow: "hidden",
+              overflow: "hidden auto",
+              maxHeight: "min(70vh, 520px)",
               zIndex: 50,
-              minWidth: 180,
+              minWidth: 230,
+              paddingBottom: 8,
             }}
           >
-            {(["recent", "az", "favorites"] as SortMode[]).map((mode, i) => (
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--tt-muted)", padding: "12px 16px 4px" }}>Filter</div>
+            {filters.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => { setActiveFilter(f.id); haptic(6); }}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  width: "100%", padding: "10px 16px", border: "none", background: "transparent",
+                  cursor: "pointer", fontSize: 14, color: "var(--tt-fg)",
+                  WebkitTapHighlightColor: "transparent", fontWeight: activeFilter === f.id ? 600 : 400,
+                  textAlign: "left",
+                }}
+              >
+                <span>{f.label}</span>
+                {activeFilter === f.id && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                )}
+              </button>
+            ))}
+
+            <div style={{ borderTop: "1px solid var(--tt-popover-divider)", margin: "6px 0" }} />
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--tt-muted)", padding: "6px 16px 4px" }}>Sort</div>
+            {(["recent", "az", "favorites"] as SortMode[]).map((mode) => (
               <button
                 key={mode}
-                onClick={() => { setSortMode(mode); setShowSortMenu(false); haptic(6); }}
+                onClick={() => { setSortMode(mode); haptic(6); }}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  width: "100%",
-                  padding: "12px 16px",
-                  border: "none",
-                  borderTop: i === 0 ? "none" : "1px solid var(--tt-popover-divider)",
-                  background: "transparent",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  color: "var(--tt-fg)",
-                  WebkitTapHighlightColor: "transparent",
-                  fontWeight: sortMode === mode ? 600 : 400,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  width: "100%", padding: "10px 16px", border: "none", background: "transparent",
+                  cursor: "pointer", fontSize: 14, color: "var(--tt-fg)",
+                  WebkitTapHighlightColor: "transparent", fontWeight: sortMode === mode ? 600 : 400,
                   textAlign: "left",
                 }}
               >
                 <span>{sortLabel[mode]}</span>
                 {sortMode === mode && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 )}
               </button>
             ))}
+
+            <div style={{ borderTop: "1px solid var(--tt-popover-divider)", margin: "6px 0" }} />
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--tt-muted)", padding: "6px 16px 8px" }}>Grid size</div>
+            <div style={{ display: "flex", gap: 8, padding: "0 16px 6px" }}>
+              {(["L", "M", "S"] as GridSize[]).map((sz) => (
+                <button
+                  key={sz}
+                  onClick={() => { setGridSize(sz); haptic(6); }}
+                  style={{
+                    flex: 1, padding: "8px 0", borderRadius: 10, border: "none", cursor: "pointer",
+                    background: gridSize === sz ? "var(--tt-chip-bg-active)" : "var(--tt-chip-bg)",
+                    color: gridSize === sz ? "var(--tt-chip-fg-active)" : "var(--tt-fg)",
+                    fontSize: 13, fontWeight: 600, WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  {SIZE_LABEL[sz]}
+                </button>
+              ))}
+            </div>
           </div>
         </>
       )}
@@ -525,7 +552,7 @@ export default function TileGrid({
         )}
       </div>
 
-      {/* Bottom bar: filters + wallpaper + add */}
+      {/* Bottom nav bar */}
       <div
         style={{
           flexShrink: 0,
@@ -535,45 +562,10 @@ export default function TileGrid({
           padding: "10px 12px max(10px, env(safe-area-inset-bottom, 10px))",
           display: "flex",
           alignItems: "center",
-          gap: 8,
+          justifyContent: "center",
+          gap: 22,
         }}
       >
-        <div
-          className="hide-scrollbar"
-          style={{
-            flex: 1,
-            display: "flex",
-            gap: 6,
-            overflowX: "auto",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-            paddingLeft: 4,
-          }}
-        >
-          {filters.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setActiveFilter(f.id)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 20,
-                border: "none",
-                background: activeFilter === f.id ? "var(--tt-chip-bg-active)" : "var(--tt-chip-bg)",
-                color: activeFilter === f.id ? "var(--tt-chip-fg-active)" : "var(--tt-fg)",
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-                transition: "all 0.2s",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
         <button
           onClick={onOpenAlbums}
           aria-label="Albums"
@@ -647,31 +639,37 @@ export default function TileGrid({
           </svg>
         </button>
 
-        <button
-          onClick={() => setShowAddMenu((v) => !v)}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            border: "none",
-            background: "#1a1a1a",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            WebkitTapHighlightColor: "transparent",
-            transition: "transform 0.2s",
-            transform: showAddMenu ? "rotate(45deg)" : "rotate(0deg)",
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
       </div>
+
+      {/* Floating add button — above the nav bar */}
+      <button
+        onClick={() => setShowAddMenu((v) => !v)}
+        aria-label="Add tile"
+        style={{
+          position: "fixed",
+          bottom: "max(80px, calc(env(safe-area-inset-bottom, 10px) + 80px))",
+          right: "max(16px, env(safe-area-inset-right, 16px))",
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          border: "none",
+          background: "#1a1a1a",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
+          WebkitTapHighlightColor: "transparent",
+          zIndex: 48,
+          transition: "transform 0.2s",
+          transform: showAddMenu ? "rotate(45deg)" : "rotate(0deg)",
+        }}
+      >
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
 
       {/* Add menu popover */}
       {showAddMenu && (
@@ -683,8 +681,8 @@ export default function TileGrid({
           <div
             style={{
               position: "fixed",
-              bottom: "max(70px, calc(env(safe-area-inset-bottom, 10px) + 70px))",
-              right: "max(12px, env(safe-area-inset-right, 12px))",
+              bottom: "max(146px, calc(env(safe-area-inset-bottom, 10px) + 146px))",
+              right: "max(16px, env(safe-area-inset-right, 16px))",
               background: "var(--tt-popover-bg)",
               color: "var(--tt-fg)",
               borderRadius: 14,
