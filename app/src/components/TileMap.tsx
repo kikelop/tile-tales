@@ -1,13 +1,15 @@
 "use client";
 
-import { useSyncExternalStore, useMemo, useState, useRef, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useSyncExternalStore, useMemo, useState, useRef, useCallback, useEffect } from "react";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { getState, subscribe, getAllTags, type TileItem } from "@/lib/store";
-import { useTileFileUrl } from "@/lib/useTileFileUrl";
-import { useReverseGeocode } from "@/lib/useReverseGeocode";
-import { requestGeolocation } from "@/lib/geo";
+import { getTileBlobUrl, isIdbRef, idbRefToId } from "@/lib/blob-storage";
+import { requestGeolocation, reverseGeocode } from "@/lib/geo";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
 
@@ -32,39 +34,69 @@ function tileIconWithUrl(url: string) {
   });
 }
 
-function TileMarker({
-  tile,
-  originalIndex,
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
+}
+
+/**
+ * Renders the geolocated tiles as a clustered marker layer. react-leaflet v5
+ * has no stable cluster wrapper, so we drive leaflet.markercluster imperatively
+ * via useMap: resolve each tile's image URL + place label, then build L.markers
+ * (with the existing tile divIcon + popup) inside an L.markerClusterGroup.
+ */
+function ClusteredMarkers({
+  tiles,
+  allTiles,
   onSelectTile,
 }: {
-  tile: TileItem;
-  originalIndex: number;
+  tiles: TileItem[];
+  allTiles: TileItem[];
   onSelectTile: (index: number) => void;
 }) {
-  const url = useTileFileUrl(tile.file);
-  const label = useReverseGeocode(tile.lat, tile.lng);
-  if (!url) return null;
-  return (
-    <Marker position={[tile.lat!, tile.lng!]} icon={tileIconWithUrl(url)}>
-      <Popup>
-        <div
-          style={{ textAlign: "center", cursor: "pointer" }}
-          onClick={() => onSelectTile(originalIndex)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={tile.name}
-            style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, display: "block", margin: "0 auto 8px" }}
-          />
-          <strong>{tile.name}</strong>
-          {label && (
-            <div style={{ fontSize: 11, color: "#8a8578", marginTop: 4 }}>{label}</div>
-          )}
-        </div>
-      </Popup>
-    </Marker>
-  );
+  const map = useMap();
+  const [resolved, setResolved] = useState<Record<string, { url: string; label: string }>>({});
+
+  // Resolve blob/idb URLs and reverse-geocoded labels (both cached) up front,
+  // since imperative markers can't use the per-tile React hooks.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const out: Record<string, { url: string; label: string }> = {};
+      for (const t of tiles) {
+        const url = isIdbRef(t.file) ? ((await getTileBlobUrl(idbRefToId(t.file))) ?? "") : t.file;
+        const label = (await reverseGeocode(t.lat!, t.lng!)) ?? "";
+        out[t.id] = { url, label };
+      }
+      if (!cancelled) setResolved(out);
+    })();
+    return () => { cancelled = true; };
+  }, [tiles]);
+
+  useEffect(() => {
+    const group = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+    tiles.forEach((t) => {
+      const r = resolved[t.id];
+      if (!r || !r.url) return;
+      const idx = allTiles.findIndex((x) => x.id === t.id);
+      const marker = L.marker([t.lat!, t.lng!], { icon: tileIconWithUrl(r.url) });
+      marker.bindPopup(
+        `<div class="tt-pop" style="text-align:center;cursor:pointer">` +
+          `<img src="${r.url}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:8px;display:block;margin:0 auto 8px"/>` +
+          `<strong>${escapeHtml(t.name)}</strong>` +
+          (r.label ? `<div style="font-size:11px;color:#8a8578;margin-top:4px">${escapeHtml(r.label)}</div>` : "") +
+          `</div>`
+      );
+      marker.on("popupopen", () => {
+        const el = document.querySelector(".leaflet-popup .tt-pop");
+        if (el) el.addEventListener("click", () => onSelectTile(idx), { once: true });
+      });
+      group.addLayer(marker);
+    });
+    map.addLayer(group);
+    return () => { map.removeLayer(group); };
+  }, [map, tiles, allTiles, resolved, onSelectTile]);
+
+  return null;
 }
 
 export default function TileMap({
@@ -190,17 +222,7 @@ export default function TileMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
-        {visibleTiles.map((tile) => {
-          const originalIndex = tiles.findIndex((t) => t.id === tile.id);
-          return (
-            <TileMarker
-              key={tile.id}
-              tile={tile}
-              originalIndex={originalIndex}
-              onSelectTile={onSelectTile}
-            />
-          );
-        })}
+        <ClusteredMarkers tiles={visibleTiles} allTiles={tiles} onSelectTile={onSelectTile} />
       </MapContainer>
 
       {/* My location button */}
