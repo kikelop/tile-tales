@@ -79,6 +79,11 @@ function useTextTexture(text: string, date: string) {
 
       const tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
+      // The back face is rotated 180° relative to the front, so the raw text
+      // texture reads upside-down once you flip the tile. Rotate the texture
+      // 180° around its centre to compensate.
+      tex.center.set(0.5, 0.5);
+      tex.rotation = Math.PI;
       tex.needsUpdate = true;
       setTexture((prev) => { if (prev) prev.dispose(); return tex; });
     };
