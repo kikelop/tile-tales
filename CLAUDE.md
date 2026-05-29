@@ -131,7 +131,7 @@ Kike quiere hacer **review de TODAS las features** (las 39, F1→F8) y pulir lo 
 
 ### 2. Pendientes documentados (no urgentes)
 - **Map clustering** (markercluster): pospuesto en F8 — react-leaflet v5 no tiene wrapper estable, requiere implementacion propia o integracion manual cuidada. El filtro por tags y el boton "mi ubicacion" ya estan.
-- Split del modal de edit del viewer (TileEditSheet) sigue pendiente. La logica de albums/location/memory esta densamente acoplada al outer; merece su propia sesion.
+- ~~Split del modal de edit del viewer~~ → **HECHO 2026-05-29**. Extraido a `components/viewer/TileEditSheet.tsx` (recibe `tile`/`albums`/`isLastTile`/`onClose`/`onDeleteLast`, dueño de su propio estado de drafts + place search, sembrado desde el tile al montar). TileViewer3D pasó de 1016 a 565 lineas.
 - ESLint rules `no-floating-promises` + `no-misused-promises` activas como warning. Quedan ~12 warnings intencionales (`void` faltante en fire-and-forget).
 
 ### 3. iOS app
