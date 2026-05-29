@@ -54,6 +54,7 @@ export default function TileEditSheet({
   const [fetchingGeo, setFetchingGeo] = useState(false);
   const [searchingPlace, setSearchingPlace] = useState(false);
   const [pickingOnMap, setPickingOnMap] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(false);
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [placeLoading, setPlaceLoading] = useState(false);
@@ -99,6 +100,7 @@ export default function TileEditSheet({
   };
 
   const handleDelete = () => {
+    if (typeof window !== "undefined" && !window.confirm(`Delete "${tile.name}"? This can't be undone.`)) return;
     if (isIdbRef(tile.file)) {
       const blobId = idbRefToId(tile.file);
       void deleteTileBlob(blobId);
@@ -129,10 +131,25 @@ export default function TileEditSheet({
         style={{
           background: "#fff",
           borderRadius: "20px 20px 0 0",
-          padding: "24px 24px max(24px, env(safe-area-inset-bottom, 24px))",
+          padding: "14px 24px max(24px, env(safe-area-inset-bottom, 24px))",
+          maxHeight: "88vh",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {!editingLocation ? (
+        <>
+        {/* Close */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{ width: 32, height: 32, borderRadius: 16, border: "none", background: "rgba(0,0,0,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        </div>
         <input
           autoFocus
           value={nameDraft}
@@ -213,9 +230,49 @@ export default function TileEditSheet({
           }}
         />
 
-        {/* Location editor */}
+        {/* Location (compact — the pencil opens the location sub-view) */}
         <div style={{ marginTop: 14 }}>
           <p style={{ margin: "0 0 8px", fontSize: 13, color: "#8a8578" }}>Location</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, background: geoDraft ? "#f1f5ee" : "#faf8f5", border: `1px solid ${geoDraft ? "#cfe0c2" : "#e0d8cc"}` }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={geoDraft ? "#5a8a3c" : "none"} stroke={geoDraft ? "#5a8a3c" : "#b8b0a3"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" fill="#fff" stroke={geoDraft ? "#5a8a3c" : "#b8b0a3"} />
+            </svg>
+            <span style={{ flex: 1, fontSize: 13, color: geoDraft ? "#1a1a1a" : "#9a9288", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {geoDraft ? (geoLabel || `${geoDraft.lat.toFixed(4)}, ${geoDraft.lng.toFixed(4)}`) : "No location"}
+            </span>
+            <button onClick={() => { setEditingLocation(true); haptic(6); }} aria-label="Edit location" style={{ width: 30, height: 30, borderRadius: 15, border: "none", background: "rgba(0,0,0,0.05)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, WebkitTapHighlightColor: "transparent" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Albums editor */}
+        <AlbumsField tileId={tile.id} albums={albums} />
+
+        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "1px solid #e0d8cc", background: "transparent", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+          <button onClick={handleSave} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
+        </div>
+
+        {/* Delete — separated, low-emphasis, confirms first */}
+        <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid #f0ece6", textAlign: "center" }}>
+          <button onClick={handleDelete} style={{ border: "none", background: "transparent", color: "#b9534e", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "4px 10px", WebkitTapHighlightColor: "transparent" }}>
+            Delete tile
+          </button>
+        </div>
+        </>
+        ) : (
+        <>
+        {/* ---- Location sub-view ---- */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <button onClick={() => { setSearchingPlace(false); setPickingOnMap(false); setEditingLocation(false); haptic(6); }} aria-label="Back" style={{ width: 32, height: 32, borderRadius: 16, border: "none", background: "rgba(0,0,0,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></svg>
+          </button>
+          <span style={{ fontSize: 17, fontWeight: 600, color: "#1a1a1a" }}>Location</span>
+        </div>
+
+        <div>
           <div
             style={{
               display: "flex",
@@ -480,60 +537,14 @@ export default function TileEditSheet({
           )}
         </div>
 
-        {/* Albums editor */}
-        <AlbumsField tileId={tile.id} albums={albums} />
-
-        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-          <button
-            onClick={onClose}
-            style={{
-              flex: 1,
-              padding: "12px 0",
-              borderRadius: 12,
-              border: "1px solid #e0d8cc",
-              background: "transparent",
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              flex: 1,
-              padding: "12px 0",
-              borderRadius: 12,
-              border: "none",
-              background: "#1a1a1a",
-              color: "#fff",
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Save
-          </button>
-        </div>
-        {/* Delete */}
         <button
-          onClick={handleDelete}
-          style={{
-            width: "100%",
-            padding: "12px 0",
-            marginTop: 8,
-            borderRadius: 12,
-            border: "none",
-            background: "transparent",
-            color: "#d44",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
+          onClick={() => { setSearchingPlace(false); setPickingOnMap(false); setEditingLocation(false); haptic(6); }}
+          style={{ width: "100%", marginTop: 16, padding: "12px 0", borderRadius: 12, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}
         >
-          Delete tile
+          Done
         </button>
+        </>
+        )}
       </div>
     </div>
   );
