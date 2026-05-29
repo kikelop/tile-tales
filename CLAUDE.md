@@ -101,7 +101,7 @@ Splash → Grid (home) → Viewer 3D
 25. Editor de localizacion en el modal del lapiz: display lat/lng, Clear, "Use my location" (GPS), "Search a place" (Nominatim/OSM con debounce 400ms)
 26. Reverse geocoding (lat/lng → "Lisboa, Portugal") con cache localStorage. Aplicado en location editor, popup del mapa y share card.
 27. Busqueda en el grid (header search input, filtra por name/tags) + ordenar tiles (Recent/A–Z/Favorites first, persistido en localStorage).
-28. Swipe horizontal entre tiles en el viewer con threshold de intencion 8px (swipe vs rotate-by-drag).
+28. ~~Swipe horizontal entre tiles en el viewer~~ — **ELIMINADO 2026-05-29**: chocaba con rotar el modelo 3D al arrastrar. Ahora todo drag es rotación; se cambia de tile solo desde el selector inferior, que resalta el activo y hace auto-scroll (`scrollIntoView`) para mantenerlo a la vista.
 29. Presets de duotono en wallpaper (Ocean / Sunset / Forest / Vintage / Noir) con chips visuales.
 30. Onboarding banner para nuevos usuarios + tap en canvas para pausar/reanudar auto-rotate.
 31. ~~Dark mode~~ — **ELIMINADO 2026-05-29** como feature. La app es solo light. Se borraron `lib/theme.ts`, el toggle del header (TileGrid), el boot script y el `theme-color` media-aware de `layout.tsx`, el bloque `:root[data-theme="dark"]` de globals.css y los `MutationObserver` de TileMap/TileViewer3D. Las vars `--tt-*` se mantienen con valores light.

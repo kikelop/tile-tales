@@ -3,7 +3,7 @@
 import { Canvas } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { useState, useSyncExternalStore, useRef, useCallback, useEffect } from "react";
+import { useState, useSyncExternalStore, useRef, useEffect } from "react";
 import CropModal from "./CropModal";
 import Scene from "./viewer/TileScene";
 import SelectorThumb from "./viewer/SelectorThumb";
@@ -49,6 +49,7 @@ export default function TileViewer3D({
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [editing, setEditing] = useState(false);
+  const selectorRef = useRef<HTMLDivElement>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [flipHintVisible, setFlipHintVisible] = useState(false);
   const {
@@ -84,13 +85,15 @@ export default function TileViewer3D({
   const safeIndex = Math.min(activeIndex, Math.max(0, tiles.length - 1));
   useEffect(() => { setActiveIndex(safeIndex); }, [safeIndex]);
 
+  // Keep the active thumbnail scrolled into view in the selector strip.
+  useEffect(() => {
+    const el = selectorRef.current?.children[safeIndex] as HTMLElement | undefined;
+    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [safeIndex]);
+
   const activeTileFile = tiles[safeIndex]?.file;
   const activeTileUrl = useTileFileUrl(activeTileFile);
   const canvasBg = "#f5f2ed";
-
-
-  const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);
-  const goNext = useCallback(() => setActiveIndex((i) => Math.min(tiles.length - 1, i + 1)), [tiles.length]);
 
   return (
     <div
@@ -142,8 +145,6 @@ export default function TileViewer3D({
               memory={tiles[safeIndex].memory}
               date={tiles[safeIndex].date}
               onReady={onReady}
-              onSwipeLeft={goNext}
-              onSwipeRight={goPrev}
             />
           </Canvas>
         ) : tiles.length === 0 ? (
@@ -412,6 +413,7 @@ export default function TileViewer3D({
 
       {/* Tile selector — horizontally scrollable */}
       <div
+        ref={selectorRef}
         className="hide-scrollbar"
         style={{
           display: "flex",

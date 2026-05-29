@@ -183,15 +183,11 @@ function RotatableTile({
   memory,
   date,
   initialRotation,
-  onSwipeLeft,
-  onSwipeRight,
 }: {
   textureUrl: string;
   memory: string;
   date: string;
   initialRotation: [number, number, number];
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const isDragging = useRef(false);
@@ -207,12 +203,8 @@ function RotatableTile({
   const lastTapPos = useRef({ x: 0, y: 0 });
   const startPointer = useRef({ x: 0, y: 0 });
   const totalDelta = useRef({ x: 0, y: 0 });
-  const intent = useRef<"rotate" | "swipe" | null>(null);
+  const intent = useRef<"rotate" | null>(null);
   const autoRotatePaused = useRef(false);
-  const swipeLeftRef = useRef(onSwipeLeft);
-  const swipeRightRef = useRef(onSwipeRight);
-  useEffect(() => { swipeLeftRef.current = onSwipeLeft; }, [onSwipeLeft]);
-  useEffect(() => { swipeRightRef.current = onSwipeRight; }, [onSwipeRight]);
   const { gl, camera } = useThree();
 
   useEffect(() => {
@@ -258,18 +250,11 @@ function RotatableTile({
 
     if (intent.current === null) {
       if (Math.hypot(totalDx, totalDy) < 8) return;
-      if (Math.abs(totalDx) > Math.abs(totalDy) * 1.5) {
-        intent.current = "swipe";
-        isDragging.current = false;
-        velocity.current = { x: 0, y: 0 };
-        return;
-      }
       intent.current = "rotate";
       prevPointer.current = { x: e.clientX, y: e.clientY };
       return;
     }
 
-    if (intent.current === "swipe") return;
     if (!isDragging.current) return;
 
     const dx = (e.clientX - prevPointer.current.x) * 0.01;
@@ -285,14 +270,7 @@ function RotatableTile({
   }, []);
 
   const onPointerUp = useCallback((e: PointerEvent) => {
-    if (intent.current === "swipe") {
-      const swept = totalDelta.current.x;
-      if (Math.abs(swept) > 60) {
-        if (swept < 0) swipeLeftRef.current?.();
-        else swipeRightRef.current?.();
-        haptic(8);
-      }
-    } else if (intent.current === null) {
+    if (intent.current === null) {
       const totalDist = Math.hypot(totalDelta.current.x, totalDelta.current.y);
       if (totalDist < 5) {
         autoRotatePaused.current = !autoRotatePaused.current;
@@ -454,15 +432,11 @@ export default function Scene({
   memory,
   date,
   onReady,
-  onSwipeLeft,
-  onSwipeRight,
 }: {
   textureUrl: string;
   memory: string;
   date: string;
   onReady?: () => void;
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
 }) {
   return (
     <>
@@ -478,8 +452,6 @@ export default function Scene({
           memory={memory}
           date={date}
           initialRotation={[1.57, 0.78, -0.01]}
-          onSwipeLeft={onSwipeLeft}
-          onSwipeRight={onSwipeRight}
         />
         <ContactShadows
           position={[0, -3, 0]}
