@@ -104,12 +104,6 @@ function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
 }
 
-// Seeded pseudo-random for consistent "random" pattern
-function seededRandom(seed: number) {
-  let s = seed;
-  return () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
-}
-
 function drawPattern(
   ctx: CanvasRenderingContext2D,
   images: HTMLImageElement[],
@@ -303,7 +297,7 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
 
     let cancelled = false;
 
-    Promise.all(
+    void Promise.all(
       selected.map(async (tile) => {
         const src = isIdbRef(tile.file)
           ? await getTileBlobUrl(idbRefToId(tile.file))

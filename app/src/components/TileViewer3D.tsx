@@ -38,7 +38,7 @@ export default function TileViewer3D({
       if (preloadedRef.current.has(t.id)) return;
       preloadedRef.current.add(t.id);
       if (isIdbRef(t.file)) {
-        getTileBlobUrl(idbRefToId(t.file)).then((url) => {
+        void getTileBlobUrl(idbRefToId(t.file)).then((url) => {
           if (url) useTexture.preload(url);
         });
       } else {

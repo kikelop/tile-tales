@@ -83,7 +83,7 @@ export default function TileEditSheet({
   const handleDelete = () => {
     if (isIdbRef(tile.file)) {
       const blobId = idbRefToId(tile.file);
-      deleteTileBlob(blobId);
+      void deleteTileBlob(blobId);
       revokeTileBlobUrl(blobId);
     }
     deleteTile(tile.id);

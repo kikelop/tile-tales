@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore, useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useSyncExternalStore, useMemo, useState, useRef, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";

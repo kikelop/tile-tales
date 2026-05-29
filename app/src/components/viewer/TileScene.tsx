@@ -219,7 +219,7 @@ function RotatableTile({
     const euler = new THREE.Euler(initialRotation[0], initialRotation[1], initialRotation[2]);
     quaternion.current.setFromEuler(euler);
     initialQuaternion.current.setFromEuler(euler);
-  }, []); // only on mount  // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- run only on mount
 
   const onPointerDown = useCallback((e: PointerEvent) => {
     const now = Date.now();

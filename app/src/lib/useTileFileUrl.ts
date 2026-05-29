@@ -23,7 +23,7 @@ export function useTileFileUrl(file: string | undefined): string | null {
     }
     let cancelled = false;
     setUrl(null);
-    getTileBlobUrl(idbRefToId(file)).then((resolved) => {
+    void getTileBlobUrl(idbRefToId(file)).then((resolved) => {
       if (!cancelled) setUrl(resolved);
     });
     return () => {

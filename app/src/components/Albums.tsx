@@ -443,7 +443,7 @@ export function AlbumDetail({
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2 }}>
-            {albumTiles.map((tile, index) => {
+            {albumTiles.map((tile) => {
               const globalIndex = tiles.findIndex((t) => t.id === tile.id);
               return (
                 <Thumb

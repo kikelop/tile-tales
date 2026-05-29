@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- decorative animated splash tiles, next/image adds nothing here */
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -119,7 +120,6 @@ export default function SplashScreen({ onFinished }: { onFinished: () => void })
 }
 
 const DUO_DARK = "#4a6fa5";
-const DUO_LIGHT = "#e8dcc8";
 
 function TileSlot({
   images,

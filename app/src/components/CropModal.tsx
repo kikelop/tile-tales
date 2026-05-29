@@ -177,19 +177,6 @@ export default function CropModal({ imageUrl, onConfirm, onCancel, queueCount = 
   }, [scale, minScale, maxScale]);
 
   // Zoom slider handler
-  const handleZoomSlider = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newScale = parseFloat(e.target.value);
-    const container = containerRef.current;
-    if (!container) { setScale(newScale); return; }
-    const cx = container.clientWidth / 2;
-    const cy = container.clientHeight / 2;
-    setOffset((prev) => ({
-      x: cx - (cx - prev.x) * (newScale / scale),
-      y: cy - (cy - prev.y) * (newScale / scale),
-    }));
-    setScale(newScale);
-  }, [scale]);
-
   // Crop and export
   const handleConfirm = useCallback(() => {
     if (!imgRef.current || !containerRef.current) return;

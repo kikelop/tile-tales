@@ -128,7 +128,7 @@ export default function TileGrid({
       { id: "favorites", label: "♥ Favorites" },
       ...tags.map((t) => ({ id: `tag:${t}`, label: t.charAt(0).toUpperCase() + t.slice(1) })),
     ];
-  }, [tiles]);
+  }, [tiles]); // eslint-disable-line react-hooks/exhaustive-deps -- getAllTags() reads store tiles
 
   const visibleTiles = useMemo(() => {
     // 1. Apply filter
