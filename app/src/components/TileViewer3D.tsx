@@ -4,7 +4,6 @@ import { Canvas } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { useState, useSyncExternalStore, useRef, useEffect } from "react";
-import CropModal from "./CropModal";
 import Scene from "./viewer/TileScene";
 import SelectorThumb from "./viewer/SelectorThumb";
 import FlipHint from "./viewer/FlipHint";
@@ -15,7 +14,6 @@ import { toast } from "@/lib/toast";
 import { reverseGeocode } from "@/lib/geo";
 import { isIdbRef, idbRefToId, getTileBlobUrl } from "@/lib/blob-storage";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
-import { useCaptureTile } from "@/lib/useCaptureTile";
 
 
 export default function TileViewer3D({
@@ -50,23 +48,7 @@ export default function TileViewer3D({
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [editing, setEditing] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
-  const [showAddMenu, setShowAddMenu] = useState(false);
   const [flipHintVisible, setFlipHintVisible] = useState(false);
-  const {
-    pendingImage,
-    queueCount,
-    cameraInputRef,
-    galleryInputRef,
-    handleCapture,
-    handleCropConfirm,
-    handleCropCancel,
-  } = useCaptureTile({
-    getTileName: (count) => `Tile #${count + 1}`,
-    afterAdd: () => {
-      // Jump to the new tile (always appended to the end).
-      setActiveIndex(getState().tiles.length - 1);
-    },
-  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -107,26 +89,6 @@ export default function TileViewer3D({
         touchAction: "none",
       }}
     >
-      {/* Hidden file inputs */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        data-source="camera"
-        onChange={handleCapture}
-        style={{ display: "none" }}
-      />
-      <input
-        ref={galleryInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        data-source="gallery"
-        onChange={handleCapture}
-        style={{ display: "none" }}
-      />
-
       {/* Canvas */}
       <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
         {tiles.length > 0 && activeTileUrl ? (
@@ -149,7 +111,7 @@ export default function TileViewer3D({
           </Canvas>
         ) : tiles.length === 0 ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-            <p style={{ color: "#8a8578", fontSize: 16 }}>No tiles yet — tap + to add one</p>
+            <p style={{ color: "#8a8578", fontSize: 16 }}>No tiles yet</p>
           </div>
         ) : (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -246,7 +208,12 @@ export default function TileViewer3D({
                 transition: "transform 0.2s",
               }}
             >
-              {tiles[safeIndex].favorite ? "♥" : "♡"}
+              <svg width="20" height="20" viewBox="0 0 24 24"
+                fill={tiles[safeIndex].favorite ? "#e0245e" : "none"}
+                stroke={tiles[safeIndex].favorite ? "#e0245e" : "#1a1a1a"}
+                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
             </button>
 
             {/* Share button */}
@@ -437,112 +404,6 @@ export default function TileViewer3D({
         ))}
       </div>
 
-      {/* Floating add button + menu */}
-      <button
-        onClick={() => setShowAddMenu((v) => !v)}
-        style={{
-          position: "fixed",
-          bottom: "max(90px, calc(env(safe-area-inset-bottom, 12px) + 90px))",
-          right: "max(16px, env(safe-area-inset-right, 16px))",
-          width: 52,
-          height: 52,
-          borderRadius: 26,
-          border: "none",
-          background: "#1a1a1a",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-          WebkitTapHighlightColor: "transparent",
-          zIndex: 50,
-          transition: "transform 0.2s",
-          transform: showAddMenu ? "rotate(45deg)" : "rotate(0deg)",
-        }}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
-
-      {showAddMenu && (
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={() => setShowAddMenu(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 49 }}
-          />
-          {/* Menu */}
-          <div
-            style={{
-              position: "fixed",
-              bottom: "max(150px, calc(env(safe-area-inset-bottom, 12px) + 150px))",
-              right: "max(16px, env(safe-area-inset-right, 16px))",
-              background: "#fff",
-              borderRadius: 14,
-              boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
-              overflow: "hidden",
-              zIndex: 50,
-              minWidth: 180,
-            }}
-          >
-            <button
-              onClick={() => {
-                setShowAddMenu(false);
-                cameraInputRef.current?.click();
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                width: "100%",
-                padding: "14px 18px",
-                border: "none",
-                borderBottom: "1px solid #f0ece6",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: 15,
-                color: "#1a1a1a",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-              Take photo
-            </button>
-            <button
-              onClick={() => {
-                setShowAddMenu(false);
-                galleryInputRef.current?.click();
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                width: "100%",
-                padding: "14px 18px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: 15,
-                color: "#1a1a1a",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              Choose from library
-            </button>
-          </div>
-        </>
-      )}
-
       {editing && tiles[safeIndex] && (
         <TileEditSheet
           tile={tiles[safeIndex]}
@@ -553,14 +414,6 @@ export default function TileViewer3D({
         />
       )}
 
-      {pendingImage && (
-        <CropModal
-          imageUrl={pendingImage}
-          queueCount={queueCount}
-          onConfirm={handleCropConfirm}
-          onCancel={handleCropCancel}
-        />
-      )}
     </div>
   );
 }

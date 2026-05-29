@@ -17,9 +17,9 @@ export default function SelectorThumb({
     <button
       onClick={onClick}
       style={{
-        width: "clamp(52px, 12vw, 72px)",
-        height: "clamp(52px, 12vw, 72px)",
-        borderRadius: "clamp(8px, 2vw, 12px)",
+        width: "clamp(64px, 16vw, 92px)",
+        height: "clamp(64px, 16vw, 92px)",
+        borderRadius: "clamp(10px, 2.4vw, 14px)",
         overflow: "hidden",
         border: "none",
         padding: 0,
