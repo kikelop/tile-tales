@@ -104,14 +104,14 @@ Splash → Grid (home) → Viewer 3D
 28. Swipe horizontal entre tiles en el viewer con threshold de intencion 8px (swipe vs rotate-by-drag).
 29. Presets de duotono en wallpaper (Ocean / Sunset / Forest / Vintage / Noir) con chips visuales.
 30. Onboarding banner para nuevos usuarios + tap en canvas para pausar/reanudar auto-rotate.
-31. **Dark mode** (system + toggle manual). CSS variables centralizadas en `globals.css`, inline boot script en layout.tsx evita flash al cargar, `theme-color` meta media-aware.
+31. ~~Dark mode~~ — **ELIMINADO 2026-05-29** como feature. La app es solo light. Se borraron `lib/theme.ts`, el toggle del header (TileGrid), el boot script y el `theme-color` media-aware de `layout.tsx`, el bloque `:root[data-theme="dark"]` de globals.css y los `MutationObserver` de TileMap/TileViewer3D. Las vars `--tt-*` se mantienen con valores light.
 32. **Collections / Albums**. Modelo en store + vista de albums + detalle + chips de seleccion en el modal de edit. Borrar un tile lo quita de cualquier album automaticamente.
 33. **Import multiple**. `useCaptureTile` gestiona una COLA de imagenes pendientes (antes una sola). El `<input>` de galeria lleva `multiple`; cada foto recorre el crop modal una a una con su lectura EXIF/GPS propia en paralelo. CropModal muestra pill "N photos left" y cambia Cancel→Skip durante el lote; cada guardado avisa "Tile saved · N left".
 34. **Stats screen** (`StatsView.tsx`). El contador de tiles del header del grid (ahora boton con glifo de grafica) la abre. Hero total + captured-by-you, cards de Favorites/Located/Countries/Albums, barras de top-tags y desglose por lugar resuelto con `reverseGeocode` (sembrado desde cache, relleno secuencial para respetar rate limit de Nominatim).
 35. **Deep linking**. Hash routing en `page.tsx` (`#/tile/3`, `#/album/<id>`, `#/stats`…). Sync pantalla↔hash con `popstate`: el boton atras del navegador funciona y los links a tile/album son compartibles. Primera nav hace `replaceState`, el resto `pushState`.
-36. **Map polish**. Filtro por tags (chips abajo, solo tags presentes en tiles geolocalizadas) + boton flotante "mi ubicacion" (`requestGeolocation` → `flyTo` zoom 13) + dark mode real del mapa (basemap carto `dark_all` vs `light_all` segun tema, header/chips theme-aware via MutationObserver). Clustering (markercluster) **deliberadamente pospuesto**: react-leaflet v5 no tiene integracion estable, merece pasada dedicada.
+36. **Map polish**. Filtro por tags (chips abajo, solo tags presentes en tiles geolocalizadas) + boton flotante "mi ubicacion" (`requestGeolocation` → `flyTo` zoom 13). Basemap carto `light_all` fijo (el `dark_all` se quitó al eliminar dark mode). Clustering (markercluster) **deliberadamente pospuesto**: react-leaflet v5 no tiene integracion estable, merece pasada dedicada.
 37. **Location editor polish**. `searchPlaces` trunca el `display_name` verboso de Nominatim a "primer segmento, pais" (`trimDisplayName`). La fila de localizacion del editor tiene feedback visual: fondo/borde verde + pin relleno cuando hay ubicacion, y "lat, lng · naming…" mientras resuelve el reverse geocode.
-38. **Dark mode en popovers/modales**. Nuevas vars `--tt-popover-bg`/`--tt-popover-divider`/`--tt-input-bg`/`--tt-input-border` en globals.css. Aplicadas a sort menu + add menu (TileGrid) y al modal de crear album (Albums). PENDIENTE aun: el modal de edit del viewer (TileViewer3D) y WallpaperGenerator siguen claros — son superficies grandes, pasada propia.
+38. ~~Dark mode en popovers/modales~~ — **obsoleto** tras eliminar dark mode (2026-05-29). Las vars `--tt-popover-bg`/`--tt-popover-divider`/`--tt-input-bg`/`--tt-input-border` siguen en globals.css con valores light y se usan como tokens de superficie.
 39. **Export / Import backup**. `lib/backup.ts` (jszip dynamic-imported). Export → ZIP con `collection.json` (tiles+albums) + `blobs/<id>` por cada tile capturado (los samples van por path, no se empaquetan). Import → restaura blobs a IDB y mergea metadata por id (idempotente, salta los ya existentes; descarta tiles capturados sin blob en el ZIP). UI en la pantalla de Stats (seccion Backup). `store.importData` hace el merge. Tests en `backup.test.ts` (round-trip, ghost-blob skip, manifest invalido) + `store.test.ts` (importData dedup).
 
 ## Proximos pasos (proxima sesion)
@@ -120,7 +120,7 @@ Splash → Grid (home) → Viewer 3D
 Kike quiere hacer **review de TODAS las features** (las 39, F1→F8) y pulir lo que no esté como a él le gusta, para dar la app por **terminada** a su gusto. No es seguir metiendo features nuevas — es auditar, criticar y rematar lo existente.
 - **Como arrancar**: abrir prod (`app-five-xi-20.vercel.app`) en movil y desktop, recorrer pantalla por pantalla (Splash → Grid → Viewer → Map → Wallpaper → Albums → Stats → CropModal) en claro Y oscuro. Anotar fricciones.
 - **TODO explícito pedido por Kike (2026-05-29)**: cambiar **el mosaico por defecto** (los `DEFAULT_TILES` mock en `app/src/lib/store.ts` — los 14 azulejos de ejemplo del grid) y **la tile que sale por defecto en grande en el visualizador 3D** (la que abre el viewer). No le convencen los assets de ejemplo actuales. Curar/elegir mejores tiles de muestra.
-- **Candidatos calientes ya conocidos** (de los pendientes de abajo): dark mode del edit sheet del viewer + WallpaperGenerator (siguen claros, cantan en dark), split del TileEditSheet, picker en mini-mapa, clustering del mapa.
+- **Candidatos calientes ya conocidos** (de los pendientes de abajo): split del TileEditSheet, picker en mini-mapa, clustering del mapa.
 - **Forma de trabajo**: Kike lidera el review (el conoce su gusto); Claude ejecuta los arreglos. Probable que convenga un pase de pulido transversal (ritmo, anchos, consistencia de copy EN, microinteracciones) como se hizo en el portfolio.
 - Lo de abajo es el inventario de pendientes que alimenta ese review.
 
@@ -130,9 +130,8 @@ Kike quiere hacer **review de TODAS las features** (las 39, F1→F8) y pulir lo 
 - Picker en mini-mapa como alternativa al buscador (mas visual). Pendiente decidir si compensa el espacio extra en el bottom sheet. **Unico item vivo de este bloque.**
 
 ### 2. Pendientes documentados (no urgentes)
-- **Dark mode de las superficies grandes que quedan claras**: el modal de edit del viewer (TileViewer3D) y WallpaperGenerator. Son muchas lineas de inline styles hardcoded (#faf8f5/#1a1a1a/#e0d8cc); ya existen las vars `--tt-popover-bg`/`--tt-input-*` para reusar. CropModal se queda negro a proposito (crop fullscreen tipo iOS). Los popovers y el modal de album YA estan migrados (F8).
 - **Map clustering** (markercluster): pospuesto en F8 — react-leaflet v5 no tiene wrapper estable, requiere implementacion propia o integracion manual cuidada. El filtro por tags y el boton "mi ubicacion" ya estan.
-- Split del modal de edit del viewer (TileEditSheet) sigue pendiente. La logica de albums/location/memory esta densamente acoplada al outer; merece su propia sesion. Se solaparia con el dark mode de ese modal — hacerlos juntos.
+- Split del modal de edit del viewer (TileEditSheet) sigue pendiente. La logica de albums/location/memory esta densamente acoplada al outer; merece su propia sesion.
 - ESLint rules `no-floating-promises` + `no-misused-promises` activas como warning. Quedan ~12 warnings intencionales (`void` faltante en fire-and-forget).
 
 ### 3. iOS app

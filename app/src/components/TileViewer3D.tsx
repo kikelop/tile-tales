@@ -17,7 +17,6 @@ import { deleteTileBlob, isIdbRef, idbRefToId, getTileBlobUrl, revokeTileBlobUrl
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
 import { useReverseGeocode } from "@/lib/useReverseGeocode";
 import { useCaptureTile } from "@/lib/useCaptureTile";
-import { getActiveTheme, type Theme } from "@/lib/theme";
 
 
 export default function TileViewer3D({
@@ -132,17 +131,7 @@ export default function TileViewer3D({
   const activeTileFile = tiles[safeIndex]?.file;
   const activeTileUrl = useTileFileUrl(activeTileFile);
   const geoLabel = useReverseGeocode(geoDraft?.lat, geoDraft?.lng);
-  const [theme, setTheme] = useState<Theme>(() => getActiveTheme());
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const observer = new MutationObserver(() => {
-      const next = (document.documentElement.getAttribute("data-theme") as Theme) || "light";
-      setTheme(next);
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
-  }, []);
-  const canvasBg = theme === "dark" ? "#0e0e0e" : "#f5f2ed";
+  const canvasBg = "#f5f2ed";
 
 
   const goPrev = useCallback(() => setActiveIndex((i) => Math.max(0, i - 1)), []);

@@ -5,7 +5,6 @@ import { getState, subscribe, getAllTags, type TileItem } from "@/lib/store";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
 import { haptic } from "@/lib/haptic";
 import { isIdbRef } from "@/lib/blob-storage";
-import { getActiveTheme, setTheme, type Theme } from "@/lib/theme";
 
 const ONBOARDING_DISMISSED_KEY = "tile-tales-onboarding-dismissed";
 
@@ -112,14 +111,6 @@ export default function TileGrid({
     if (typeof window === "undefined") return true;
     try { return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "1"; } catch { return false; }
   });
-  const [theme, setThemeState] = useState<Theme>(() => getActiveTheme());
-
-  const toggleTheme = useCallback(() => {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    setThemeState(next);
-    haptic(6);
-  }, [theme]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinchStart = useRef(0);
   const colsAtPinchStart = useRef(3);
@@ -327,42 +318,6 @@ export default function TileGrid({
                 <path d="M13 17V5" />
                 <path d="M8 17v-3" />
               </svg>
-            </button>
-            <button
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              onClick={toggleTheme}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                border: "none",
-                background: "var(--tt-chip-bg)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                WebkitTapHighlightColor: "transparent",
-                flexShrink: 0,
-                color: "var(--tt-fg)",
-              }}
-            >
-              {theme === "dark" ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2" />
-                  <path d="M12 20v2" />
-                  <path d="m4.93 4.93 1.41 1.41" />
-                  <path d="m17.66 17.66 1.41 1.41" />
-                  <path d="M2 12h2" />
-                  <path d="M20 12h2" />
-                  <path d="m6.34 17.66-1.41 1.41" />
-                  <path d="m19.07 4.93-1.41 1.41" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-              )}
             </button>
             <button
               aria-label="Search"

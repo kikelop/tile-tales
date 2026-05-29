@@ -1,10 +1,7 @@
 @import "tailwindcss";
 
-/* Theme tokens. Default (light) and dark mode variants. Components read
-   via var(--tt-*) so a single attribute on <html data-theme="dark">
-   flips the entire palette without prop-drilling. */
-:root,
-:root[data-theme="light"] {
+/* Palette tokens. Components read via var(--tt-*). Single light theme. */
+:root {
   --tt-bg: #f5f2ed;
   --tt-fg: #1a1a1a;
   --tt-muted: #8a8578;
@@ -22,25 +19,6 @@
   --tt-popover-divider: #f0ece6;
   --tt-input-bg: #faf8f5;
   --tt-input-border: #e0d8cc;
-}
-
-:root[data-theme="dark"] {
-  --tt-bg: #141414;
-  --tt-fg: #f0ece4;
-  --tt-muted: #888378;
-  --tt-border: rgba(255, 255, 255, 0.08);
-  --tt-tile-placeholder: #232323;
-  --tt-canvas-bg: #0e0e0e;
-  --tt-overlay-bg: rgba(40, 40, 40, 0.85);
-  --tt-overlay-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-  --tt-bottombar-bg: rgba(20, 20, 20, 0.92);
-  --tt-chip-bg: rgba(255, 255, 255, 0.08);
-  --tt-chip-bg-active: #f0ece4;
-  --tt-chip-fg-active: #1a1a1a;
-  --tt-popover-bg: #262626;
-  --tt-popover-divider: rgba(255, 255, 255, 0.08);
-  --tt-input-bg: #1e1e1e;
-  --tt-input-border: rgba(255, 255, 255, 0.12);
 }
 
 @theme inline {

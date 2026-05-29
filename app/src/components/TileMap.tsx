@@ -10,7 +10,6 @@ import { useReverseGeocode } from "@/lib/useReverseGeocode";
 import { requestGeolocation } from "@/lib/geo";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
-import { getActiveTheme, type Theme } from "@/lib/theme";
 
 function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
@@ -80,18 +79,6 @@ export default function TileMap({
   const [locating, setLocating] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
 
-  // Track the active theme so we can swap the basemap and tint the chrome.
-  const [theme, setThemeState] = useState<Theme>(() => getActiveTheme());
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const observer = new MutationObserver(() => {
-      setThemeState((document.documentElement.getAttribute("data-theme") as Theme) || "light");
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
-  }, []);
-  const isDark = theme === "dark";
-
   const geoTiles = useMemo(
     () => tiles.filter((t) => t.lat != null && t.lng != null),
     [tiles]
@@ -129,10 +116,10 @@ export default function TileMap({
     mapRef.current?.flyTo([pos.lat, pos.lng], 13, { duration: 1.2 });
   }, [locating]);
 
-  const headerBg = isDark ? "rgba(20,20,20,0.85)" : "rgba(245,242,237,0.85)";
-  const fg = isDark ? "#f0ece4" : "#1a1a1a";
-  const muted = isDark ? "#888378" : "#8a8578";
-  const chipBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+  const headerBg = "rgba(245,242,237,0.85)";
+  const fg = "#1a1a1a";
+  const muted = "#8a8578";
+  const chipBg = "rgba(0,0,0,0.06)";
 
   return (
     <div
@@ -200,13 +187,8 @@ export default function TileMap({
         zoomControl={false}
       >
         <TileLayer
-          key={isDark ? "dark" : "light"}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url={
-            isDark
-              ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          }
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         {visibleTiles.map((tile) => {
           const originalIndex = tiles.findIndex((t) => t.id === tile.id);
@@ -236,8 +218,8 @@ export default function TileMap({
           height: 48,
           borderRadius: 24,
           border: "none",
-          background: isDark ? "#f0ece4" : "#fff",
-          color: isDark ? "#1a1a1a" : "#1a1a1a",
+          background: "#fff",
+          color: "#1a1a1a",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -291,8 +273,8 @@ export default function TileMap({
                 padding: "6px 14px",
                 borderRadius: 20,
                 border: "none",
-                background: activeTag === f.id ? (isDark ? "#f0ece4" : "#1a1a1a") : chipBg,
-                color: activeTag === f.id ? (isDark ? "#1a1a1a" : "#fff") : fg,
+                background: activeTag === f.id ? "#1a1a1a" : chipBg,
+                color: activeTag === f.id ? "#fff" : fg,
                 fontSize: 13,
                 fontWeight: 500,
                 cursor: "pointer",
