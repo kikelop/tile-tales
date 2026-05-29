@@ -261,6 +261,8 @@ export default function CropModal({ imageUrl, onConfirm, onCancel, queueCount = 
             top: offset.y,
             width: displayW,
             height: displayH,
+            maxWidth: "none",
+            maxHeight: "none",
             transformOrigin: `${displayW / 2}px ${displayH / 2}px`,
             transform: `rotate(${rotation}deg)`,
             pointerEvents: "none",
@@ -292,10 +294,10 @@ export default function CropModal({ imageUrl, onConfirm, onCancel, queueCount = 
       </div>
 
       {/* Controls */}
-      <div style={{ background: "#000", padding: "8px 24px 0" }}>
+      <div style={{ background: "#000", padding: "18px 24px 28px" }}>
         {/* Rotation slider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="1 4 1 10 7 10" />
             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
           </svg>
@@ -306,9 +308,9 @@ export default function CropModal({ imageUrl, onConfirm, onCancel, queueCount = 
             step={0.05}
             value={rotation}
             onChange={(e) => setRotation(parseFloat(e.target.value))}
-            style={{ flex: 1, accentColor: "#fff" }}
+            style={{ flex: 1, accentColor: "#fff", height: 28, cursor: "pointer" }}
           />
-          <span style={{ color: "#888", fontSize: 12, fontFamily: "monospace", width: 45, textAlign: "right" }}>
+          <span style={{ color: "#aaa", fontSize: 13, fontFamily: "monospace", width: 48, textAlign: "right" }}>
             {rotation.toFixed(1)}°
           </span>
         </div>

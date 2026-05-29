@@ -703,15 +703,6 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
               </button>
             ))}
 
-            <input
-              type="range"
-              min={60}
-              max={240}
-              value={tileSize}
-              onChange={(e) => setTileSize(Number(e.target.value))}
-              style={{ width: 70, accentColor: "#1a1a1a", flexShrink: 0 }}
-            />
-
             {/* Duotone toggle */}
             <button
               onClick={() => setDuotone((v) => !v)}
@@ -752,6 +743,19 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
                 />
               </>
             )}
+          </div>
+
+          {/* Tile size — its own row, out of the horizontal scroll */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px 0" }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "#8a8578", flexShrink: 0 }}>Tile size</span>
+            <input
+              type="range"
+              min={60}
+              max={240}
+              value={tileSize}
+              onChange={(e) => setTileSize(Number(e.target.value))}
+              style={{ flex: 1, accentColor: "#1a1a1a" }}
+            />
           </div>
 
           {/* Duotone preset chips */}
@@ -811,9 +815,34 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {/* Create button */}
+      {/* Tile selector */}
+      <div
+        className="hide-scrollbar"
+        style={{
+          display: "flex",
+          gap: 8,
+          padding: "8px 16px 10px",
+          flexShrink: 0,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+        }}
+      >
+        {tiles.map((tile) => (
+          <WallpaperTileThumb
+            key={tile.id}
+            tile={tile}
+            isSelected={selectedIds.includes(tile.id)}
+            selIndex={selectedIds.indexOf(tile.id)}
+            disabled={selectedIds.length >= 4}
+            onClick={() => toggleTile(tile.id)}
+          />
+        ))}
+      </div>
+
+      {/* Create button — at the very bottom, below the tile selector */}
       {hasSelection && (
-        <div style={{ padding: "10px 16px", flexShrink: 0 }}>
+        <div style={{ padding: "8px 16px max(12px, env(safe-area-inset-bottom, 12px))", flexShrink: 0 }}>
           <button
             onClick={handleCreate}
             style={{
@@ -832,31 +861,6 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
           </button>
         </div>
       )}
-
-      {/* Tile selector */}
-      <div
-        className="hide-scrollbar"
-        style={{
-          display: "flex",
-          gap: 8,
-          padding: "8px 16px max(12px, env(safe-area-inset-bottom, 12px))",
-          flexShrink: 0,
-          overflowX: "auto",
-          WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "none",
-        }}
-      >
-        {tiles.map((tile) => (
-          <WallpaperTileThumb
-            key={tile.id}
-            tile={tile}
-            isSelected={selectedIds.includes(tile.id)}
-            selIndex={selectedIds.indexOf(tile.id)}
-            disabled={selectedIds.length >= 4}
-            onClick={() => toggleTile(tile.id)}
-          />
-        ))}
-      </div>
     </div>
   );
 }
