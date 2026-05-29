@@ -127,7 +127,7 @@ Kike quiere hacer **review de TODAS las features** (las 39, F1→F8) y pulir lo 
 ### 1. Retocar UX del location editor
 - ~~Truncar `display_name` verboso de Nominatim~~ → hecho en F8 (`trimDisplayName`).
 - ~~Feedback visual entre "Use my location" y el resultado~~ → hecho en F8 (fila verde + "naming…").
-- Picker en mini-mapa como alternativa al buscador (mas visual). Pendiente decidir si compensa el espacio extra en el bottom sheet. **Unico item vivo de este bloque.**
+- ~~Picker en mini-mapa~~ → **HECHO 2026-05-29**. Botón "Pin on map" en el location editor de TileEditSheet despliega un mini-mapa Leaflet (200px) — tap para soltar el pin verde (`MapClickHandler` con `useMapEvents`). Tercera vía junto a "Use my location" / "Search a place".
 
 ### 2. Pendientes documentados (no urgentes)
 - **Map clustering** (markercluster): pospuesto en F8 — react-leaflet v5 no tiene wrapper estable, requiere implementacion propia o integracion manual cuidada. El filtro por tags y el boton "mi ubicacion" ya estan.

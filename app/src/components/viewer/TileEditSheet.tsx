@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import AlbumsField from "./AlbumsField";
 import { updateTile, deleteTile, type TileItem, type Album } from "@/lib/store";
 import { haptic } from "@/lib/haptic";
@@ -8,6 +11,20 @@ import { toast } from "@/lib/toast";
 import { requestGeolocation, searchPlaces, type GeoPoint, type PlaceResult } from "@/lib/geo";
 import { deleteTileBlob, isIdbRef, idbRefToId, revokeTileBlobUrl } from "@/lib/blob-storage";
 import { useReverseGeocode } from "@/lib/useReverseGeocode";
+
+// Green drop-pin matching the location row accent.
+const pickerIcon = L.divIcon({
+  className: "",
+  html: `<svg width="28" height="28" viewBox="0 0 24 24" fill="#5a8a3c" stroke="#fff" stroke-width="1.5" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35))"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3" fill="#fff" stroke="#5a8a3c"/></svg>`,
+  iconSize: [28, 28],
+  iconAnchor: [14, 26],
+});
+
+// Captures taps on the mini-map to drop the location pin.
+function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({ click(e) { onPick(e.latlng.lat, e.latlng.lng); } });
+  return null;
+}
 
 /**
  * Bottom-sheet editor for a tile: name, memory, date, tags, location and albums.
@@ -36,6 +53,7 @@ export default function TileEditSheet({
   );
   const [fetchingGeo, setFetchingGeo] = useState(false);
   const [searchingPlace, setSearchingPlace] = useState(false);
+  const [pickingOnMap, setPickingOnMap] = useState(false);
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [placeLoading, setPlaceLoading] = useState(false);
@@ -258,7 +276,8 @@ export default function TileEditSheet({
             )}
           </div>
 
-          {!searchingPlace ? (
+          {!searchingPlace && !pickingOnMap && (
+            <>
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button
                 onClick={async () => {
@@ -308,7 +327,27 @@ export default function TileEditSheet({
                 Search a place
               </button>
             </div>
-          ) : (
+            <button
+              onClick={() => { setPickingOnMap(true); haptic(6); }}
+              style={{
+                width: "100%",
+                marginTop: 8,
+                padding: "10px 8px",
+                borderRadius: 12,
+                border: "1px solid #e0d8cc",
+                background: "transparent",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#1a1a1a",
+                cursor: "pointer",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              Pin on map
+            </button>
+            </>
+          )}
+          {searchingPlace && (
             <div style={{ marginTop: 8 }}>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
@@ -402,6 +441,41 @@ export default function TileEditSheet({
                   )}
                 </div>
               )}
+            </div>
+          )}
+          {pickingOnMap && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ height: 200, borderRadius: 12, overflow: "hidden", border: "1px solid #e0d8cc" }}>
+                <MapContainer
+                  center={(geoDraft ? [geoDraft.lat, geoDraft.lng] : [40, -4]) as [number, number]}
+                  zoom={geoDraft ? 13 : 4}
+                  style={{ height: "100%", width: "100%" }}
+                  zoomControl={false}
+                >
+                  <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                  <MapClickHandler onPick={(lat, lng) => { setGeoDraft({ lat, lng }); haptic(6); }} />
+                  {geoDraft && <Marker position={[geoDraft.lat, geoDraft.lng]} icon={pickerIcon} />}
+                </MapContainer>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                <span style={{ flex: 1, fontSize: 12, color: "#9a9288" }}>Tap the map to drop the pin</span>
+                <button
+                  onClick={() => { setPickingOnMap(false); haptic(6); }}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: 12,
+                    border: "1px solid #e0d8cc",
+                    background: "transparent",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#1a1a1a",
+                    cursor: "pointer",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           )}
         </div>
