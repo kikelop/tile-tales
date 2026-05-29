@@ -1,0 +1,12 @@
+{
+  "name": "tile-tales-marketing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "frames": "node build-frames.mjs",
+    "shots": "node build-shots.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.60.0"
+  }
+}

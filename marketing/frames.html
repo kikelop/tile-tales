@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tile Tales — frame generator</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { background:#444; }
+  /* Each frame is 1600x900 (captured at 2x -> 3200x1800, perfect 16:9 for X). */
+  .frame {
+    width:1600px; height:900px; position:relative; overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  .frame.light { background:radial-gradient(circle at 32% 22%, #faf8f3, #e9e3d7); }
+  .frame.dark  { background:radial-gradient(circle at 32% 22%, #211d17, #131009); }
+
+  /* ---- phone mockup ---- */
+  .phone { position:absolute; left:72px; top:50%; transform:translateY(-50%);
+    width:384px; height:810px; background:#0b0b0b; border-radius:58px;
+    padding:13px; box-shadow:0 40px 80px -30px rgba(0,0,0,.45), 0 0 0 2px rgba(0,0,0,.6); }
+  .screen { width:100%; height:100%; border-radius:46px; overflow:hidden; background:#fff; position:relative; }
+  .screen img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+  .island { position:absolute; top:13px; left:50%; transform:translateX(-50%);
+    width:104px; height:30px; background:#0b0b0b; border-radius:16px; z-index:2; }
+
+  /* ---- text block (centered in the space to the right of the phone) ---- */
+  .txt { position:absolute; left:480px; right:0; top:0; bottom:0;
+    display:flex; align-items:center; justify-content:center; }
+  .txtinner { text-align:left; max-width:880px; }
+  .kicker { font-size:25px; font-weight:700; letter-spacing:9px; text-transform:uppercase; margin-bottom:28px; }
+  .title  { font-size:98px; font-weight:800; letter-spacing:-3.2px; line-height:.96; }
+  .sub    { font-size:40px; font-weight:400; margin-top:28px; line-height:1.18; }
+  .light .kicker { color:#9a917f; } .light .title { color:#1a1a1a; } .light .sub { color:#7d7565; }
+  .dark  .kicker { color:#9a917f; } .dark  .title { color:#f5f2ed; } .dark  .sub { color:#a39a86; }
+
+  /* ---- cover: 4 phones in a row ---- */
+  .cover { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:40px; }
+  .covertitle { font-size:42px; font-weight:800; letter-spacing:-1.8px; }
+  .light .covertitle { color:#1a1a1a; } .dark .covertitle { color:#f5f2ed; }
+  .row { display:flex; gap:34px; }
+  .phone.sm { position:static; transform:none; width:296px; height:625px; border-radius:46px; padding:10px;
+    box-shadow:0 28px 56px -26px rgba(0,0,0,.42), 0 0 0 1.5px rgba(0,0,0,.6); }
+  .phone.sm .screen { border-radius:38px; }
+  .phone.sm .island { top:10px; width:80px; height:23px; border-radius:13px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const FRAMES = [
+  { key:"cover", mode:"cover", shots:["grid","viewer","map","wallpaper"], title:"tile tales" },
+  { key:"grid",      kicker:"Tile Tales", title:"your collection", sub:"every tile you've saved, one wall" },
+  { key:"viewer",    kicker:"Tile Tales", title:"the 3d viewer",   sub:"spin it, flip it, read the back" },
+  { key:"map",       kicker:"Tile Tales", title:"on the map",      sub:"it reads the gps from each photo" },
+  { key:"stats",     kicker:"Tile Tales", title:"stats",           sub:"your collection in numbers" },
+  { key:"wallpaper", kicker:"Tile Tales", title:"wallpaper maker", sub:"tile them into a pattern" },
+  { key:"albums",    kicker:"Tile Tales", title:"albums",          sub:"group them by trip or city" },
+  { key:"album",     kicker:"Tile Tales", title:"inside an album", sub:"its own little gallery" },
+];
+const THEMES = ["light","dark"];
+function phone(shot, theme, sm) {
+  return `<div class="phone ${sm?'sm':''}"><div class="island"></div>
+    <div class="screen"><img src="./raw/${shot}-${theme}.png" alt=""></div></div>`;
+}
+function frameHTML(f, theme) {
+  if (f.mode === "cover") {
+    return `<div class="cover">
+      <div class="covertitle">${f.title}</div>
+      <div class="row">${f.shots.map(s => phone(s, theme, true)).join("")}</div>
+    </div>`;
+  }
+  return `${phone(f.key, theme, false)}
+    <div class="txt"><div class="txtinner">
+      <div class="kicker">${f.kicker}</div>
+      <div class="title">${f.title}</div>
+      <div class="sub">${f.sub}</div>
+    </div></div>`;
+}
+document.getElementById("root").innerHTML = THEMES.map(theme =>
+  FRAMES.map(f =>
+    `<div class="frame ${theme}" id="frame-${f.key}-${theme}">${frameHTML(f, theme)}</div>`
+  ).join("")
+).join("");
+</script>
+</body>
+</html>
