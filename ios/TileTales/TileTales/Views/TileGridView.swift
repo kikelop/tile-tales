@@ -79,8 +79,13 @@ struct TileGridView: View {
                     }
                 }
 
-                bottomBar
+                navTabBar
             }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            addFAB
+                .padding(.trailing, 20)
+                .padding(.bottom, 76)
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showCamera) {
@@ -161,6 +166,14 @@ struct TileGridView: View {
 
     private var viewMenu: some View {
         Menu {
+            Picker("Filter", selection: $activeFilter) {
+                ForEach(filters, id: \.self) { filter in
+                    Text(filter.label).tag(filter)
+                }
+            }
+
+            Divider()
+
             Picker("Sort", selection: Binding(
                 get: { sortOrder },
                 set: { sortRaw = $0.rawValue }
@@ -230,50 +243,34 @@ struct TileGridView: View {
         .padding(.bottom, 10)
     }
 
-    // MARK: - Bottom Bar
+    // MARK: - Bottom Bar (navigation only — Albums / Map / Wallpaper, centered)
 
-    private var bottomBar: some View {
-        HStack(spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(filters, id: \.self) { filter in
-                        Button {
-                            withAnimation(.easeOut(duration: 0.2)) { activeFilter = filter }
-                        } label: {
-                            Text(filter == .favorites ? "\u{2665} Favorites" : filter.label)
-                                .font(.system(size: 13, weight: .medium))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 6)
-                                .background(activeFilter == filter ? fgColor : Color.black.opacity(0.06))
-                                .foregroundColor(activeFilter == filter ? .white : fgColor)
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
-                .padding(.leading, 4)
-            }
-
-            navButton(systemName: "mappin.circle", size: 18) { navigationPath.append(AppScreen.map) }
-            navButton(systemName: "rectangle.stack", size: 16) { navigationPath.append(AppScreen.albums) }
-            navButton(systemName: "square.grid.2x2", size: 16) { navigationPath.append(AppScreen.wallpaper) }
-
-            // Add
-            Menu {
-                Button { showCamera = true } label: { Label("Take photo", systemImage: "camera") }
-                Button { showLibrary = true } label: { Label("Choose from library", systemImage: "photo.on.rectangle") }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 40, height: 40)
-                    .background(fgColor)
-                    .clipShape(Circle())
-                    .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
-            }
+    private var navTabBar: some View {
+        HStack(spacing: 28) {
+            navButton(systemName: "rectangle.stack", size: 19) { navigationPath.append(AppScreen.albums) }
+            navButton(systemName: "mappin.circle", size: 21) { navigationPath.append(AppScreen.map) }
+            navButton(systemName: "square.grid.2x2", size: 19) { navigationPath.append(AppScreen.wallpaper) }
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(bgColor.opacity(0.92).background(.ultraThinMaterial))
+    }
+
+    // Large FAB floating above the tab bar
+    private var addFAB: some View {
+        Menu {
+            Button { showCamera = true } label: { Label("Take photo", systemImage: "camera") }
+            Button { showLibrary = true } label: { Label("Choose from library", systemImage: "photo.on.rectangle") }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 56, height: 56)
+                .background(fgColor)
+                .clipShape(Circle())
+                .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
+        }
     }
 
     private func navButton(systemName: String, size: CGFloat, action: @escaping () -> Void) -> some View {

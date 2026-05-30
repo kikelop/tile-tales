@@ -46,7 +46,7 @@ struct SceneKitTileView: UIViewRepresentable {
         directional1.light?.type = .directional
         directional1.light?.intensity = 1200
         directional1.position = SCNVector3(2, 6, 10)
-        directional1.look(at: SCNVector3.zero)
+        directional1.look(at: SCNVector3(0, 0, 0))
         scene.rootNode.addChildNode(directional1)
 
         let directional2 = SCNNode()
@@ -54,7 +54,7 @@ struct SceneKitTileView: UIViewRepresentable {
         directional2.light?.type = .directional
         directional2.light?.intensity = 400
         directional2.position = SCNVector3(-4, 3, 5)
-        directional2.look(at: SCNVector3.zero)
+        directional2.look(at: SCNVector3(0, 0, 0))
         scene.rootNode.addChildNode(directional2)
 
         // Tile

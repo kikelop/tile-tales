@@ -7,28 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000010000000000000001 /* TileTalesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000001; };
-		A10000010000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000002; };
-		A10000010000000000000003 /* TileModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000003; };
-		A10000010000000000000004 /* TileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000004; };
-		A10000010000000000000005 /* TileGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000005; };
-		A10000010000000000000006 /* TileViewer3DView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000006; };
-		A10000010000000000000007 /* TileMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000007; };
-		A10000010000000000000008 /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000008; };
-		A10000010000000000000009 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000009; };
-		A10000010000000000000010 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000010; };
-		A10000010000000000000011 /* TileEditSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000011; };
-		A10000010000000000000012 /* ShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000012; };
-		A10000010000000000000013 /* SceneKitTileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000013; };
-		A10000010000000000000014 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014; };
-		A10000010000000000000015 /* WallpaperGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015; };
-		A10000010000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000016; };
-		A10000010000000000000017 /* GeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000017; };
-		A10000010000000000000018 /* CaptureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000018; };
-		A10000010000000000000019 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019; };
-		A10000010000000000000020 /* CropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020; };
-		A10000010000000000000021 /* AlbumsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021; };
-		A10000010000000000000022 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000022; };
+		A10000010000000000000001 /* TileTalesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000001 /* TileTalesApp.swift */; };
+		A10000010000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000002 /* ContentView.swift */; };
+		A10000010000000000000003 /* TileModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000003 /* TileModel.swift */; };
+		A10000010000000000000004 /* TileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000004 /* TileStore.swift */; };
+		A10000010000000000000005 /* TileGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000005 /* TileGridView.swift */; };
+		A10000010000000000000006 /* TileViewer3DView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000006 /* TileViewer3DView.swift */; };
+		A10000010000000000000007 /* TileMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000007 /* TileMapView.swift */; };
+		A10000010000000000000008 /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000008 /* CameraService.swift */; };
+		A10000010000000000000009 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000009 /* LocationService.swift */; };
+		A10000010000000000000010 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000010 /* ImagePicker.swift */; };
+		A10000010000000000000011 /* TileEditSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000011 /* TileEditSheet.swift */; };
+		A10000010000000000000012 /* ShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000012 /* ShareService.swift */; };
+		A10000010000000000000013 /* SceneKitTileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000013 /* SceneKitTileView.swift */; };
+		A10000010000000000000014 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014 /* SplashView.swift */; };
+		A10000010000000000000015 /* WallpaperGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015 /* WallpaperGeneratorView.swift */; };
+		A10000010000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000016 /* Assets.xcassets */; };
+		A10000010000000000000017 /* GeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000017 /* GeocodingService.swift */; };
+		A10000010000000000000018 /* CaptureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000018 /* CaptureSupport.swift */; };
+		A10000010000000000000019 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019 /* BackupService.swift */; };
+		A10000010000000000000020 /* CropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020 /* CropView.swift */; };
+		A10000010000000000000021 /* AlbumsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021 /* AlbumsView.swift */; };
+		A10000010000000000000022 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000022 /* StatsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -300,13 +300,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 4V43H3637W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Tile Tales";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of street tiles to add to your collection";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Save the location where you found each tile";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose tile photos from your library";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save your generated wallpapers to your photo library";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose tile photos from your library";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -333,13 +333,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 4V43H3637W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Tile Tales";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of street tiles to add to your collection";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Save the location where you found each tile";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose tile photos from your library";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save your generated wallpapers to your photo library";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose tile photos from your library";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -381,7 +381,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = A90000010000000000000001 /* Project object */;
 }
