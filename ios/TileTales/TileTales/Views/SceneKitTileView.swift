@@ -6,6 +6,14 @@ struct SceneKitTileView: UIViewRepresentable {
     let memoryText: String
     let dateText: String
     let tileName: String
+    /// Bumped by the viewer on double-tap / tile switch to recenter the camera.
+    var resetToken: Int = 0
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var lastResetToken = 0
+    }
 
     func makeUIView(context: Context) -> SCNView {
         let scnView = SCNView()
@@ -19,6 +27,7 @@ struct SceneKitTileView: UIViewRepresentable {
 
         // Camera
         let cameraNode = SCNNode()
+        cameraNode.name = "camera"
         cameraNode.camera = SCNCamera()
         cameraNode.camera?.fieldOfView = 35
         cameraNode.position = SCNVector3(0, 0.3, 6)
@@ -97,6 +106,19 @@ struct SceneKitTileView: UIViewRepresentable {
 
     func updateUIView(_ scnView: SCNView, context: Context) {
         guard let tileNode = scnView.scene?.rootNode.childNode(withName: "tile", recursively: false) else { return }
+
+        // Recenter on double-tap / tile switch.
+        if context.coordinator.lastResetToken != resetToken {
+            context.coordinator.lastResetToken = resetToken
+            if let cameraNode = scnView.scene?.rootNode.childNode(withName: "camera", recursively: false) {
+                SCNTransaction.begin()
+                SCNTransaction.animationDuration = 0.45
+                SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeOut)
+                scnView.pointOfView = cameraNode
+                tileNode.eulerAngles = SCNVector3Zero
+                SCNTransaction.commit()
+            }
+        }
 
         // Update top face texture
         if let topFace = tileNode.childNode(withName: "topFace", recursively: false) {

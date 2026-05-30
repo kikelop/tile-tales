@@ -23,6 +23,12 @@
 		A10000010000000000000014 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014; };
 		A10000010000000000000015 /* WallpaperGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015; };
 		A10000010000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000016; };
+		A10000010000000000000017 /* GeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000017; };
+		A10000010000000000000018 /* CaptureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000018; };
+		A10000010000000000000019 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019; };
+		A10000010000000000000020 /* CropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020; };
+		A10000010000000000000021 /* AlbumsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021; };
+		A10000010000000000000022 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000022; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +48,12 @@
 		A20000010000000000000014 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		A20000010000000000000015 /* WallpaperGeneratorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperGeneratorView.swift; sourceTree = "<group>"; };
 		A20000010000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A20000010000000000000017 /* GeocodingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeocodingService.swift; sourceTree = "<group>"; };
+		A20000010000000000000018 /* CaptureSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSupport.swift; sourceTree = "<group>"; };
+		A20000010000000000000019 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
+		A20000010000000000000020 /* CropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropView.swift; sourceTree = "<group>"; };
+		A20000010000000000000021 /* AlbumsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumsView.swift; sourceTree = "<group>"; };
+		A20000010000000000000022 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		A30000010000000000000001 /* TileTales.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TileTales.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -96,6 +108,9 @@
 				A20000010000000000000013 /* SceneKitTileView.swift */,
 				A20000010000000000000014 /* SplashView.swift */,
 				A20000010000000000000015 /* WallpaperGeneratorView.swift */,
+				A20000010000000000000020 /* CropView.swift */,
+				A20000010000000000000021 /* AlbumsView.swift */,
+				A20000010000000000000022 /* StatsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -115,6 +130,9 @@
 				A20000010000000000000009 /* LocationService.swift */,
 				A20000010000000000000010 /* ImagePicker.swift */,
 				A20000010000000000000012 /* ShareService.swift */,
+				A20000010000000000000017 /* GeocodingService.swift */,
+				A20000010000000000000018 /* CaptureSupport.swift */,
+				A20000010000000000000019 /* BackupService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -211,6 +229,12 @@
 				A10000010000000000000013 /* SceneKitTileView.swift in Sources */,
 				A10000010000000000000014 /* SplashView.swift in Sources */,
 				A10000010000000000000015 /* WallpaperGeneratorView.swift in Sources */,
+				A10000010000000000000017 /* GeocodingService.swift in Sources */,
+				A10000010000000000000018 /* CaptureSupport.swift in Sources */,
+				A10000010000000000000019 /* BackupService.swift in Sources */,
+				A10000010000000000000020 /* CropView.swift in Sources */,
+				A10000010000000000000021 /* AlbumsView.swift in Sources */,
+				A10000010000000000000022 /* StatsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,6 +306,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of street tiles to add to your collection";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Save the location where you found each tile";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose tile photos from your library";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save your generated wallpapers to your photo library";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -314,6 +339,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of street tiles to add to your collection";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Save the location where you found each tile";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose tile photos from your library";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save your generated wallpapers to your photo library";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

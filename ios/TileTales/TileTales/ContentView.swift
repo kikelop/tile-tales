@@ -5,6 +5,9 @@ enum AppScreen: Hashable {
     case viewer(initialIndex: Int)
     case map
     case wallpaper
+    case albums
+    case albumDetail(id: String)
+    case stats
 }
 
 struct ContentView: View {
@@ -34,6 +37,15 @@ struct ContentView: View {
                                     .navigationBarHidden(true)
                             case .wallpaper:
                                 WallpaperGeneratorView()
+                                    .navigationBarHidden(true)
+                            case .albums:
+                                AlbumsView(navigationPath: $navigationPath)
+                                    .navigationBarHidden(true)
+                            case .albumDetail(let id):
+                                AlbumDetailView(albumId: id, navigationPath: $navigationPath)
+                                    .navigationBarHidden(true)
+                            case .stats:
+                                StatsView(navigationPath: $navigationPath)
                                     .navigationBarHidden(true)
                             case .grid:
                                 TileGridView(navigationPath: $navigationPath)
