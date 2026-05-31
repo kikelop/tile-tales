@@ -27,9 +27,7 @@ struct TileGridView: View {
     }
 
     private var filters: [TileFilter] {
-        var f: [TileFilter] = [.all, .favorites]
-        f += store.allTags.map { .tag($0) }
-        return f
+        [.all, .favorites]
     }
 
     private var displayedTiles: [TileItem] {
@@ -166,14 +164,6 @@ struct TileGridView: View {
 
     private var viewMenu: some View {
         Menu {
-            Picker("Filter", selection: $activeFilter) {
-                ForEach(filters, id: \.self) { filter in
-                    Text(filter.label).tag(filter)
-                }
-            }
-
-            Divider()
-
             Picker("Sort", selection: Binding(
                 get: { sortOrder },
                 set: { sortRaw = $0.rawValue }
@@ -185,13 +175,22 @@ struct TileGridView: View {
 
             Divider()
 
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) { columns = max(1, columns - 1) }
-            } label: { Label("Bigger tiles", systemImage: "plus.magnifyingglass") }
+            Picker("Tile size", selection: Binding(
+                get: { columns },
+                set: { newValue in withAnimation(.easeOut(duration: 0.2)) { columns = newValue } }
+            )) {
+                Text("Large").tag(2)
+                Text("Medium").tag(3)
+                Text("Small").tag(4)
+            }
 
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) { columns = min(6, columns + 1) }
-            } label: { Label("Smaller tiles", systemImage: "minus.magnifyingglass") }
+            Divider()
+
+            Picker("Filter", selection: $activeFilter) {
+                ForEach(filters, id: \.self) { filter in
+                    Text(filter.label).tag(filter)
+                }
+            }
 
             Divider()
 
@@ -316,27 +315,31 @@ struct TileGridCell: View {
     var body: some View {
         Button(action: onTap) {
             ZStack(alignment: .topTrailing) {
-                if let image = tile.image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .aspectRatio(1, contentMode: .fill)
-                        .clipped()
-                } else {
-                    LinearGradient(
-                        colors: [
-                            Color(red: 74/255, green: 111/255, blue: 165/255).opacity(0.3),
-                            Color(red: 232/255, green: 220/255, blue: 200/255)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .aspectRatio(1, contentMode: .fill)
-                    .overlay(
-                        Text(tile.name.prefix(2).uppercased())
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.8))
-                    )
-                }
+                // Square cell derived from the grid column width, then fill + clip.
+                Color.clear
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay {
+                        if let image = tile.image {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 74/255, green: 111/255, blue: 165/255).opacity(0.3),
+                                    Color(red: 232/255, green: 220/255, blue: 200/255)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                            .overlay(
+                                Text(tile.name.prefix(2).uppercased())
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.8))
+                            )
+                        }
+                    }
+                    .clipped()
 
                 if tile.favorite {
                     Text("\u{2665}")

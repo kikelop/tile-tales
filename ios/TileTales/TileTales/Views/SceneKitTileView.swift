@@ -25,12 +25,17 @@ struct SceneKitTileView: UIViewRepresentable {
         let scene = SCNScene()
         scnView.scene = scene
 
-        // Camera
+        // Camera — elevated 3/4 view so the patterned top face (which points +Y) is
+        // seen from above-front, centered and at a comfortable size. A near-level
+        // camera saw the tile edge-on at rest.
         let cameraNode = SCNNode()
         cameraNode.name = "camera"
         cameraNode.camera = SCNCamera()
         cameraNode.camera?.fieldOfView = 35
-        cameraNode.position = SCNVector3(0, 0.3, 6)
+        cameraNode.camera?.projectionDirection = .vertical
+        cameraNode.position = SCNVector3(0, 5.5, 6.5)
+        cameraNode.look(at: SCNVector3(0, 0.9, 0))
+        scnView.pointOfView = cameraNode
         scene.rootNode.addChildNode(cameraNode)
 
         // Lights

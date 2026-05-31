@@ -7,7 +7,6 @@ struct TileMapView: View {
     @Binding var navigationPath: NavigationPath
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedTileId: String?
-    @State private var activeTag: String?
     @State private var selectedLabel: String?
     @StateObject private var locationService = LocationService()
     @StateObject private var geocoder = GeocodingService.shared
@@ -17,8 +16,7 @@ struct TileMapView: View {
     private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
 
     private var visibleTiles: [TileItem] {
-        guard let tag = activeTag else { return store.geolocatedTiles }
-        return store.geolocatedTiles.filter { $0.tags.contains(tag) }
+        store.geolocatedTiles
     }
 
     var body: some View {
@@ -62,16 +60,7 @@ struct TileMapView: View {
                             .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
                     }
                     .padding(.trailing, 16)
-                    .padding(.bottom, selectedTileId == nil ? 80 : 200)
-                }
-            }
-
-            // Tag filter chips
-            if !store.geolocatedTags.isEmpty {
-                VStack {
-                    Spacer()
-                    tagFilterBar
-                        .padding(.bottom, selectedTileId == nil ? 16 : 0)
+                    .padding(.bottom, selectedTileId == nil ? 24 : 140)
                 }
             }
 
@@ -115,34 +104,11 @@ struct TileMapView: View {
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 12)
-        .background(bgColor.opacity(0.85).background(.ultraThinMaterial))
-    }
-
-    // MARK: - Tag filter
-
-    private var tagFilterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                chip(title: "All", active: activeTag == nil) { activeTag = nil }
-                ForEach(store.geolocatedTags, id: \.self) { tag in
-                    chip(title: tag.capitalized, active: activeTag == tag) {
-                        activeTag = (activeTag == tag) ? nil : tag
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-    }
-
-    private func chip(title: String, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .padding(.horizontal, 14).padding(.vertical, 7)
-                .background(active ? fgColor : Color.white.opacity(0.9))
-                .foregroundColor(active ? .white : fgColor)
-                .clipShape(Capsule())
-                .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
+        .frame(maxWidth: .infinity)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .top)
         }
     }
 
@@ -197,8 +163,8 @@ struct TileMapView: View {
                     navigationPath.append(AppScreen.viewer(initialIndex: index))
                 }
             } label: {
-                Image(systemName: "cube")
-                    .font(.system(size: 20))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(fgColor)
                     .frame(width: 44, height: 44)
                     .background(Color.black.opacity(0.06))
