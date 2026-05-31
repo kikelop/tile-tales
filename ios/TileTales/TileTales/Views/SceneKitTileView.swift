@@ -1,16 +1,7 @@
 import SwiftUI
 import SceneKit
 import simd
-
-/// Camera framing dialled in via the debug panel. Rotation is applied to the tile
-/// itself (around its center) so it spins in place and can flip to show the back.
-struct ViewerDebugConfig: Equatable {
-    var camX: Float = 0
-    var camY: Float = 8.8
-    var camZ: Float = 3.3
-    var fov: Double = 37
-    var showAxes: Bool = false
-}
+import CoreText
 
 struct SceneKitTileView: UIViewRepresentable {
     let tileImage: UIImage?
@@ -19,7 +10,6 @@ struct SceneKitTileView: UIViewRepresentable {
     let tileName: String
     /// Bumped by the viewer on double-tap / tile switch to recenter the tile.
     var resetToken: Int = 0
-    var debug: ViewerDebugConfig = ViewerDebugConfig()
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -142,31 +132,10 @@ struct SceneKitTileView: UIViewRepresentable {
     }
 
     private func applyCamera(_ cameraNode: SCNNode) {
-        cameraNode.position = SCNVector3(debug.camX, debug.camY, debug.camZ)
-        cameraNode.camera?.fieldOfView = CGFloat(debug.fov)
+        // Framing dialled in on device: centered, raised for a near-frontal read.
+        cameraNode.position = SCNVector3(0, 8.8, 3.3)
+        cameraNode.camera?.fieldOfView = 37
         cameraNode.look(at: SCNVector3(0, 0, 0))
-    }
-
-    /// XYZ axis gizmo at the world origin (R=X, G=Y, B=Z) + a black dot at 0,0,0.
-    private func makeAxesNode() -> SCNNode {
-        let node = SCNNode()
-        node.name = "axes"
-        func axis(_ color: UIColor, euler: SCNVector3) -> SCNNode {
-            let cyl = SCNCylinder(radius: 0.015, height: 3)
-            let m = SCNMaterial(); m.diffuse.contents = color; m.lightingModel = .constant
-            cyl.materials = [m]
-            let n = SCNNode(geometry: cyl)
-            n.eulerAngles = euler
-            return n
-        }
-        node.addChildNode(axis(.systemGreen, euler: SCNVector3(0, 0, 0)))            // Y
-        node.addChildNode(axis(.systemRed, euler: SCNVector3(0, 0, Float.pi / 2)))   // X
-        node.addChildNode(axis(.systemBlue, euler: SCNVector3(Float.pi / 2, 0, 0)))  // Z
-        let dot = SCNSphere(radius: 0.07)
-        let dm = SCNMaterial(); dm.diffuse.contents = UIColor.black; dm.lightingModel = .constant
-        dot.materials = [dm]
-        node.addChildNode(SCNNode(geometry: dot))
-        return node
     }
 
     func makeUIView(context: Context) -> SCNView {
@@ -187,11 +156,6 @@ struct SceneKitTileView: UIViewRepresentable {
         applyCamera(cameraNode)
         scnView.pointOfView = cameraNode
         scene.rootNode.addChildNode(cameraNode)
-
-        // Axis gizmo (debug; hidden unless showAxes is on)
-        let axes = makeAxesNode()
-        axes.isHidden = !debug.showAxes
-        scene.rootNode.addChildNode(axes)
 
         // Lights — key + fill + bottom fill (so the back face reads when flipped).
         let ambientLight = SCNNode()
@@ -253,12 +217,6 @@ struct SceneKitTileView: UIViewRepresentable {
     func updateUIView(_ scnView: SCNView, context: Context) {
         guard let tileNode = scnView.scene?.rootNode.childNode(withName: "tile", recursively: false) else { return }
 
-        // Apply camera/framing changes from the debug panel (only when they change).
-        if let cameraNode = scnView.scene?.rootNode.childNode(withName: "camera", recursively: false) {
-            applyCamera(cameraNode)
-        }
-        scnView.scene?.rootNode.childNode(withName: "axes", recursively: false)?.isHidden = !debug.showAxes
-
         // Smooth slerp back to rest on double-tap / tile switch.
         if context.coordinator.lastResetToken != resetToken {
             context.coordinator.lastResetToken = resetToken
@@ -314,6 +272,22 @@ struct SceneKitTileView: UIViewRepresentable {
 
     // MARK: - Memory Texture
 
+    /// Register the bundled Caveat font once (the Info.plist is generated, so we can't
+    /// declare UIAppFonts — register at runtime instead). Matches the web's handwriting.
+    private static let registerCaveat: Void = {
+        if let url = Bundle.main.url(forResource: "Caveat", withExtension: "ttf") {
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
+    }()
+
+    private func handwritingFont(_ size: CGFloat) -> UIFont {
+        _ = Self.registerCaveat
+        for name in ["Caveat-Regular", "Caveat", "CaveatRoman-Regular"] {
+            if let f = UIFont(name: name, size: size) { return f }
+        }
+        return UIFont(name: "Snell Roundhand", size: size) ?? .systemFont(ofSize: size, weight: .light)
+    }
+
     private func createMemoryTexture() -> UIImage {
         let size = CGSize(width: 1024, height: 1024)
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -330,8 +304,7 @@ struct SceneKitTileView: UIViewRepresentable {
             }
 
             if !memoryText.isEmpty {
-                let font = UIFont(name: "Snell Roundhand", size: 64)
-                    ?? UIFont.systemFont(ofSize: 64, weight: .light)
+                let font = handwritingFont(96)
                 let paragraphStyle = NSMutableParagraphStyle()
                 paragraphStyle.alignment = .center
                 paragraphStyle.lineSpacing = 8
@@ -347,8 +320,7 @@ struct SceneKitTileView: UIViewRepresentable {
             }
 
             if !dateText.isEmpty {
-                let dateFont = UIFont(name: "Snell Roundhand", size: 34)
-                    ?? UIFont.systemFont(ofSize: 34, weight: .light)
+                let dateFont = handwritingFont(46)
                 let dateAttrs: [NSAttributedString.Key: Any] = [
                     .font: dateFont,
                     .foregroundColor: UIColor(red: 138/255, green: 130/255, blue: 120/255, alpha: 1),

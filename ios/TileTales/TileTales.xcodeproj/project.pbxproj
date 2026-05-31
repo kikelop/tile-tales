@@ -23,6 +23,7 @@
 		A10000010000000000000014 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014 /* SplashView.swift */; };
 		A10000010000000000000015 /* WallpaperGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015 /* WallpaperGeneratorView.swift */; };
 		A10000010000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000016 /* Assets.xcassets */; };
+		A10000010000000000000023 /* Caveat.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000023 /* Caveat.ttf */; };
 		A10000010000000000000017 /* GeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000017 /* GeocodingService.swift */; };
 		A10000010000000000000018 /* CaptureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000018 /* CaptureSupport.swift */; };
 		A10000010000000000000019 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019 /* BackupService.swift */; };
@@ -48,6 +49,7 @@
 		A20000010000000000000014 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		A20000010000000000000015 /* WallpaperGeneratorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperGeneratorView.swift; sourceTree = "<group>"; };
 		A20000010000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A20000010000000000000023 /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
 		A20000010000000000000017 /* GeocodingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeocodingService.swift; sourceTree = "<group>"; };
 		A20000010000000000000018 /* CaptureSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSupport.swift; sourceTree = "<group>"; };
 		A20000010000000000000019 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
@@ -86,6 +88,7 @@
 				A50000010000000000000005 /* ViewModels */,
 				A50000010000000000000006 /* Services */,
 				A20000010000000000000016 /* Assets.xcassets */,
+				A20000010000000000000023 /* Caveat.ttf */,
 			);
 			path = TileTales;
 			sourceTree = "<group>";
@@ -204,6 +207,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000010000000000000016 /* Assets.xcassets in Resources */,
+				A10000010000000000000023 /* Caveat.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

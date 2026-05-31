@@ -31,24 +31,28 @@ struct ContentView: View {
                     Tab("Home", systemImage: "square.grid.2x2", value: 0) {
                         NavigationStack(path: $homePath) {
                             TileGridView(navigationPath: $homePath)
+                                .navigationBarHidden(true)
                                 .navigationDestination(for: AppScreen.self) { destination($0, $homePath) }
                         }
                     }
                     Tab("Albums", systemImage: "rectangle.stack", value: 1) {
                         NavigationStack(path: $albumsPath) {
                             AlbumsView(navigationPath: $albumsPath, isRoot: true)
+                                .navigationBarHidden(true)
                                 .navigationDestination(for: AppScreen.self) { destination($0, $albumsPath) }
                         }
                     }
                     Tab("Map", systemImage: "mappin.circle", value: 2) {
                         NavigationStack(path: $mapPath) {
                             TileMapView(navigationPath: $mapPath, isRoot: true)
+                                .navigationBarHidden(true)
                                 .navigationDestination(for: AppScreen.self) { destination($0, $mapPath) }
                         }
                     }
                     Tab("Wallpaper", systemImage: "square.on.square", value: 3) {
                         NavigationStack(path: $wallpaperPath) {
                             WallpaperGeneratorView(isRoot: true)
+                                .navigationBarHidden(true)
                                 .navigationDestination(for: AppScreen.self) { destination($0, $wallpaperPath) }
                         }
                     }

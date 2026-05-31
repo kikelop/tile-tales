@@ -247,12 +247,10 @@ struct TileGridView: View {
             Button { showLibrary = true } label: { Label("Choose from library", systemImage: "photo.on.rectangle") }
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 56, height: 56)
-                .background(fgColor)
-                .clipShape(Circle())
-                .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
+                .font(.system(size: 27, weight: .semibold))
+                .foregroundStyle(fgColor)
+                .frame(width: 64, height: 64)
+                .glassEffect(.regular.interactive(), in: .circle)
         }
     }
 

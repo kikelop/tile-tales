@@ -45,7 +45,6 @@ struct TileEditSheet: View {
                     nameField
                     memoryField
                     dateField
-                    tagsField
                     locationSection
                     albumsSection
                     actionButtons
@@ -72,21 +71,30 @@ struct TileEditSheet: View {
 
     // MARK: - Fields
 
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13)).foregroundColor(mutedColor)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var nameField: some View {
-        TextField("Tile name", text: $name)
-            .font(.system(size: 20, weight: .semibold))
-            .padding(12)
-            .background(fieldBg)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(fieldBorder, lineWidth: 1))
+        VStack(alignment: .leading, spacing: 8) {
+            fieldLabel("Title")
+            TextField("Tile name", text: $name)
+                .font(.system(size: 20, weight: .semibold))
+                .padding(12)
+                .background(fieldBg)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(fieldBorder, lineWidth: 1))
+        }
     }
 
     private var memoryField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Memory (appears on the back of the tile)")
-                .font(.system(size: 13)).foregroundColor(mutedColor)
+            fieldLabel("Memory (appears on the back of the tile)")
             TextEditor(text: $memory)
-                .font(.custom("Snell Roundhand", size: 18))
+                .font(.custom("Caveat", size: 22))
+                .scrollContentBackground(.hidden)
                 .frame(minHeight: 120)
                 .padding(12)
                 .background(fieldBg)
@@ -96,23 +104,16 @@ struct TileEditSheet: View {
     }
 
     private var dateField: some View {
-        TextField("e.g. March 2026, Lisboa", text: $date)
-            .font(.custom("Snell Roundhand", size: 16))
-            .foregroundColor(mutedColor)
-            .padding(12)
-            .background(fieldBg)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(fieldBorder, lineWidth: 1))
-    }
-
-    private var tagsField: some View {
-        TextField("Tags: geometric, floral, classic...", text: $tagsText)
-            .font(.system(size: 14))
-            .autocorrectionDisabled()
-            .padding(12)
-            .background(fieldBg)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(fieldBorder, lineWidth: 1))
+        VStack(alignment: .leading, spacing: 8) {
+            fieldLabel("Date")
+            TextField("e.g. March 2026", text: $date)
+                .font(.custom("Caveat", size: 19))
+                .foregroundColor(mutedColor)
+                .padding(12)
+                .background(fieldBg)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(fieldBorder, lineWidth: 1))
+        }
     }
 
     // MARK: - Location
@@ -121,6 +122,7 @@ struct TileEditSheet: View {
 
     private var locationSection: some View {
         VStack(alignment: .leading, spacing: 10) {
+            fieldLabel("Place")
             // Current location row
             HStack(spacing: 8) {
                 Image(systemName: hasLocation ? "mappin.circle.fill" : "mappin.slash")
