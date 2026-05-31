@@ -246,11 +246,21 @@ struct TileGridView: View {
             Button { showCamera = true } label: { Label("Take photo", systemImage: "camera") }
             Button { showLibrary = true } label: { Label("Choose from library", systemImage: "photo.on.rectangle") }
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 27, weight: .semibold))
-                .foregroundStyle(fgColor)
-                .frame(width: 64, height: 64)
-                .glassEffect(.regular.interactive(), in: .circle)
+            if #available(iOS 26, *) {
+                Image(systemName: "plus")
+                    .font(.system(size: 27, weight: .semibold))
+                    .foregroundStyle(fgColor)
+                    .frame(width: 64, height: 64)
+                    .glassEffect(.regular.interactive(), in: .circle)
+            } else {
+                Image(systemName: "plus")
+                    .font(.system(size: 27, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 64, height: 64)
+                    .background(fgColor)
+                    .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
+            }
         }
     }
 
