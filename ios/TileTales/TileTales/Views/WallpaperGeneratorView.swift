@@ -28,6 +28,7 @@ struct GeneratedWallpaper: Identifiable {
 struct WallpaperGeneratorView: View {
     @EnvironmentObject var store: TileStore
     @Environment(\.dismiss) private var dismiss
+    var isRoot: Bool = false
 
     @State private var selectedTileIds: [String] = []
     @State private var pattern: WallpaperPattern = .grid
@@ -88,13 +89,15 @@ struct WallpaperGeneratorView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(fgColor)
-                    .frame(width: 40, height: 40)
-                    .background(Color.black.opacity(0.06))
-                    .clipShape(Circle())
+            if !isRoot {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(fgColor)
+                        .frame(width: 40, height: 40)
+                        .background(Color.black.opacity(0.06))
+                        .clipShape(Circle())
+                }
             }
             Text("Wallpaper").font(.system(size: 22, weight: .bold)).tracking(-0.3)
             Spacer()

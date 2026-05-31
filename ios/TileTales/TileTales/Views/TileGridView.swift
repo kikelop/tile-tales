@@ -76,14 +76,12 @@ struct TileGridView: View {
                         }
                     }
                 }
-
-                navTabBar
             }
         }
         .overlay(alignment: .bottomTrailing) {
             addFAB
                 .padding(.trailing, 20)
-                .padding(.bottom, 76)
+                .padding(.bottom, 12)
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showCamera) {
@@ -242,21 +240,7 @@ struct TileGridView: View {
         .padding(.bottom, 10)
     }
 
-    // MARK: - Bottom Bar (navigation only — Albums / Map / Wallpaper, centered)
-
-    private var navTabBar: some View {
-        HStack(spacing: 28) {
-            navButton(systemName: "rectangle.stack", size: 19) { navigationPath.append(AppScreen.albums) }
-            navButton(systemName: "mappin.circle", size: 21) { navigationPath.append(AppScreen.map) }
-            navButton(systemName: "square.grid.2x2", size: 19) { navigationPath.append(AppScreen.wallpaper) }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(bgColor.opacity(0.92).background(.ultraThinMaterial))
-    }
-
-    // Large FAB floating above the tab bar
+    // Large capture FAB (floating, separate from the tab bar)
     private var addFAB: some View {
         Menu {
             Button { showCamera = true } label: { Label("Take photo", systemImage: "camera") }
@@ -269,17 +253,6 @@ struct TileGridView: View {
                 .background(fgColor)
                 .clipShape(Circle())
                 .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
-        }
-    }
-
-    private func navButton(systemName: String, size: CGFloat, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: size))
-                .foregroundColor(fgColor)
-                .frame(width: 40, height: 40)
-                .background(Color.black.opacity(0.06))
-                .clipShape(Circle())
         }
     }
 

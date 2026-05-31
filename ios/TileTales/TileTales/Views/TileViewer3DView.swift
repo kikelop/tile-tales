@@ -7,6 +7,8 @@ struct TileViewer3DView: View {
     @State private var showEditSheet = false
     @State private var resetToken = 0
     @State private var showFlipHint = false
+    @State private var debug = ViewerDebugConfig()
+    @State private var showDebug = false
     @AppStorage("tt-flip-hint-seen") private var flipHintSeen = false
 
     private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
@@ -39,7 +41,8 @@ struct TileViewer3DView: View {
                             memoryText: tile.memory,
                             dateText: tile.date,
                             tileName: tile.name,
-                            resetToken: resetToken
+                            resetToken: resetToken,
+                            debug: debug
                         )
                         .onTapGesture(count: 2) {
                             resetToken += 1
@@ -71,6 +74,12 @@ struct TileViewer3DView: View {
                         }
                     }
 
+                    if showDebug {
+                        VStack {
+                            Spacer()
+                            debugPanel
+                        }
+                    }
                 }
 
                 thumbnailSelector
@@ -119,6 +128,16 @@ struct TileViewer3DView: View {
             }
 
             Spacer()
+
+            Button { showDebug.toggle() } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(showDebug ? .white : fgColor)
+                    .frame(width: 44, height: 44)
+                    .background(showDebug ? AnyShapeStyle(fgColor) : AnyShapeStyle(.ultraThinMaterial))
+                    .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+            }
 
             if let tile = currentTile {
                 Button {
@@ -215,6 +234,44 @@ struct TileViewer3DView: View {
         }
         .background(bgColor.opacity(0.92).background(.ultraThinMaterial))
     }
+
+    // MARK: - Debug tuning panel (temporary — camera framing / tile size)
+
+    private var debugPanel: some View {
+        VStack(spacing: 7) {
+            debugSlider("cam X", $debug.camX, -14...14)
+            debugSlider("cam Y", $debug.camY, -4...16)
+            debugSlider("cam Z", $debug.camZ, 1...18)
+            HStack {
+                Text("fov").font(.system(size: 11)).frame(width: 52, alignment: .leading)
+                Slider(value: $debug.fov, in: 15...70)
+                Text(String(format: "%.0f", debug.fov))
+                    .font(.system(size: 11, design: .monospaced)).frame(width: 52, alignment: .trailing)
+            }
+            Toggle("Show axes  (R=X · G=Y · B=Z · ● center)", isOn: $debug.showAxes).font(.system(size: 11))
+            Text("cam(\(f(debug.camX)), \(f(debug.camY)), \(f(debug.camZ)))  fov \(Int(debug.fov))")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.secondary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    private func debugSlider(_ label: String, _ value: Binding<Float>, _ range: ClosedRange<Float>) -> some View {
+        HStack {
+            Text(label).font(.system(size: 11)).frame(width: 52, alignment: .leading)
+            Slider(value: value, in: range)
+            Text(f(value.wrappedValue))
+                .font(.system(size: 11, design: .monospaced)).frame(width: 52, alignment: .trailing)
+        }
+    }
+
+    private func f(_ v: Float) -> String { String(format: "%.2f", v) }
 }
 
 // Safe array subscript

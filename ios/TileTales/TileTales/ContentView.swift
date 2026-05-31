@@ -13,48 +13,78 @@ enum AppScreen: Hashable {
 struct ContentView: View {
     @EnvironmentObject var store: TileStore
     @State private var showSplash = true
-    @State private var navigationPath = NavigationPath()
+    @State private var selection = 0
+    @State private var homePath = NavigationPath()
+    @State private var albumsPath = NavigationPath()
+    @State private var mapPath = NavigationPath()
+    @State private var wallpaperPath = NavigationPath()
 
     var body: some View {
         ZStack {
             if showSplash {
                 SplashView {
-                    withAnimation(.easeOut(duration: 0.5)) {
-                        showSplash = false
-                    }
+                    withAnimation(.easeOut(duration: 0.5)) { showSplash = false }
                 }
                 .transition(.opacity)
             } else {
-                NavigationStack(path: $navigationPath) {
-                    TileGridView(navigationPath: $navigationPath)
-                        .navigationDestination(for: AppScreen.self) { screen in
-                            switch screen {
-                            case .viewer(let index):
-                                TileViewer3DView(initialIndex: index, navigationPath: $navigationPath)
-                                    .navigationBarHidden(true)
-                            case .map:
-                                TileMapView(navigationPath: $navigationPath)
-                                    .navigationBarHidden(true)
-                            case .wallpaper:
-                                WallpaperGeneratorView()
-                                    .navigationBarHidden(true)
-                            case .albums:
-                                AlbumsView(navigationPath: $navigationPath)
-                                    .navigationBarHidden(true)
-                            case .albumDetail(let id):
-                                AlbumDetailView(albumId: id, navigationPath: $navigationPath)
-                                    .navigationBarHidden(true)
-                            case .stats:
-                                StatsView(navigationPath: $navigationPath)
-                                    .navigationBarHidden(true)
-                            case .grid:
-                                TileGridView(navigationPath: $navigationPath)
-                            }
+                TabView(selection: $selection) {
+                    Tab("Home", systemImage: "square.grid.2x2", value: 0) {
+                        NavigationStack(path: $homePath) {
+                            TileGridView(navigationPath: $homePath)
+                                .navigationDestination(for: AppScreen.self) { destination($0, $homePath) }
                         }
+                    }
+                    Tab("Albums", systemImage: "rectangle.stack", value: 1) {
+                        NavigationStack(path: $albumsPath) {
+                            AlbumsView(navigationPath: $albumsPath, isRoot: true)
+                                .navigationDestination(for: AppScreen.self) { destination($0, $albumsPath) }
+                        }
+                    }
+                    Tab("Map", systemImage: "mappin.circle", value: 2) {
+                        NavigationStack(path: $mapPath) {
+                            TileMapView(navigationPath: $mapPath, isRoot: true)
+                                .navigationDestination(for: AppScreen.self) { destination($0, $mapPath) }
+                        }
+                    }
+                    Tab("Wallpaper", systemImage: "square.on.square", value: 3) {
+                        NavigationStack(path: $wallpaperPath) {
+                            WallpaperGeneratorView(isRoot: true)
+                                .navigationDestination(for: AppScreen.self) { destination($0, $wallpaperPath) }
+                        }
+                    }
                 }
                 .transition(.opacity)
             }
         }
         .animation(.easeOut(duration: 0.5), value: showSplash)
+    }
+
+    @ViewBuilder
+    private func destination(_ screen: AppScreen, _ path: Binding<NavigationPath>) -> some View {
+        switch screen {
+        case .viewer(let index):
+            TileViewer3DView(initialIndex: index, navigationPath: path)
+                .navigationBarHidden(true)
+                .toolbar(.hidden, for: .tabBar)
+        case .stats:
+            StatsView(navigationPath: path)
+                .navigationBarHidden(true)
+                .toolbar(.hidden, for: .tabBar)
+        case .albumDetail(let id):
+            AlbumDetailView(albumId: id, navigationPath: path)
+                .navigationBarHidden(true)
+                .toolbar(.hidden, for: .tabBar)
+        case .map:
+            TileMapView(navigationPath: path)
+                .navigationBarHidden(true)
+        case .wallpaper:
+            WallpaperGeneratorView()
+                .navigationBarHidden(true)
+        case .albums:
+            AlbumsView(navigationPath: path)
+                .navigationBarHidden(true)
+        case .grid:
+            TileGridView(navigationPath: path)
+        }
     }
 }

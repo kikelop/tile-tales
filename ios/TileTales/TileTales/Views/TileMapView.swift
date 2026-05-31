@@ -5,6 +5,7 @@ import CoreLocation
 struct TileMapView: View {
     @EnvironmentObject var store: TileStore
     @Binding var navigationPath: NavigationPath
+    var isRoot: Bool = false
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedTileId: String?
     @State private var selectedLabel: String?
@@ -82,15 +83,17 @@ struct TileMapView: View {
 
     private var headerBar: some View {
         HStack(spacing: 12) {
-            Button {
-                navigationPath.removeLast()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(fgColor)
-                    .frame(width: 40, height: 40)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
+            if !isRoot {
+                Button {
+                    navigationPath.removeLast()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(fgColor)
+                        .frame(width: 40, height: 40)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                }
             }
 
             Text("Map")

@@ -3,6 +3,7 @@ import SwiftUI
 struct AlbumsView: View {
     @EnvironmentObject var store: TileStore
     @Binding var navigationPath: NavigationPath
+    var isRoot: Bool = false
     @State private var newAlbumName = ""
     @State private var showCreate = false
 
@@ -62,13 +63,15 @@ struct AlbumsView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button { navigationPath.removeLast() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(fgColor)
-                    .frame(width: 40, height: 40)
-                    .background(Color.black.opacity(0.06))
-                    .clipShape(Circle())
+            if !isRoot {
+                Button { navigationPath.removeLast() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(fgColor)
+                        .frame(width: 40, height: 40)
+                        .background(Color.black.opacity(0.06))
+                        .clipShape(Circle())
+                }
             }
             Text("Albums").font(.system(size: 22, weight: .bold)).tracking(-0.3)
             Spacer()
