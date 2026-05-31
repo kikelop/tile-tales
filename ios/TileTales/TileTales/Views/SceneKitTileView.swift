@@ -25,17 +25,19 @@ struct SceneKitTileView: UIViewRepresentable {
         let scene = SCNScene()
         scnView.scene = scene
 
-        // Camera — elevated 3/4 view so the patterned top face (which points +Y) is
-        // seen from above-front, centered and at a comfortable size. A near-level
-        // camera saw the tile edge-on at rest.
+        // Camera — elevated 3/4 view from above-front so the patterned top face
+        // (which points +Y) reads well, centered at a comfortable size. The orbit
+        // target sits at the tile center (0,0,0) so drag-rotation spins in place.
         let cameraNode = SCNNode()
         cameraNode.name = "camera"
         cameraNode.camera = SCNCamera()
-        cameraNode.camera?.fieldOfView = 35
+        cameraNode.camera?.fieldOfView = 37
         cameraNode.camera?.projectionDirection = .vertical
-        cameraNode.position = SCNVector3(0, 5.5, 6.5)
-        cameraNode.look(at: SCNVector3(0, 0.9, 0))
+        cameraNode.position = SCNVector3(-6.67, 12.0, 11.76)
+        let orbitTarget = SCNVector3(0, 0, 0)
+        cameraNode.look(at: orbitTarget)
         scnView.pointOfView = cameraNode
+        scnView.defaultCameraController.target = orbitTarget
         scene.rootNode.addChildNode(cameraNode)
 
         // Lights

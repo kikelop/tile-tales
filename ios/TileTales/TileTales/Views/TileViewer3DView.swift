@@ -70,6 +70,7 @@ struct TileViewer3DView: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
                     }
+
                 }
 
                 thumbnailSelector
