@@ -162,6 +162,7 @@ struct TileViewer3DView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Thumbnails
@@ -170,7 +171,7 @@ struct TileViewer3DView: View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(Array(store.tiles.enumerated()), id: \.element.id) { index, tile in
+                    ForEach(Array(store.tiles.enumerated()).reversed(), id: \.element.id) { index, tile in
                         Button {
                             // Just swap the tile on the top face — no entry/reset
                             // animation; the floating motion keeps going.

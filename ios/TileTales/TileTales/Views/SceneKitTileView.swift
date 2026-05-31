@@ -293,6 +293,11 @@ struct SceneKitTileView: UIViewRepresentable {
         let renderer = UIGraphicsImageRenderer(size: size)
 
         return renderer.image { ctx in
+            // Mirror horizontally so the text reads correctly once the tile is flipped
+            // to show the back (the back face shows the texture mirrored).
+            ctx.cgContext.translateBy(x: size.width, y: 0)
+            ctx.cgContext.scaleBy(x: -1, y: 1)
+
             // Background — whitish ceramic texture (already light + grainy, matches the
             // sides). Beige fallback if the asset is missing.
             let rect = CGRect(origin: .zero, size: size)
