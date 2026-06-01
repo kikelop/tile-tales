@@ -19,7 +19,12 @@ struct SceneKitTileView: UIViewRepresentable {
     /// quaternions instead of Euler angles gives the natural, gimbal-free tumble.
     final class Coordinator: NSObject {
         weak var tileNode: SCNNode?
+        weak var cameraNode: SCNNode?
         private var link: CADisplayLink?
+
+        // Pinch-to-zoom: move the camera along its fixed view direction.
+        private let camDir = simd_normalize(SIMD3<Float>(0, 8.8, 3.3))
+        private var camDistance: Float = 9.4
 
         private var time: Double = 0
         private var orientation = simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0))
@@ -78,6 +83,20 @@ struct SceneKitTileView: UIViewRepresentable {
                     * quat(Double(dx), SIMD3<Float>(0, 1, 0)) * orientation
             case .ended, .cancelled:
                 isDragging = false
+            default:
+                break
+            }
+        }
+
+        @objc func handlePinch(_ g: UIPinchGestureRecognizer) {
+            guard let cam = cameraNode else { return }
+            switch g.state {
+            case .changed:
+                let d = max(5.0, min(16.0, camDistance / Float(g.scale)))
+                cam.simdPosition = camDir * d
+                cam.look(at: SCNVector3(0, 0, 0))
+            case .ended, .cancelled:
+                camDistance = simd_length(cam.simdPosition)
             default:
                 break
             }
@@ -156,6 +175,7 @@ struct SceneKitTileView: UIViewRepresentable {
         applyCamera(cameraNode)
         scnView.pointOfView = cameraNode
         scene.rootNode.addChildNode(cameraNode)
+        context.coordinator.cameraNode = cameraNode
 
         // Lights — key + fill + bottom fill (so the back face reads when flipped).
         let ambientLight = SCNNode()
@@ -199,6 +219,10 @@ struct SceneKitTileView: UIViewRepresentable {
         let pan = UIPanGestureRecognizer(target: context.coordinator,
                                          action: #selector(Coordinator.handlePan(_:)))
         scnView.addGestureRecognizer(pan)
+
+        let pinch = UIPinchGestureRecognizer(target: context.coordinator,
+                                             action: #selector(Coordinator.handlePinch(_:)))
+        scnView.addGestureRecognizer(pinch)
 
         // Shadow plane
         let shadowPlane = SCNPlane(width: 8, height: 8)
