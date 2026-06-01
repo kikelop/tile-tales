@@ -134,11 +134,12 @@ Kike quiere hacer **review de TODAS las features** (las 39, F1→F8) y pulir lo 
 - ~~Split del modal de edit del viewer~~ → **HECHO 2026-05-29**. Extraido a `components/viewer/TileEditSheet.tsx` (recibe `tile`/`albums`/`isLastTile`/`onClose`/`onDeleteLast`, dueño de su propio estado de drafts + place search, sembrado desde el tile al montar). TileViewer3D pasó de 1016 a 565 lineas.
 - ESLint rules `no-floating-promises` + `no-misused-promises` activas como warning. Quedan ~12 warnings intencionales (`void` faltante en fire-and-forget).
 
-### 3. iOS app
-- Instalar Xcode (requiere macOS actualizado)
-- Abrir `ios/TileTales/TileTales.xcodeproj`
-- Build + test en simulador
-- Iterar UI para que coincida con la web
+### 3. iOS app — A PARIDAD, pendiente de Xcode (rama `native/parity-v1`)
+La app nativa SwiftUI (`ios/`) se llevó a **paridad con la web** el 2026-05-30 en una tanda autónoma sin compilador (ver `docs/UPDATES.md`). Está todo escrito en Swift pero **sin verificar contra el compilador**: la próxima sesión de Xcode es **arreglar errores de compilación + pulir**, no construir. Objetivo: **publicar en App Store** (Supabase/login fuera de v1 a propósito).
+- **Hecho en la rama**: Albums + Stats + Backup, captura múltiple + crop interactivo, location editor 3 vías (con pin-on-map), geocoding nativo (CLGeocoder), search/sort/onboarding en grid, viewer sin swipe + flip hint + double-tap reset, mapa con filtro+mi-ubicación, wallpaper con presets+orientación+5 patrones, 13 tiles curados bundleados, app icon 1024px, metadata/privacy/screenshot specs, permiso de Fotos.
+- **Diferido**: clustering del mapa nativo (necesita wrapper MKMapView).
+- **Pasos en Xcode** (checklist detallado en `docs/UPDATES.md`): instalar Xcode + asignar Development Team (blocker de firma) → compilar Fase 0 → 1 → 2 → simulador + screenshots → App Store Connect.
+- **Artefactos de publicación**: `ios/STORE_METADATA.md`, `ios/PRIVACY_POLICY.md` (hay que hostearla y poner la URL), `ios/SCREENSHOT_SPECS.md`.
 
 ### 4. Scan estilo doc (cuadrilatero + warp perspectivo) — POSPUESTO a app nativa
 Intentado en web 2026-05-19 y descartado:

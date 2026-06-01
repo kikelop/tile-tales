@@ -1,8 +1,10 @@
 import SwiftUI
 import UIKit
 
+/// Single-shot rear camera. Returns the full-resolution photo (cropping happens
+/// in CropView); GPS is resolved by the caller via LocationService at save time.
 struct CameraPicker: UIViewControllerRepresentable {
-    @Binding var image: UIImage?
+    @Binding var photos: [CapturedPhoto]
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
@@ -29,23 +31,13 @@ struct CameraPicker: UIViewControllerRepresentable {
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             if let image = info[.originalImage] as? UIImage {
-                parent.image = cropToSquare(image)
+                parent.photos = [CapturedPhoto(image: image, source: .camera, coordinate: nil)]
             }
             parent.dismiss()
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.dismiss()
-        }
-
-        private func cropToSquare(_ image: UIImage) -> UIImage {
-            guard let cgImage = image.cgImage else { return image }
-            let size = min(cgImage.width, cgImage.height)
-            let x = (cgImage.width - size) / 2
-            let y = (cgImage.height - size) / 2
-            let rect = CGRect(x: x, y: y, width: size, height: size)
-            guard let cropped = cgImage.cropping(to: rect) else { return image }
-            return UIImage(cgImage: cropped, scale: image.scale, orientation: image.imageOrientation)
         }
     }
 }

@@ -1,5 +1,52 @@
 # Tile Tales - Log de Actualizaciones
 
+## 2026-05-30 — Nativo iOS a paridad con la web + prep App Store (rama `native/parity-v1`)
+
+Tanda autónoma. El proyecto SwiftUI de `ios/` estaba congelado desde el 2026-04-22 (nivel ~F24) mientras la web avanzaba a F39. Esta sesión lo lleva a **paridad** y prepara la publicación en App Store, **todo sin Xcode** (no se compila aquí — la sesión de Xcode será arreglar errores + pulir). Objetivo de Kike: probar que puede sacar un producto end-to-end con IA y publicarlo. **Supabase/login queda fuera de v1** a propósito.
+
+### Fase 0 — Fundamentos
+- `TileModel.swift`: nuevo `assetName` (los 13 tiles curados cargan del bundle, sin inflar UserDefaults), struct `Album`, `isCaptured`. Samples reescritos a los 13 curados de la web (orden web → Star Compass de hero).
+- `TileStore.swift`: albums CRUD (`addAlbum/renameAlbum/deleteAlbum/toggleTileInAlbum/getAlbumsForTile/tiles(in:)`), `importData`, `displayedTiles(filter:query:sort:)` con `SortOrder`, `updateTile` ahora acepta `latitude/longitude` (double-optional: clear vs leave), `geolocatedTags`, limpieza de referencias colgantes en albums al cargar/borrar.
+- `GeocodingService.swift` (nuevo): CLGeocoder (reverse + forward search), cache en memoria, label "Ciudad, País". Sustituye Nominatim — nativo, gratis, sin rate limit.
+- **Assets**: 13 imagesets de tiles (512px, ~6MB) en `Assets.xcassets` generados desde `app/public/tiles/*.png`.
+
+### Fase 1 — Core a paridad
+- `TileGridView`: search (name+tags), sort (Recent/A-Z/Favorites, `@AppStorage`), View menu (sort + tamaño grid), onboarding banner cuando no hay capturas, contador → botón Stats, botón Albums en la bottom bar, **captura múltiple con cola + CropView**.
+- Captura: `PhotoLibraryPicker` multi-select + lectura EXIF GPS; `CameraPicker` single + GPS al guardar; `CapturedPhoto` con source; `CropView` (nuevo) crop cuadrado interactivo pinch/drag/rotación, cola con "N left" + Skip/Cancel.
+- `TileViewer3DView`: **quitado el swipe** (chocaba con rotar) y **el botón add interno** (review 29). Flip hint pill (gated `@AppStorage`). Double-tap → recenter (`SceneKitTileView` recibe `resetToken` y reposiciona cámara).
+- `TileEditSheet`: location editor de 3 vías (Use my location / Search a place / **Pin on map** con MapKit `MapReader`), label geocodificado con "naming…", multi-select de albums + crear inline.
+- `TileMapView`: filtro por tags (chips), botón mi-ubicación (`flyTo`), label geocodificado en la card. **Clustering nativo DIFERIDO** — requiere un wrapper `MKMapView` con `clusteringIdentifier` (el `Map` de SwiftUI no lo soporta); meterlo sin compilador es alto riesgo. Documentado, no hecho.
+- `WallpaperGeneratorView`: 5 presets duotono (Ocean/Sunset/Forest/Vintage/Noir) vía `CIFilter.falseColor`, max 6 tiles, toggle orientación, size slider en su fila + Create abajo, y **los 5 patrones implementados de verdad** (grid/mirror/brick/diamond/pinwheel).
+
+### Fase 2 — Pantallas nuevas
+- `AlbumsView` + `AlbumDetailView` (nuevos): grid 2-col con cover, crear/renombrar/borrar, detalle con sus tiles.
+- `StatsView` (nuevo): hero (total + captured-by-you), cards (Favorites/Located/Countries/Albums), top tags (barras), lugares (geocodificado secuencial), sección Backup.
+- `BackupService` (nuevo): export JSON único (imageData inline, sin ZIP) vía `UIActivityViewController`; import vía `UIDocumentPickerViewController` → `importData`.
+- `ContentView`: enum `AppScreen` ampliado con `.albums/.albumDetail/.stats`.
+
+### Fase 3 — Prep App Store (sin Xcode)
+- **App icon 1024px**: azulejo estrella de 8 puntas duotono azul/crema, renderizado con `marketing/icon.html` + `build-icon.mjs` (Playwright) → `Assets.xcassets/AppIcon.appiconset/icon-1024.png` (sin alpha). Contents.json cableado.
+- `ios/STORE_METADATA.md`, `ios/PRIVACY_POLICY.md`, `ios/SCREENSHOT_SPECS.md` (nuevos).
+- `project.pbxproj`: añadido `INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription` (guardar wallpapers a Fotos) en Debug + Release.
+
+### ⚠️ Checklist sesión Xcode (orden sugerido de debug)
+0. **Actualizar macOS + instalar Xcode**, abrir `ios/TileTales/TileTales.xcodeproj`, **asignar Development Team** (hoy `""` — blocker de firma). Los 6 archivos Swift nuevos (GeocodingService, CaptureSupport, BackupService, CropView, AlbumsView, StatsView) **ya están añadidos al target** en el `project.pbxproj` (editado a mano, `plutil -lint` OK) — no hay que arrastrarlos. Los 13 imagesets + el icono entran solos vía el asset catalog.
+1. Compilar **Fase 0** (Model/Store/Geocoding) aislado primero — base de todo.
+2. Compilar **Fase 1**. Puntos calientes probables (APIs que escribí sin compilar):
+   - `TileEditSheet` `MapReader` + `proxy.convert(point, from: .local)` y el `Map(position:)` de iOS 17 — verificar firma exacta.
+   - `WallpaperGeneratorView` `import CoreImage.CIFilterBuiltins` + `CIFilter.falseColor()`.
+   - `SceneKitTileView` recenter vía `scnView.pointOfView` con `allowsCameraControl` activo — puede necesitar ajuste.
+   - `PhotoLibraryPicker.loadDataRepresentation(forTypeIdentifier:)` (deprecado, solo warning).
+   - El `latitude: Double??` doble-opcional en `updateTile`.
+3. Compilar **Fase 2** (Albums/Stats/Backup).
+4. Probar en simulador 6.7", capturar screenshots (ver `SCREENSHOT_SPECS.md`).
+5. App Store Connect: pegar metadata, hostear privacy policy y poner su URL, subir build (TestFlight), enviar a review.
+
+### Pendiente real (no en esta tanda)
+- Clustering del mapa nativo (MKMapView wrapper).
+- Scan estilo doc con Vision framework (la razón original de ir a nativo).
+- Supabase social (post-v1).
+
 ## 2026-05-28 — F8: vaciar el backlog viable (map polish + location editor + dark modales + backup)
 
 Misma sesion que F7. "Tirar con todo lo pendiente" antes de una auditoria del usuario. Se cierran los items del backlog que NO estan bloqueados (iOS necesita Xcode, Supabase es multi-sesion, el scan esta pospuesto a nativo). Build verde, **19/19 tests** (5 nuevos), deploy manual a prod.

@@ -1,4 +1,6 @@
 import SwiftUI
+import CoreImage
+import CoreImage.CIFilterBuiltins
 
 enum WallpaperPattern: String, CaseIterable {
     case grid = "Grid"
@@ -8,257 +10,403 @@ enum WallpaperPattern: String, CaseIterable {
     case brick = "Brick"
 }
 
+/// Duotone presets mirroring the web (Ocean / Sunset / Forest / Vintage / Noir).
+struct DuotonePreset: Identifiable {
+    let id = UUID()
+    let name: String
+    let dark: Color
+    let light: Color
+}
+
+/// Identifiable wrapper so the result sheet drives off `.sheet(item:)` — avoids the
+/// `.sheet(isPresented:) { if let … }` race that showed a blank sheet.
+struct GeneratedWallpaper: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
 struct WallpaperGeneratorView: View {
     @EnvironmentObject var store: TileStore
     @Environment(\.dismiss) private var dismiss
+    var isRoot: Bool = false
 
-    @State private var selectedIds: Set<String> = []
+    @State private var selectedTileIds: [String] = []
     @State private var pattern: WallpaperPattern = .grid
     @State private var tileSize: CGFloat = 120
     @State private var duotone = false
     @State private var duoDark = Color(red: 74/255, green: 111/255, blue: 165/255)
     @State private var duoLight = Color(red: 232/255, green: 220/255, blue: 200/255)
-    @State private var generatedImage: UIImage?
-    @State private var showPreview = false
+    @State private var portrait = true
+    @State private var generated: GeneratedWallpaper?
+    @State private var previewImage: UIImage?
     @State private var showSaved = false
 
     private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
     private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
     private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let maxTiles = 6
+
+    private let presets: [DuotonePreset] = [
+        DuotonePreset(name: "Ocean", dark: Color(red: 30/255, green: 64/255, blue: 110/255), light: Color(red: 222/255, green: 236/255, blue: 245/255)),
+        DuotonePreset(name: "Sunset", dark: Color(red: 138/255, green: 38/255, blue: 72/255), light: Color(red: 252/255, green: 226/255, blue: 187/255)),
+        DuotonePreset(name: "Forest", dark: Color(red: 30/255, green: 70/255, blue: 50/255), light: Color(red: 226/255, green: 238/255, blue: 214/255)),
+        DuotonePreset(name: "Vintage", dark: Color(red: 92/255, green: 64/255, blue: 40/255), light: Color(red: 240/255, green: 228/255, blue: 206/255)),
+        DuotonePreset(name: "Noir", dark: Color(red: 20/255, green: 20/255, blue: 22/255), light: Color(red: 232/255, green: 232/255, blue: 232/255)),
+    ]
 
     var body: some View {
         ZStack {
             bgColor.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header
-                HStack(spacing: 12) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(fgColor)
-                            .frame(width: 40, height: 40)
-                            .background(Color.black.opacity(0.06))
-                            .clipShape(Circle())
-                    }
+                header
 
-                    Text("Wallpaper")
-                        .font(.system(size: 22, weight: .bold))
-                        .tracking(-0.3)
-
-                    Spacer()
-
-                    if !store.wallpapers.isEmpty {
-                        Button {
-                            showSaved = true
-                        } label: {
-                            Text("Saved (\(store.wallpapers.count))")
-                                .font(.system(size: 13, weight: .medium))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.black.opacity(0.06))
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
-
-                // Preview area
-                if selectedIds.isEmpty {
-                    VStack {
-                        Spacer()
-                        Text("Select up to 4 tiles below")
-                            .foregroundColor(mutedColor)
-                            .font(.system(size: 15))
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .background(Color(red: 236/255, green: 232/255, blue: 225/255))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 16)
+                if selectedTileIds.isEmpty {
+                    placeholderPreview
                 } else {
-                    // Pattern preview placeholder
-                    VStack {
-                        Spacer()
-                        Image(systemName: "square.grid.2x2.fill")
-                            .font(.system(size: 48))
-                            .foregroundColor(mutedColor.opacity(0.5))
-                        Text("\(pattern.rawValue) pattern")
-                            .font(.system(size: 15))
-                            .foregroundColor(mutedColor)
-                        Text("\(selectedIds.count) tiles selected")
-                            .font(.system(size: 13))
-                            .foregroundColor(mutedColor.opacity(0.7))
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .background(Color(red: 236/255, green: 232/255, blue: 225/255))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 16)
+                    patternPreview
                 }
 
-                // Controls
-                if !selectedIds.isEmpty {
-                    // Pattern chips
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(WallpaperPattern.allCases, id: \.self) { p in
-                                Button {
-                                    pattern = p
-                                } label: {
-                                    Text(p.rawValue)
-                                        .font(.system(size: 13, weight: .medium))
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 6)
-                                        .background(pattern == p ? fgColor : Color.black.opacity(0.06))
-                                        .foregroundColor(pattern == p ? .white : fgColor)
-                                        .clipShape(Capsule())
-                                }
-                            }
-
-                            // Size slider
-                            Slider(value: $tileSize, in: 60...240)
-                                .frame(width: 70)
-                                .tint(fgColor)
-
-                            // Duotone toggle
-                            Button {
-                                duotone.toggle()
-                            } label: {
-                                Text("Duotone")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 6)
-                                    .background(duotone ? fgColor : Color.black.opacity(0.06))
-                                    .foregroundColor(duotone ? .white : fgColor)
-                                    .clipShape(Capsule())
-                            }
-
-                            if duotone {
-                                ColorPicker("", selection: $duoDark)
-                                    .labelsHidden()
-                                    .frame(width: 28, height: 28)
-                                ColorPicker("", selection: $duoLight)
-                                    .labelsHidden()
-                                    .frame(width: 28, height: 28)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                    .padding(.vertical, 12)
-
-                    // Create button
-                    Button {
-                        generateWallpaper()
-                    } label: {
-                        Text("Create Wallpaper")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(fgColor)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
+                if !selectedTileIds.isEmpty {
+                    controls
                 }
 
-                // Tile selector
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(store.tiles) { tile in
-                            Button {
-                                toggleTile(tile.id)
-                            } label: {
-                                ZStack(alignment: .topTrailing) {
-                                    Group {
-                                        if let image = tile.image {
-                                            Image(uiImage: image)
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                        } else {
-                                            Color.gray.opacity(0.2)
-                                        }
-                                    }
-                                    .frame(width: 64, height: 64)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(selectedIds.contains(tile.id) ? fgColor : Color.clear, lineWidth: 2.5)
-                                    )
-                                    .opacity(selectedIds.count >= 4 && !selectedIds.contains(tile.id) ? 0.35 : selectedIds.contains(tile.id) ? 1 : 0.65)
-
-                                    if let index = Array(selectedIds).firstIndex(of: tile.id) {
-                                        Text("\(index + 1)")
-                                            .font(.system(size: 11, weight: .bold))
-                                            .foregroundColor(.white)
-                                            .frame(width: 20, height: 20)
-                                            .background(fgColor)
-                                            .clipShape(Circle())
-                                            .offset(x: 4, y: -4)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                }
+                tileSelector
             }
         }
-        .sheet(isPresented: $showPreview) {
-            if let image = generatedImage {
-                wallpaperPreview(image: image)
-            }
+        .sheet(item: $generated) { wallpaper in
+            wallpaperPreview(image: wallpaper.image)
+        }
+        .task(id: previewKey) {
+            // Debounce so dragging the size slider doesn't re-render every frame.
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            if Task.isCancelled { return }
+            previewImage = selectedTileIds.isEmpty ? nil : renderWallpaper(size: previewSize)
         }
     }
 
-    // MARK: - Actions
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            if !isRoot {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(fgColor)
+                        .frame(width: 40, height: 40)
+                        .background(Color.black.opacity(0.06))
+                        .clipShape(Circle())
+                }
+            }
+            Text("Wallpaper").font(.system(size: 22, weight: .bold)).tracking(-0.3)
+            Spacer()
+            if !store.wallpapers.isEmpty {
+                Button { showSaved = true } label: {
+                    Text("Saved (\(store.wallpapers.count))")
+                        .font(.system(size: 13, weight: .medium))
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(Color.black.opacity(0.06))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 12)
+    }
+
+    private var placeholderPreview: some View {
+        VStack {
+            Spacer()
+            Text("Select up to \(maxTiles) tiles below")
+                .foregroundColor(mutedColor).font(.system(size: 15))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .background(Color(red: 236/255, green: 232/255, blue: 225/255))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 16)
+    }
+
+    private var patternPreview: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(red: 236/255, green: 232/255, blue: 225/255))
+
+            if let img = previewImage {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(8)
+            } else {
+                ProgressView()
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Controls
+
+    private var controls: some View {
+        VStack(spacing: 18) {
+            // Pattern + Color as two dropdown menus
+            HStack(spacing: 10) {
+                Menu {
+                    ForEach(WallpaperPattern.allCases, id: \.self) { p in
+                        Button {
+                            pattern = p
+                        } label: {
+                            if pattern == p { Label(p.rawValue, systemImage: "checkmark") }
+                            else { Text(p.rawValue) }
+                        }
+                    }
+                } label: {
+                    dropdownLabel(title: "Pattern", value: pattern.rawValue)
+                }
+
+                Menu {
+                    Button { duotone = false } label: {
+                        if !duotone { Label("None", systemImage: "checkmark") } else { Text("None") }
+                    }
+                    ForEach(presets) { preset in
+                        Button {
+                            duotone = true
+                            duoDark = preset.dark
+                            duoLight = preset.light
+                        } label: {
+                            if isPreset(preset) { Label(preset.name, systemImage: "checkmark") }
+                            else { Text(preset.name) }
+                        }
+                    }
+                } label: {
+                    dropdownLabel(title: "Color", value: duotone ? currentPresetName : "None")
+                }
+            }
+            .padding(.horizontal, 16)
+
+            // Custom duotone color pickers (only when a duotone is active)
+            if duotone {
+                HStack(spacing: 12) {
+                    Text("Custom").font(.system(size: 13)).foregroundColor(mutedColor)
+                    ColorPicker("", selection: $duoDark).labelsHidden().frame(width: 28, height: 28)
+                    ColorPicker("", selection: $duoLight).labelsHidden().frame(width: 28, height: 28)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+            }
+
+            // Size slider + orientation toggle
+            HStack(spacing: 12) {
+                Image(systemName: "minus.magnifyingglass").foregroundColor(mutedColor)
+                Slider(value: $tileSize, in: 60...240).tint(fgColor)
+                Image(systemName: "plus.magnifyingglass").foregroundColor(mutedColor)
+
+                Button {
+                    portrait.toggle()
+                } label: {
+                    Image(systemName: portrait ? "rectangle.portrait" : "rectangle")
+                        .font(.system(size: 16))
+                        .foregroundColor(fgColor)
+                        .frame(width: 40, height: 40)
+                        .background(Color.black.opacity(0.06))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, 16)
+
+            // Create button at the bottom
+            Button { generateWallpaper() } label: {
+                Text("Create Wallpaper")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(fgColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private func dropdownLabel(title: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 11)).foregroundColor(mutedColor)
+                Text(value).font(.system(size: 15, weight: .medium)).foregroundColor(fgColor)
+            }
+            Spacer()
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 12, weight: .medium)).foregroundColor(mutedColor)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 9)
+        .background(Color.black.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var currentPresetName: String {
+        presets.first { isPreset($0) }?.name ?? "Custom"
+    }
+
+    private func isPreset(_ preset: DuotonePreset) -> Bool {
+        duotone && UIColor(duoDark) == UIColor(preset.dark) && UIColor(duoLight) == UIColor(preset.light)
+    }
+
+    // MARK: - Tile selector
+
+    private var tileSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(store.tiles) { tile in
+                    Button { toggleTile(tile.id) } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Group {
+                                if let image = tile.image {
+                                    Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
+                                } else {
+                                    Color.gray.opacity(0.2)
+                                }
+                            }
+                            .frame(width: 64, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10)
+                                .stroke(selectedTileIds.contains(tile.id) ? fgColor : Color.clear, lineWidth: 2.5))
+                            .opacity(opacity(for: tile.id))
+
+                            if let position = selectedTileIds.firstIndex(of: tile.id) {
+                                Text("\(position + 1)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 20, height: 20)
+                                    .background(fgColor)
+                                    .clipShape(Circle())
+                                    .offset(x: 4, y: -4)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 8)
+        }
+    }
+
+    private func opacity(for id: String) -> Double {
+        if selectedTileIds.contains(id) { return 1 }
+        return selectedTileIds.count >= maxTiles ? 0.35 : 0.65
+    }
 
     private func toggleTile(_ id: String) {
-        if selectedIds.contains(id) {
-            selectedIds.remove(id)
-        } else if selectedIds.count < 4 {
-            selectedIds.insert(id)
+        if let idx = selectedTileIds.firstIndex(of: id) {
+            selectedTileIds.remove(at: idx)
+        } else if selectedTileIds.count < maxTiles {
+            selectedTileIds.append(id)
+        }
+    }
+
+    // MARK: - Generation
+
+    // Preview render target — same aspect as the export, smaller pixels.
+    private var previewSize: CGSize {
+        let w: CGFloat = 480
+        let ratio: CGFloat = 1920 / 1080
+        return portrait ? CGSize(width: w, height: w * ratio) : CGSize(width: w * ratio, height: w)
+    }
+
+    // Recompute the preview whenever any of these change.
+    private var previewKey: String {
+        let colorKey = duotone ? "\(UIColor(duoDark).hashValue):\(UIColor(duoLight).hashValue)" : "none"
+        return "\(selectedTileIds.joined(separator: ","))|\(pattern.rawValue)|\(Int(tileSize))|\(colorKey)|\(portrait)"
+    }
+
+    /// Composites the selected tiles into a wallpaper at the given pixel size.
+    /// Tile density is held constant across preview and export by scaling `ts` with width.
+    private func renderWallpaper(size: CGSize) -> UIImage? {
+        let baseTiles = selectedTileIds.compactMap { id in store.tiles.first { $0.id == id }?.image }
+        guard !baseTiles.isEmpty else { return nil }
+
+        // Pre-apply duotone once per tile.
+        let tiles = duotone ? baseTiles.map { duotoneFiltered($0) } : baseTiles
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1 // size is already in pixels
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            let ts = tileSize * 2 * (size.width / 1080) // keep tiling identical at any size
+            let cols = Int(ceil(size.width / ts)) + 1
+            let rows = Int(ceil(size.height / ts)) + 1
+
+            for row in 0..<rows {
+                for col in 0..<cols {
+                    drawCell(cg: cg, row: row, col: col, ts: ts, tiles: tiles)
+                }
+            }
         }
     }
 
     private func generateWallpaper() {
-        // Create a simple tiled pattern
-        let size = CGSize(width: 1080, height: 1920)
-        let renderer = UIGraphicsImageRenderer(size: size)
+        let size = portrait ? CGSize(width: 1080, height: 1920) : CGSize(width: 1920, height: 1080)
+        guard let image = renderWallpaper(size: size) else { return }
+        generated = GeneratedWallpaper(image: image)
+    }
 
-        let selectedTiles = selectedIds.compactMap { id in store.tiles.first { $0.id == id } }
-        guard !selectedTiles.isEmpty else { return }
+    private func drawCell(cg: CGContext, row: Int, col: Int, ts: CGFloat, tiles: [UIImage]) {
+        let n = tiles.count
+        switch pattern {
+        case .grid:
+            let tile = tiles[(row + col) % n]
+            tile.draw(in: CGRect(x: CGFloat(col) * ts, y: CGFloat(row) * ts, width: ts, height: ts))
 
-        let image = renderer.image { ctx in
-            let context = ctx.cgContext
-            let ts = tileSize * 2 // Scale for export
-            let cols = Int(ceil(size.width / ts))
-            let rows = Int(ceil(size.height / ts))
+        case .mirror:
+            let tile = tiles[(row + col) % n]
+            let flipH = col % 2 == 1
+            let flipV = row % 2 == 1
+            drawTransformed(cg: cg, image: tile,
+                            origin: CGPoint(x: CGFloat(col) * ts, y: CGFloat(row) * ts),
+                            ts: ts, rotation: 0, flipH: flipH, flipV: flipV)
 
-            for row in 0..<rows {
-                for col in 0..<cols {
-                    let index = (row + col) % selectedTiles.count
-                    let tile = selectedTiles[index]
-                    let rect = CGRect(x: CGFloat(col) * ts, y: CGFloat(row) * ts, width: ts, height: ts)
+        case .brick:
+            let offset = row % 2 == 1 ? ts / 2 : 0
+            let tile = tiles[(row + col) % n]
+            tile.draw(in: CGRect(x: CGFloat(col) * ts - offset, y: CGFloat(row) * ts, width: ts, height: ts))
 
-                    if let tileImage = tile.image {
-                        tileImage.draw(in: rect)
-                    } else {
-                        UIColor(red: 200/255, green: 195/255, blue: 185/255, alpha: 1).setFill()
-                        context.fill(rect)
-                    }
-                }
-            }
+        case .diamond:
+            let tile = tiles[(row + col) % n]
+            drawTransformed(cg: cg, image: tile,
+                            origin: CGPoint(x: CGFloat(col) * ts, y: CGFloat(row) * ts),
+                            ts: ts, rotation: .pi / 4, flipH: false, flipV: false)
+
+        case .pinwheel:
+            // 2x2 block, each quadrant rotated 90°.
+            let tile = tiles[((row / 2) + (col / 2)) % n]
+            let quadrant = (row % 2) * 2 + (col % 2)
+            let rotation = CGFloat(quadrant) * (.pi / 2)
+            drawTransformed(cg: cg, image: tile,
+                            origin: CGPoint(x: CGFloat(col) * ts, y: CGFloat(row) * ts),
+                            ts: ts, rotation: rotation, flipH: false, flipV: false)
         }
+    }
 
-        generatedImage = image
-        showPreview = true
+    private func drawTransformed(cg: CGContext, image: UIImage, origin: CGPoint, ts: CGFloat,
+                                 rotation: CGFloat, flipH: Bool, flipV: Bool) {
+        cg.saveGState()
+        cg.translateBy(x: origin.x + ts / 2, y: origin.y + ts / 2)
+        if rotation != 0 { cg.rotate(by: rotation) }
+        cg.scaleBy(x: flipH ? -1 : 1, y: flipV ? -1 : 1)
+        image.draw(in: CGRect(x: -ts / 2, y: -ts / 2, width: ts, height: ts))
+        cg.restoreGState()
+    }
+
+    private func duotoneFiltered(_ image: UIImage) -> UIImage {
+        guard let ciInput = CIImage(image: image) else { return image }
+        let filter = CIFilter.falseColor()
+        filter.inputImage = ciInput
+        filter.color0 = CIColor(color: UIColor(duoDark))
+        filter.color1 = CIColor(color: UIColor(duoLight))
+        guard let output = filter.outputImage,
+              let cg = CIContext().createCGImage(output, from: output.extent) else { return image }
+        return UIImage(cgImage: cg)
     }
 
     // MARK: - Preview
@@ -266,33 +414,25 @@ struct WallpaperGeneratorView: View {
     private func wallpaperPreview(image: UIImage) -> some View {
         ZStack {
             Color.black.ignoresSafeArea()
-
-            Image(uiImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
+            Image(uiImage: image).resizable().aspectRatio(contentMode: .fit)
 
             VStack {
                 Spacer()
-
                 HStack(spacing: 10) {
-                    Button("Back") {
-                        showPreview = false
-                    }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.white.opacity(0.2))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    Button("Back") { generated = nil }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
 
                     Button("Save") {
                         store.addWallpaper(image: image)
-                        showPreview = false
+                        generated = nil
                     }
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(fgColor)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity).padding(.vertical, 14)
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
@@ -301,13 +441,11 @@ struct WallpaperGeneratorView: View {
                     }
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(fgColor)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity).padding(.vertical, 14)
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                .padding(.horizontal, 16).padding(.bottom, 16)
             }
         }
     }

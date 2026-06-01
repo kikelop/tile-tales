@@ -5,10 +5,9 @@ struct TileViewer3DView: View {
     @Binding var navigationPath: NavigationPath
     @State var activeIndex: Int
     @State private var showEditSheet = false
-    @State private var showCamera = false
-    @State private var showLibrary = false
-    @State private var capturedImage: UIImage?
-    @StateObject private var locationService = LocationService()
+    @State private var resetToken = 0
+    @State private var showFlipHint = false
+    @AppStorage("tt-flip-hint-seen") private var flipHintSeen = false
 
     private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
     private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
@@ -32,6 +31,8 @@ struct TileViewer3DView: View {
             bgColor.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                topBar
+
                 // 3D Canvas
                 ZStack(alignment: .top) {
                     if let tile = currentTile {
@@ -39,8 +40,13 @@ struct TileViewer3DView: View {
                             tileImage: tile.image,
                             memoryText: tile.memory,
                             dateText: tile.date,
-                            tileName: tile.name
+                            tileName: tile.name,
+                            resetToken: resetToken
                         )
+                        .onTapGesture(count: 2) {
+                            resetToken += 1
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
                     } else {
                         VStack {
                             Spacer()
@@ -50,11 +56,22 @@ struct TileViewer3DView: View {
                         }
                     }
 
-                    // Top bar overlay
-                    topBar
+                    // Flip hint
+                    if showFlipHint {
+                        VStack {
+                            Spacer()
+                            Text("Drag to rotate · flip to see the memory")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16).padding(.vertical, 9)
+                                .background(fgColor.opacity(0.82))
+                                .clipShape(Capsule())
+                                .padding(.bottom, 24)
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+                    }
                 }
 
-                // Tile selector thumbnails
                 thumbnailSelector
             }
         }
@@ -63,40 +80,24 @@ struct TileViewer3DView: View {
                 TileEditSheet(tile: tile)
             }
         }
-        .sheet(isPresented: $showCamera) {
-            CameraPicker(image: $capturedImage)
+        .onAppear(perform: maybeShowFlipHint)
+    }
+
+    private func maybeShowFlipHint() {
+        guard !flipHintSeen else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            withAnimation(.easeOut(duration: 0.3)) { showFlipHint = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                withAnimation(.easeOut(duration: 0.3)) { showFlipHint = false }
+                flipHintSeen = true
+            }
         }
-        .sheet(isPresented: $showLibrary) {
-            PhotoLibraryPicker(image: $capturedImage)
-        }
-        .onChange(of: capturedImage) { _, newImage in
-            guard let image = newImage else { return }
-            addNewTile(image: image)
-            capturedImage = nil
-        }
-        .gesture(
-            DragGesture(minimumDistance: 50)
-                .onEnded { value in
-                    let horizontal = value.translation.width
-                    let vertical = value.translation.height
-                    // Only trigger on primarily horizontal swipes
-                    guard abs(horizontal) > abs(vertical) * 1.5 else { return }
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        if horizontal < -50 && activeIndex < store.tiles.count - 1 {
-                            activeIndex += 1
-                        } else if horizontal > 50 && activeIndex > 0 {
-                            activeIndex -= 1
-                        }
-                    }
-                }
-        )
     }
 
     // MARK: - Top Bar
 
     private var topBar: some View {
         HStack {
-            // Back
             Button {
                 navigationPath.removeLast()
             } label: {
@@ -109,7 +110,6 @@ struct TileViewer3DView: View {
                     .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
             }
 
-            // Title
             if let tile = currentTile {
                 Text(tile.name)
                     .font(.system(size: 20, weight: .semibold))
@@ -119,7 +119,6 @@ struct TileViewer3DView: View {
 
             Spacer()
 
-            // Favorite
             if let tile = currentTile {
                 Button {
                     withAnimation(.easeOut(duration: 0.2)) {
@@ -136,7 +135,6 @@ struct TileViewer3DView: View {
                         .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
                 }
 
-                // Share
                 Button {
                     ShareService.share(tile: tile)
                 } label: {
@@ -149,7 +147,6 @@ struct TileViewer3DView: View {
                         .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
                 }
 
-                // Edit
                 Button {
                     showEditSheet = true
                 } label: {
@@ -165,6 +162,7 @@ struct TileViewer3DView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Thumbnails
@@ -173,8 +171,10 @@ struct TileViewer3DView: View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(Array(store.tiles.enumerated()), id: \.element.id) { index, tile in
+                    ForEach(Array(store.tiles.enumerated()).reversed(), id: \.element.id) { index, tile in
                         Button {
+                            // Just swap the tile on the top face — no entry/reset
+                            // animation; the floating motion keeps going.
                             withAnimation(.easeOut(duration: 0.2)) {
                                 activeIndex = index
                             }
@@ -202,27 +202,6 @@ struct TileViewer3DView: View {
                         }
                         .id(tile.id)
                     }
-
-                    // Add button in thumbnails
-                    Menu {
-                        Button {
-                            showCamera = true
-                        } label: {
-                            Label("Take photo", systemImage: "camera")
-                        }
-                        Button {
-                            showLibrary = true
-                        } label: {
-                            Label("Choose from library", systemImage: "photo.on.rectangle")
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(.white)
-                            .frame(width: 60, height: 60)
-                            .background(fgColor)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -234,23 +213,16 @@ struct TileViewer3DView: View {
                     }
                 }
             }
+            .onAppear {
+                // Highlight + scroll the entered tile into view.
+                if let tile = store.tiles[safe: safeIndex] {
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(tile.id, anchor: .center)
+                    }
+                }
+            }
         }
         .background(bgColor.opacity(0.92).background(.ultraThinMaterial))
-    }
-
-    // MARK: - Add Tile
-
-    private func addNewTile(image: UIImage) {
-        Task {
-            let location = await locationService.getCurrentLocation()
-            let tile = TileItem.create(
-                name: "Tile #\(store.tiles.count + 1)",
-                image: image,
-                location: location
-            )
-            store.addTile(tile)
-            activeIndex = store.tiles.count - 1
-        }
     }
 }
 
