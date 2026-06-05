@@ -295,7 +295,7 @@ export default function TileMap({
                 padding: "6px 14px",
                 borderRadius: 20,
                 border: "none",
-                background: activeTag === f.id ? "#1a1a1a" : chipBg,
+                background: activeTag === f.id ? "var(--tt-accent)" : chipBg,
                 color: activeTag === f.id ? "#fff" : fg,
                 fontSize: 13,
                 fontWeight: 500,

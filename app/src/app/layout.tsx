@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Caveat } from "next/font/google";
+import { Geist, Geist_Mono, Caveat, Abril_Fatface } from "next/font/google";
 import "./globals.css";
 import Toaster from "@/components/Toaster";
 
@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 
 const caveat = Caveat({
   variable: "--font-caveat",
+  subsets: ["latin"],
+});
+
+// Display serif for the brand wordmark (splash)
+const abrilFatface = Abril_Fatface({
+  variable: "--font-display",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -40,7 +47,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${abrilFatface.variable} h-full antialiased`}
     >
       <head>
         <link rel="manifest" href="/manifest.json" />

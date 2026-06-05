@@ -47,7 +47,7 @@ function WallpaperTileThumb({
         border: "none",
         padding: 0,
         cursor: disabled && !isSelected ? "not-allowed" : "pointer",
-        outline: isSelected ? "2.5px solid #1a1a1a" : "2px solid transparent",
+        outline: isSelected ? "2.5px solid var(--tt-accent)" : "2px solid transparent",
         outlineOffset: 2,
         opacity: disabled && !isSelected ? 0.35 : isSelected ? 1 : 0.65,
         transition: "all 0.2s",
@@ -688,7 +688,7 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
                   padding: "6px 14px",
                   borderRadius: 20,
                   border: "none",
-                  background: mode === m ? "#1a1a1a" : "rgba(0,0,0,0.06)",
+                  background: mode === m ? "var(--tt-accent)" : "rgba(0,0,0,0.06)",
                   color: mode === m ? "#fff" : "#1a1a1a",
                   fontSize: 13,
                   fontWeight: 500,
@@ -710,7 +710,7 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
                 padding: "6px 14px",
                 borderRadius: 20,
                 border: "none",
-                background: duotone ? "#1a1a1a" : "rgba(0,0,0,0.06)",
+                background: duotone ? "var(--tt-accent)" : "rgba(0,0,0,0.06)",
                 color: duotone ? "#fff" : "#1a1a1a",
                 fontSize: 13,
                 fontWeight: 500,
@@ -754,7 +754,7 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
               max={240}
               value={tileSize}
               onChange={(e) => setTileSize(Number(e.target.value))}
-              style={{ flex: 1, accentColor: "#1a1a1a" }}
+              style={{ flex: 1, accentColor: "var(--tt-accent)" }}
             />
           </div>
 
@@ -784,7 +784,7 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
                       gap: 6,
                       padding: "6px 12px 6px 6px",
                       borderRadius: 18,
-                      border: active ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
+                      border: active ? "1.5px solid var(--tt-accent)" : "1.5px solid transparent",
                       background: "rgba(0,0,0,0.04)",
                       fontSize: 12,
                       fontWeight: 500,
@@ -850,7 +850,7 @@ export default function WallpaperGenerator({ onBack }: { onBack: () => void }) {
               padding: "14px 0",
               borderRadius: 12,
               border: "none",
-              background: "#1a1a1a",
+              background: "var(--tt-accent)",
               color: "#fff",
               fontSize: 16,
               fontWeight: 600,

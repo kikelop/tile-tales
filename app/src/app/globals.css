@@ -4,6 +4,7 @@
 :root {
   --tt-bg: #f5f2ed;
   --tt-fg: #1a1a1a;
+  --tt-accent: #0049b4; /* azulejo cobalt — splash bg + primary actions (10/90) */
   --tt-muted: #8a8578;
   --tt-border: rgba(0, 0, 0, 0.06);
   --tt-tile-placeholder: #ece8e1;
@@ -12,7 +13,7 @@
   --tt-overlay-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   --tt-bottombar-bg: rgba(245, 242, 237, 0.92);
   --tt-chip-bg: rgba(0, 0, 0, 0.06);
-  --tt-chip-bg-active: #1a1a1a;
+  --tt-chip-bg-active: var(--tt-accent);
   --tt-chip-fg-active: #ffffff;
   /* Solid surfaces: popovers (sort/add menus) and bottom-sheet modals. */
   --tt-popover-bg: #ffffff;

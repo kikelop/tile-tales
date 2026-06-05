@@ -63,19 +63,21 @@ export default function SplashScreen({ onFinished }: { onFinished: () => void })
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "#f5f2ed",
+        background: "var(--tt-accent)",
         transition: "opacity 0.6s ease",
         opacity: fading ? 0 : 1,
       }}
     >
-      {/* 2x2 tile grid */}
+      {/* 2x2 tile grid, white frame lines like a real azulejo panel */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: 0,
-          width: 140,
-          height: 140,
+          gap: 3,
+          padding: 3,
+          background: "#ffffff",
+          width: 146,
+          height: 146,
         }}
       >
         {SEQUENCES.map((seq, i) => (
@@ -86,11 +88,13 @@ export default function SplashScreen({ onFinished }: { onFinished: () => void })
       {/* App name */}
       <h1
         style={{
-          marginTop: 32,
-          fontSize: 28,
-          fontWeight: 600,
-          letterSpacing: "-0.03em",
-          color: "#1a1a1a",
+          marginTop: 36,
+          fontSize: 30,
+          fontWeight: 400,
+          fontFamily: "var(--font-display), serif",
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+          color: "#ffffff",
           opacity: 0,
           animation: "splashFadeIn 0.8s ease 0.3s forwards",
         }}
@@ -99,9 +103,9 @@ export default function SplashScreen({ onFinished }: { onFinished: () => void })
       </h1>
       <p
         style={{
-          marginTop: 6,
+          marginTop: 8,
           fontSize: 13,
-          color: "#8a8578",
+          color: "rgba(255, 255, 255, 0.65)",
           opacity: 0,
           animation: "splashFadeIn 0.8s ease 0.6s forwards",
         }}
@@ -119,7 +123,8 @@ export default function SplashScreen({ onFinished }: { onFinished: () => void })
   );
 }
 
-const DUO_DARK = "#4a6fa5";
+// Splash brand blue — white-on-blue duotone, like a painted azulejo
+const SPLASH_BLUE = "#0049B4";
 
 function TileSlot({
   images,
@@ -133,27 +138,28 @@ function TileSlot({
   const current = images[step % images.length];
   const prev = images[(step - 1 + images.length) % images.length];
 
+  // Grayscale + screen blend over the blue base: darks become blue,
+  // lights stay white — white-on-blue duotone.
   const imgStyle: React.CSSProperties = {
     position: "absolute",
     inset: 0,
     width: "100%",
     height: "100%",
     objectFit: "cover",
-    filter: "grayscale(1) contrast(1.8)",
+    filter: "grayscale(1) contrast(2.2) brightness(1.1)",
+    mixBlendMode: "screen",
   };
 
   return (
     <div
       style={{
-        width: 70,
-        height: 70,
         borderRadius: 0,
         overflow: "hidden",
         position: "relative",
         perspective: 200,
         opacity: 0,
         animation: `splashFadeIn 0.5s ease ${delay + 0.1}s forwards`,
-        background: DUO_DARK,
+        background: SPLASH_BLUE,
       }}
     >
       {/* Previous image fading out */}
@@ -164,7 +170,6 @@ function TileSlot({
           alt=""
           style={{
             ...imgStyle,
-            mixBlendMode: "luminosity",
             animation: `tileOut 0.4s ease forwards`,
             animationDelay: `${delay}s`,
           }}
@@ -177,21 +182,10 @@ function TileSlot({
         alt=""
         style={{
           ...imgStyle,
-          mixBlendMode: "luminosity",
           animation: step === 0 ? "none" : `tileIn 0.4s ease forwards`,
           animationDelay: `${delay}s`,
           opacity: step === 0 ? 1 : 0,
           transform: "rotateY(0deg)",
-        }}
-      />
-      {/* Duotone color overlay */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: `linear-gradient(${DUO_DARK}, ${DUO_DARK})`,
-          mixBlendMode: "color",
-          pointerEvents: "none",
         }}
       />
 

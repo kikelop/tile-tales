@@ -252,7 +252,7 @@ export default function TileEditSheet({
 
         <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
           <button onClick={onClose} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "1px solid #e0d8cc", background: "transparent", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-          <button onClick={handleSave} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
+          <button onClick={handleSave} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "none", background: "var(--tt-accent)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
         </div>
 
         {/* Delete — separated, low-emphasis, confirms first */}
