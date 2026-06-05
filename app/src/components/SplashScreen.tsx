@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- decorative animated splash tiles, next/image adds nothing here */
 
 import { useState, useEffect, useCallback } from "react";
+import Wordmark from "./Wordmark";
 
 const TILE_IMAGES = [
   "/tiles/terrazzo-star.webp",
@@ -85,21 +86,16 @@ export default function SplashScreen({ onFinished }: { onFinished: () => void })
         ))}
       </div>
 
-      {/* App name */}
+      {/* Brand wordmark */}
       <h1
         style={{
-          marginTop: 36,
-          fontSize: 30,
-          fontWeight: 400,
-          fontFamily: "var(--font-display), serif",
-          letterSpacing: "0.04em",
-          textTransform: "uppercase",
+          margin: "36px 0 0",
           color: "#ffffff",
           opacity: 0,
           animation: "splashFadeIn 0.8s ease 0.3s forwards",
         }}
       >
-        Tile Tales
+        <Wordmark height={31} style={{ display: "block" }} />
       </h1>
       <p
         style={{

@@ -1,5 +1,6 @@
 "use client";
 
+import Wordmark from "./Wordmark";
 import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from "react";
 import { getState, subscribe, getAllTags, type TileItem } from "@/lib/store";
 import { useTileFileUrl } from "@/lib/useTileFileUrl";
@@ -298,16 +299,8 @@ export default function TileGrid({
           </>
         ) : (
           <>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "clamp(24px, 6vw, 32px)",
-                fontWeight: 700,
-                letterSpacing: "-0.03em",
-                color: "var(--tt-fg)",
-              }}
-            >
-              Tile Tales
+            <h1 style={{ margin: 0, color: "var(--tt-fg)" }}>
+              <Wordmark height={20} style={{ display: "block" }} />
             </h1>
             <span style={{ flex: 1, fontSize: 13, color: "var(--tt-muted)", fontWeight: 500, letterSpacing: "-0.01em" }}>
               {counterText}
