@@ -35,5 +35,10 @@ Se aplican vía MCP de Supabase (o SQL editor del dashboard). Mantener este dire
 - [ ] Crear proyecto Supabase (región eu-west, free tier)
 - [ ] Ejecutar `0001_initial_schema.sql`
 - [ ] Configurar Auth: habilitar email OTP, desactivar signups con password si no se usan
-- [ ] SMTP/email template del magic link (el de Supabase por defecto vale para arrancar; rate limit 3-4/h en free tier sin SMTP propio — para producción configurar SMTP custom, p.ej. Resend)
-- [ ] Copiar `SUPABASE_URL` + `SUPABASE_ANON_KEY` a `app/.env.local` (cliente web) y a la config de iOS
+- [x] ~~Copiar `SUPABASE_URL` + `SUPABASE_ANON_KEY` a `app/.env.local`~~ (hecho 2026-06-07)
+
+## Pendiente ANTES de producción / App Store
+
+- [ ] **SMTP propio (Resend)** — bloquea dos cosas: el rate limit del free tier (3-4 emails/h) y la personalización de plantillas (el Management API devuelve 400 con el SMTP por defecto). Pasos: cuenta en Resend (free 3k/mes) → verificar dominio de Kike (kikelopez.es, 3 registros DNS) → configurar SMTP en Supabase Auth settings → aplicar `templates/sign-in-email.html` como plantilla de Confirm signup Y Magic Link (vía dashboard o `PATCH /v1/projects/{ref}/config/auth`). El email actual sale como "Supabase Auth <noreply@mail.app.supabase.io>" con copy genérico de signup — confuso y con pinta de spam.
+- [ ] **Redirect URLs**: añadir la URL de prod de Vercel (y el scheme de la app iOS) a Auth → URL Configuration. Ahora solo funciona localhost.
+- [ ] Config de iOS: URL + anon key en el proyecto Xcode (port supabase-swift)
