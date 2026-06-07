@@ -18,6 +18,9 @@ struct TileItem: Identifiable, Codable, Equatable {
     var latitude: Double?
     var longitude: Double?
     var createdAt: Date
+    /// Last local mutation — drives last-write-wins sync. Optional so state
+    /// persisted before sync existed still decodes.
+    var updatedAt: Date?
 
     /// True for tiles the user captured (have inline image data), false for the
     /// bundled samples. Used by Stats' "captured by you" count.
@@ -50,7 +53,8 @@ struct TileItem: Identifiable, Codable, Equatable {
             favorite: false,
             latitude: location?.coordinate.latitude,
             longitude: location?.coordinate.longitude,
-            createdAt: Date()
+            createdAt: Date(),
+            updatedAt: Date()
         )
     }
 }
@@ -60,6 +64,8 @@ struct Album: Identifiable, Codable, Equatable {
     var name: String
     var tileIds: [String]
     var createdAt: Date
+    /// Last local mutation — drives last-write-wins sync.
+    var updatedAt: Date?
 }
 
 struct SavedWallpaper: Identifiable, Codable {

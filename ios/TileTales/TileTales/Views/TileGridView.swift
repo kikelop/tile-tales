@@ -134,13 +134,13 @@ struct TileGridView: View {
                 .tracking(-0.5)
                 .foregroundColor(fgColor)
 
-            // Count → opens Stats
+            // Count → opens Profile (account & sync + stats)
             Button {
-                navigationPath.append(AppScreen.stats)
+                navigationPath.append(AppScreen.profile)
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: "chart.bar.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 13, weight: .semibold))
                     Text("\(store.tiles.count)")
                         .font(.system(size: 14, weight: .medium))
                 }

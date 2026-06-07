@@ -30,6 +30,10 @@
 		A10000010000000000000020 /* CropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020 /* CropView.swift */; };
 		A10000010000000000000021 /* AlbumsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021 /* AlbumsView.swift */; };
 		A10000010000000000000022 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000022 /* StatsView.swift */; };
+		A10000010000000000000024 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000024 /* SupabaseService.swift */; };
+		A10000010000000000000025 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000025 /* SyncEngine.swift */; };
+		A10000010000000000000026 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000026 /* ProfileView.swift */; };
+		B10000010000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B30000010000000000000001 /* Supabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +60,9 @@
 		A20000010000000000000020 /* CropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropView.swift; sourceTree = "<group>"; };
 		A20000010000000000000021 /* AlbumsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumsView.swift; sourceTree = "<group>"; };
 		A20000010000000000000022 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		A20000010000000000000024 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		A20000010000000000000025 /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
+		A20000010000000000000026 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		A30000010000000000000001 /* TileTales.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TileTales.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -64,6 +71,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B10000010000000000000001 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,6 +122,7 @@
 				A20000010000000000000020 /* CropView.swift */,
 				A20000010000000000000021 /* AlbumsView.swift */,
 				A20000010000000000000022 /* StatsView.swift */,
+				A20000010000000000000026 /* ProfileView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -136,6 +145,8 @@
 				A20000010000000000000017 /* GeocodingService.swift */,
 				A20000010000000000000018 /* CaptureSupport.swift */,
 				A20000010000000000000019 /* BackupService.swift */,
+				A20000010000000000000024 /* SupabaseService.swift */,
+				A20000010000000000000025 /* SyncEngine.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -164,6 +175,9 @@
 			dependencies = (
 			);
 			name = TileTales;
+			packageProductDependencies = (
+				B30000010000000000000001 /* Supabase */,
+			);
 			productName = TileTales;
 			productReference = A30000010000000000000001 /* TileTales.app */;
 			productType = "com.apple.product-type.application";
@@ -190,6 +204,9 @@
 			knownRegions = (
 				en,
 				Base,
+			);
+			packageReferences = (
+				B20000010000000000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			mainGroup = A50000010000000000000001;
 			productRefGroup = A50000010000000000000009 /* Products */;
@@ -239,10 +256,32 @@
 				A10000010000000000000020 /* CropView.swift in Sources */,
 				A10000010000000000000021 /* AlbumsView.swift in Sources */,
 				A10000010000000000000022 /* StatsView.swift in Sources */,
+				A10000010000000000000024 /* SupabaseService.swift in Sources */,
+				A10000010000000000000025 /* SyncEngine.swift in Sources */,
+				A10000010000000000000026 /* ProfileView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B20000010000000000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B30000010000000000000001 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B20000010000000000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A80000010000000000000004 /* Debug */ = {

@@ -1,16 +1,12 @@
 import SwiftUI
 
-struct StatsView: View {
+/// Stats content — rendered inside ProfileView's Stats tab.
+struct StatsContent: View {
     @EnvironmentObject var store: TileStore
-    @Binding var navigationPath: NavigationPath
     @StateObject private var geocoder = GeocodingService.shared
 
     @State private var placeCounts: [(label: String, count: Int)] = []
     @State private var resolvingPlaces = false
-    @State private var backupURL: URL?
-    @State private var showShare = false
-    @State private var showImport = false
-    @State private var importMessage: String?
 
     private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
     private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
@@ -31,55 +27,13 @@ struct StatsView: View {
     }
 
     var body: some View {
-        ZStack {
-            bgColor.ignoresSafeArea()
-            VStack(spacing: 0) {
-                header
-                ScrollView {
-                    VStack(spacing: 20) {
-                        hero
-                        cardsGrid
-                        if !topTags.isEmpty { topTagsSection }
-                        if !placeCounts.isEmpty || resolvingPlaces { placesSection }
-                        backupSection
-                    }
-                    .padding(16)
-                }
-            }
+        VStack(spacing: 20) {
+            hero
+            cardsGrid
+            if !topTags.isEmpty { topTagsSection }
+            if !placeCounts.isEmpty || resolvingPlaces { placesSection }
         }
         .onAppear(perform: resolvePlaces)
-        .sheet(isPresented: $showShare) {
-            if let url = backupURL { ActivityView(items: [url]) }
-        }
-        .sheet(isPresented: $showImport) {
-            BackupDocumentPicker { data in
-                handleImport(data)
-            }
-        }
-        .alert("Backup", isPresented: Binding(
-            get: { importMessage != nil },
-            set: { if !$0 { importMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(importMessage ?? "")
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Button { navigationPath.removeLast() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(fgColor)
-                    .frame(width: 40, height: 40)
-                    .background(Color.black.opacity(0.06))
-                    .clipShape(Circle())
-            }
-            Text("Stats").font(.system(size: 22, weight: .bold)).tracking(-0.3)
-            Spacer()
-        }
-        .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 12)
     }
 
     private var hero: some View {
@@ -169,7 +123,41 @@ struct StatsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    private var backupSection: some View {
+    /// Resolves "City, Country" for each geolocated tile sequentially (CLGeocoder
+    /// throttles), aggregating counts per place.
+    private func resolvePlaces() {
+        let tiles = store.geolocatedTiles
+        guard !tiles.isEmpty else { return }
+        resolvingPlaces = true
+        Task {
+            var counts: [String: Int] = [:]
+            for tile in tiles {
+                guard let lat = tile.latitude, let lng = tile.longitude else { continue }
+                if let label = await geocoder.reverseGeocode(lat: lat, lng: lng) {
+                    counts[label, default: 0] += 1
+                }
+            }
+            placeCounts = counts.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
+            resolvingPlaces = false
+        }
+    }
+}
+
+
+// MARK: - Backup section (Profile's Account tab)
+
+struct BackupSectionView: View {
+    @EnvironmentObject var store: TileStore
+
+    @State private var backupURL: URL?
+    @State private var showShare = false
+    @State private var showImport = false
+    @State private var importMessage: String?
+
+    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
+    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Backup").font(.system(size: 16, weight: .semibold)).foregroundColor(fgColor)
             Text("Export your collection to a file, or restore from one. Captured tile images are included.")
@@ -194,9 +182,21 @@ struct StatsView: View {
         .padding(16)
         .background(Color.black.opacity(0.03))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .sheet(isPresented: $showShare) {
+            if let url = backupURL { ActivityView(items: [url]) }
+        }
+        .sheet(isPresented: $showImport) {
+            BackupDocumentPicker { data in handleImport(data) }
+        }
+        .alert("Backup", isPresented: Binding(
+            get: { importMessage != nil },
+            set: { if !$0 { importMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importMessage ?? "")
+        }
     }
-
-    // MARK: - Logic
 
     private func exportBackup() {
         do {
@@ -214,25 +214,5 @@ struct StatsView: View {
         }
         let result = store.importData(tiles: manifest.tiles, albums: manifest.albums)
         importMessage = "Imported \(result.addedTiles) tile\(result.addedTiles == 1 ? "" : "s") and \(result.addedAlbums) album\(result.addedAlbums == 1 ? "" : "s")."
-        resolvePlaces()
-    }
-
-    /// Resolves "City, Country" for each geolocated tile sequentially (CLGeocoder
-    /// throttles), aggregating counts per place.
-    private func resolvePlaces() {
-        let tiles = store.geolocatedTiles
-        guard !tiles.isEmpty else { return }
-        resolvingPlaces = true
-        Task {
-            var counts: [String: Int] = [:]
-            for tile in tiles {
-                guard let lat = tile.latitude, let lng = tile.longitude else { continue }
-                if let label = await geocoder.reverseGeocode(lat: lat, lng: lng) {
-                    counts[label, default: 0] += 1
-                }
-            }
-            placeCounts = counts.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
-            resolvingPlaces = false
-        }
     }
 }

@@ -4,6 +4,8 @@ import CoreText
 @main
 struct TileTalesApp: App {
     @StateObject private var store = TileStore()
+    @StateObject private var auth = AuthService()
+    @StateObject private var sync = SyncEngine()
 
     init() {
         // Register the bundled Caveat handwriting font app-wide (Info.plist is
@@ -17,6 +19,12 @@ struct TileTalesApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(store)
+                .environmentObject(auth)
+                .environmentObject(sync)
+                .task {
+                    auth.start()
+                    sync.start(store: store, auth: auth)
+                }
         }
     }
 }

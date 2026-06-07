@@ -8,6 +8,15 @@ final class TileStore: ObservableObject {
     @Published var wallpapers: [SavedWallpaper] = []
     @Published var albums: [Album] = []
 
+    /// Deletion tombstones (id -> deletedAt) so sync can propagate deletes.
+    private(set) var deletedTiles: [String: Date] = [:]
+    private(set) var deletedAlbums: [String: Date] = [:]
+
+    /// Called after every user-driven mutation (not remote applies) — the sync
+    /// engine hooks this to schedule a debounced push.
+    var onLocalMutation: (() -> Void)?
+    private var applyingRemote = false
+
     private let storageKey = "tile-tales-ios-state"
 
     init() {
@@ -20,7 +29,9 @@ final class TileStore: ObservableObject {
     // MARK: - Tiles CRUD
 
     func addTile(_ tile: TileItem) {
-        tiles.append(tile)
+        var stamped = tile
+        if stamped.updatedAt == nil { stamped.updatedAt = Date() }
+        tiles.append(stamped)
         saveState()
     }
 
@@ -35,21 +46,25 @@ final class TileStore: ObservableObject {
         // Double-optional: outer nil = leave untouched, inner nil = clear coordinate.
         if let latitude { tiles[index].latitude = latitude }
         if let longitude { tiles[index].longitude = longitude }
+        tiles[index].updatedAt = Date()
         saveState()
     }
 
     func deleteTile(id: String) {
         tiles.removeAll { $0.id == id }
         // Remove the tile from any album that referenced it.
-        for i in albums.indices {
+        for i in albums.indices where albums[i].tileIds.contains(id) {
             albums[i].tileIds.removeAll { $0 == id }
+            albums[i].updatedAt = Date()
         }
+        deletedTiles[id] = Date()
         saveState()
     }
 
     func toggleFavorite(id: String) {
         guard let index = tiles.firstIndex(where: { $0.id == id }) else { return }
         tiles[index].favorite.toggle()
+        tiles[index].updatedAt = Date()
         saveState()
     }
 
@@ -121,7 +136,8 @@ final class TileStore: ObservableObject {
             id: "a-\(UUID().uuidString)",
             name: trimmed.isEmpty ? "Untitled album" : trimmed,
             tileIds: [],
-            createdAt: Date()
+            createdAt: Date(),
+            updatedAt: Date()
         )
         albums.insert(album, at: 0)
         saveState()
@@ -131,12 +147,16 @@ final class TileStore: ObservableObject {
     func renameAlbum(id: String, name: String) {
         guard let index = albums.firstIndex(where: { $0.id == id }) else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty { albums[index].name = trimmed }
+        if !trimmed.isEmpty {
+            albums[index].name = trimmed
+            albums[index].updatedAt = Date()
+        }
         saveState()
     }
 
     func deleteAlbum(id: String) {
         albums.removeAll { $0.id == id }
+        deletedAlbums[id] = Date()
         saveState()
     }
 
@@ -148,6 +168,7 @@ final class TileStore: ObservableObject {
         } else {
             albums[index].tileIds.append(tileId)
         }
+        albums[index].updatedAt = Date()
         saveState()
     }
 
@@ -190,14 +211,62 @@ final class TileStore: ObservableObject {
         return (newTiles.count, newAlbums.count)
     }
 
+    // MARK: - Sync support
+
+    /// Applies a batch of remote changes without re-stamping updatedAt (so they
+    /// aren't pushed back) and without firing onLocalMutation. Updates keep
+    /// their array position (order is semantic: "recent" sort reverses it).
+    func applyRemoteChanges(
+        upsertTiles: [TileItem] = [],
+        upsertAlbums: [Album] = [],
+        deleteTileIds: [String] = [],
+        deleteAlbumIds: [String] = [],
+        clearTileTombstones: [String] = [],
+        clearAlbumTombstones: [String] = []
+    ) {
+        applyingRemote = true
+        defer { applyingRemote = false }
+
+        let deleteTiles = Set(deleteTileIds)
+        let deleteAlbumsSet = Set(deleteAlbumIds)
+        let upsertTileMap = Dictionary(uniqueKeysWithValues: upsertTiles.map { ($0.id, $0) })
+        let upsertAlbumMap = Dictionary(uniqueKeysWithValues: upsertAlbums.map { ($0.id, $0) })
+
+        let existingTileIds = Set(tiles.map { $0.id })
+        tiles = tiles
+            .filter { !deleteTiles.contains($0.id) }
+            .map { upsertTileMap[$0.id] ?? $0 }
+            + upsertTiles.filter { !existingTileIds.contains($0.id) }
+
+        let validIds = Set(tiles.map { $0.id })
+        let existingAlbumIds = Set(albums.map { $0.id })
+        albums = (albums
+            .filter { !deleteAlbumsSet.contains($0.id) }
+            .map { upsertAlbumMap[$0.id] ?? $0 }
+            + upsertAlbums.filter { !existingAlbumIds.contains($0.id) })
+            .map { album in
+                var a = album
+                a.tileIds = a.tileIds.filter { validIds.contains($0) }
+                return a
+            }
+
+        clearTileTombstones.forEach { deletedTiles.removeValue(forKey: $0) }
+        clearAlbumTombstones.forEach { deletedAlbums.removeValue(forKey: $0) }
+        saveState()
+    }
+
     // MARK: - Persistence
 
     private func saveState() {
         let encoder = JSONEncoder()
-        let snapshot = StorageState(tiles: tiles, wallpapers: wallpapers, albums: albums)
+        let snapshot = StorageState(
+            tiles: tiles, wallpapers: wallpapers, albums: albums,
+            deletedTiles: deletedTiles, deletedAlbums: deletedAlbums
+        )
         if let data = try? encoder.encode(snapshot) {
             UserDefaults.standard.set(data, forKey: storageKey)
         }
+        if !applyingRemote { onLocalMutation?() }
     }
 
     private func loadState() {
@@ -208,6 +277,8 @@ final class TileStore: ObservableObject {
         tiles = state.tiles
         wallpapers = state.wallpapers
         albums = state.albums
+        deletedTiles = state.deletedTiles
+        deletedAlbums = state.deletedAlbums
         // Drop dangling tile references inside albums.
         let validIds = Set(tiles.map { $0.id })
         for i in albums.indices {
@@ -250,4 +321,6 @@ private struct StorageState: Codable {
     let tiles: [TileItem]
     let wallpapers: [SavedWallpaper]
     var albums: [Album] = []
+    var deletedTiles: [String: Date] = [:]
+    var deletedAlbums: [String: Date] = [:]
 }

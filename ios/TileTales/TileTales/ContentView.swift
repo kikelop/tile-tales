@@ -7,7 +7,7 @@ enum AppScreen: Hashable {
     case wallpaper
     case albums
     case albumDetail(id: String)
-    case stats
+    case profile
 }
 
 struct ContentView: View {
@@ -70,8 +70,8 @@ struct ContentView: View {
             TileViewer3DView(initialIndex: index, navigationPath: path)
                 .navigationBarHidden(true)
                 .toolbar(.hidden, for: .tabBar)
-        case .stats:
-            StatsView(navigationPath: path)
+        case .profile:
+            ProfileView(navigationPath: path)
                 .navigationBarHidden(true)
                 .toolbar(.hidden, for: .tabBar)
         case .albumDetail(let id):
