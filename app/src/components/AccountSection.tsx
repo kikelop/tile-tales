@@ -3,14 +3,22 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { isSyncAvailable, getSupabase } from "@/lib/supabase";
-import { subscribeAuth, signInWithEmail, signOut } from "@/lib/auth";
+import {
+  subscribeAuth,
+  isRecoveryPending,
+  signIn,
+  signUp,
+  requestPasswordReset,
+  updatePassword,
+  signOut,
+} from "@/lib/auth";
 import { subscribeSyncStatus, requestSync, type SyncStatus } from "@/lib/sync";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
 
 const inputStyle: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
+  width: "100%",
+  boxSizing: "border-box",
   padding: "12px 14px",
   borderRadius: 12,
   border: "1px solid var(--tt-input-border)",
@@ -32,6 +40,24 @@ const buttonStyle: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 };
 
+const primaryButtonStyle: React.CSSProperties = {
+  ...buttonStyle,
+  background: "var(--tt-accent)",
+  border: "1px solid var(--tt-accent)",
+  color: "#fff",
+};
+
+const linkButtonStyle: React.CSSProperties = {
+  border: "none",
+  background: "none",
+  padding: 0,
+  fontSize: 13,
+  fontWeight: 600,
+  color: "var(--tt-accent)",
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
 function syncLabel(s: SyncStatus): string {
   if (s.state === "syncing") return "Syncing…";
   if (s.state === "error") return `Sync issue: ${s.error ?? "unknown"}`;
@@ -42,45 +68,91 @@ function syncLabel(s: SyncStatus): string {
   return "Waiting for first sync";
 }
 
-/** Account block for the Stats screen: magic-link sign in, sync status,
+type Mode = "signin" | "signup" | "forgot";
+
+/** Account block for the Stats screen: email+password auth, sync status,
  * sign out and in-app account deletion (App Store guideline 5.1.1v). */
 export default function AccountSection() {
   const [session, setSession] = useState<Session | null>(null);
+  const [recovery, setRecovery] = useState(false);
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
-  const [sending, setSending] = useState(false);
-  const [linkSent, setLinkSent] = useState(false);
+  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: "off", lastSyncAt: null });
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  useEffect(() => subscribeAuth(setSession), []);
+  useEffect(
+    () =>
+      subscribeAuth((s) => {
+        setSession(s);
+        setRecovery(isRecoveryPending());
+      }),
+    []
+  );
   useEffect(() => subscribeSyncStatus(setSyncStatus), []);
 
   if (!isSyncAvailable()) return null;
 
-  const handleSend = async () => {
-    const trimmed = email.trim();
-    if (!trimmed || sending) return;
-    if (!/^\S+@\S+\.\S+$/.test(trimmed)) {
-      toast("That doesn't look like an email");
+  const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
+
+  const handleSubmit = async () => {
+    if (busy) return;
+    setFormError(null);
+    if (!validEmail) {
+      setFormError("That doesn't look like an email");
       return;
     }
-    setSending(true);
+    if (mode !== "forgot" && password.length < 8) {
+      setFormError("Password needs at least 8 characters");
+      return;
+    }
+    setBusy(true);
     haptic(6);
-    const error = await signInWithEmail(trimmed);
-    setSending(false);
-    if (error) {
-      toast("Couldn't send the link — try again");
-    } else {
-      setLinkSent(true);
+    let error: string | null = null;
+    if (mode === "signin") error = await signIn(email.trim(), password);
+    else if (mode === "signup") error = await signUp(email.trim(), password);
+    else {
+      error = await requestPasswordReset(email.trim());
+      if (!error) setResetSent(true);
+    }
+    setBusy(false);
+    if (error) setFormError(error);
+    else if (mode !== "forgot") {
+      setPassword("");
+      toast(mode === "signup" ? "Account created — backing up your tiles" : "Signed in");
+    }
+  };
+
+  const handleSetNewPassword = async () => {
+    if (busy) return;
+    setFormError(null);
+    if (newPassword.length < 8) {
+      setFormError("Password needs at least 8 characters");
+      return;
+    }
+    setBusy(true);
+    const error = await updatePassword(newPassword);
+    setBusy(false);
+    if (error) setFormError(error);
+    else {
+      setNewPassword("");
+      setRecovery(false);
+      toast("Password updated");
     }
   };
 
   const handleSignOut = async () => {
     haptic(6);
     await signOut();
-    setLinkSent(false);
+    setMode("signin");
     setEmail("");
+    setPassword("");
+    setFormError(null);
     toast("Signed out — your tiles stay on this device");
   };
 
@@ -103,6 +175,12 @@ export default function AccountSection() {
     }
   };
 
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setFormError(null);
+    setResetSent(false);
+  };
+
   return (
     <>
       <h2
@@ -119,14 +197,14 @@ export default function AccountSection() {
       </h2>
 
       {!session ? (
-        linkSent ? (
-          <p style={{ fontSize: 13, color: "var(--tt-muted)", margin: "0 2px", lineHeight: 1.5 }}>
-            Check your inbox — we sent a sign-in link to <strong style={{ color: "var(--tt-fg)" }}>{email.trim()}</strong>.
-            Open it on this device to finish.
-          </p>
-        ) : (
-          <>
-            <div style={{ display: "flex", gap: 8 }}>
+        <>
+          {mode === "forgot" && resetSent ? (
+            <p style={{ fontSize: 13, color: "var(--tt-muted)", margin: "0 2px", lineHeight: 1.5 }}>
+              If <strong style={{ color: "var(--tt-fg)" }}>{email.trim()}</strong> has an account,
+              a reset link is on its way. Open it on this device to set a new password.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <input
                 type="email"
                 inputMode="email"
@@ -134,29 +212,83 @@ export default function AccountSection() {
                 placeholder="you@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void handleSend(); }}
                 style={inputStyle}
               />
+              {mode !== "forgot" && (
+                <input
+                  type="password"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  placeholder="Password (8+ characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void handleSubmit(); }}
+                  style={inputStyle}
+                />
+              )}
+              {formError && (
+                <p style={{ fontSize: 13, color: "#b3402a", margin: "0 2px" }}>{formError}</p>
+              )}
               <button
-                onClick={() => void handleSend()}
-                disabled={sending || !email.trim()}
-                style={{
-                  ...buttonStyle,
-                  background: "var(--tt-accent)",
-                  border: "1px solid var(--tt-accent)",
-                  color: "#fff",
-                  opacity: sending || !email.trim() ? 0.5 : 1,
-                  flexShrink: 0,
-                }}
+                onClick={() => void handleSubmit()}
+                disabled={busy || !email.trim()}
+                style={{ ...primaryButtonStyle, opacity: busy || !email.trim() ? 0.5 : 1 }}
               >
-                {sending ? "Sending…" : "Sign in"}
+                {busy
+                  ? "…"
+                  : mode === "signin"
+                    ? "Sign in"
+                    : mode === "signup"
+                      ? "Create account"
+                      : "Send reset link"}
               </button>
             </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "0 2px 4px" }}>
+            {mode === "signin" ? (
+              <>
+                <button onClick={() => switchMode("signup")} style={linkButtonStyle}>
+                  Create account
+                </button>
+                <button onClick={() => switchMode("forgot")} style={{ ...linkButtonStyle, color: "var(--tt-muted)" }}>
+                  Forgot password?
+                </button>
+              </>
+            ) : (
+              <button onClick={() => switchMode("signin")} style={linkButtonStyle}>
+                ← Back to sign in
+              </button>
+            )}
+          </div>
+          {mode === "signup" && (
             <p style={{ fontSize: 12, color: "var(--tt-muted)", margin: "0 2px 4px", lineHeight: 1.4 }}>
-              No password — we email you a sign-in link. Your tiles back up automatically and follow you to any device.
+              Your tiles back up automatically and follow you to any device.
             </p>
-          </>
-        )
+          )}
+        </>
+      ) : recovery ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ fontSize: 13, color: "var(--tt-muted)", margin: "0 2px", lineHeight: 1.5 }}>
+            Set a new password for <strong style={{ color: "var(--tt-fg)" }}>{session.user.email}</strong>.
+          </p>
+          <input
+            type="password"
+            autoComplete="new-password"
+            placeholder="New password (8+ characters)"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void handleSetNewPassword(); }}
+            style={inputStyle}
+          />
+          {formError && <p style={{ fontSize: 13, color: "#b3402a", margin: "0 2px" }}>{formError}</p>}
+          <button
+            onClick={() => void handleSetNewPassword()}
+            disabled={busy || !newPassword}
+            style={{ ...primaryButtonStyle, opacity: busy || !newPassword ? 0.5 : 1 }}
+          >
+            {busy ? "…" : "Save new password"}
+          </button>
+        </div>
       ) : (
         <>
           <div
