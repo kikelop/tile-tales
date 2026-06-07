@@ -7,6 +7,7 @@ import { getCachedReverse, reverseGeocode } from "@/lib/geo";
 import { exportCollection, importCollection } from "@/lib/backup";
 import { haptic } from "@/lib/haptic";
 import { toast } from "@/lib/toast";
+import AccountSection from "./AccountSection";
 
 function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
@@ -348,6 +349,9 @@ export default function StatsView({ onBack }: { onBack: () => void }) {
             Capture your first tile to see stats.
           </p>
         )}
+
+        {/* Account & sync */}
+        <AccountSection />
 
         {/* Backup */}
         <SectionTitle>Backup</SectionTitle>

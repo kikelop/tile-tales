@@ -8,6 +8,8 @@ export interface TileItem {
   favorite: boolean;
   lat?: number;
   lng?: number;
+  /** ms epoch of the last local mutation — drives last-write-wins sync. */
+  updatedAt?: number;
 }
 
 export interface SavedWallpaper {
@@ -21,6 +23,14 @@ export interface Album {
   name: string;
   tileIds: string[];
   createdAt: number;
+  /** ms epoch of the last local mutation — drives last-write-wins sync. */
+  updatedAt?: number;
+}
+
+/** Tombstones for deletions, so sync can propagate them to other devices. */
+export interface Tombstones {
+  tiles: Record<string, number>; // id -> deletedAt (ms epoch)
+  albums: Record<string, number>;
 }
 
 // Order matters: TileGrid's default "recent" sort REVERSES this array, so the
@@ -53,9 +63,11 @@ function loadState(): {
   tiles: TileItem[];
   wallpapers: SavedWallpaper[];
   albums: Album[];
+  deleted: Tombstones;
   purgedCount: number;
 } {
-  if (typeof window === "undefined") return { tiles: DEFAULT_TILES, wallpapers: [], albums: [], purgedCount: 0 };
+  const empty = { tiles: DEFAULT_TILES, wallpapers: [], albums: [], deleted: { tiles: {}, albums: {} }, purgedCount: 0 };
+  if (typeof window === "undefined") return empty;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -81,11 +93,15 @@ function loadState(): {
         tiles,
         wallpapers: parsed.wallpapers || [],
         albums,
+        deleted: {
+          tiles: parsed.deleted?.tiles || {},
+          albums: parsed.deleted?.albums || {},
+        },
         purgedCount,
       };
     }
   } catch {}
-  return { tiles: DEFAULT_TILES, wallpapers: [], albums: [], purgedCount: 0 };
+  return empty;
 }
 
 function saveState() {
@@ -95,16 +111,17 @@ function saveState() {
     const wpToSave = state.wallpapers.slice(0, 10);
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ tiles: state.tiles, wallpapers: wpToSave, albums: state.albums })
+      JSON.stringify({ tiles: state.tiles, wallpapers: wpToSave, albums: state.albums, deleted: state.deleted })
     );
   } catch {}
 }
 
 const initialLoad = loadState();
-let state: { tiles: TileItem[]; wallpapers: SavedWallpaper[]; albums: Album[] } = {
+let state: { tiles: TileItem[]; wallpapers: SavedWallpaper[]; albums: Album[]; deleted: Tombstones } = {
   tiles: initialLoad.tiles,
   wallpapers: initialLoad.wallpapers,
   albums: initialLoad.albums,
+  deleted: initialLoad.deleted,
 };
 const initialPurgedCount = initialLoad.purgedCount;
 
@@ -129,18 +146,22 @@ export function subscribe(listener: Listener) {
 export function updateTile(id: string, updates: Partial<Omit<TileItem, "id">>) {
   state = {
     ...state,
-    tiles: state.tiles.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    tiles: state.tiles.map((t) => (t.id === id ? { ...t, ...updates, updatedAt: Date.now() } : t)),
   };
   notify();
 }
 
 export function deleteTile(id: string) {
+  const now = Date.now();
   state = {
     ...state,
     tiles: state.tiles.filter((t) => t.id !== id),
     albums: state.albums.map((a) =>
-      a.tileIds.includes(id) ? { ...a, tileIds: a.tileIds.filter((tid) => tid !== id) } : a
+      a.tileIds.includes(id)
+        ? { ...a, tileIds: a.tileIds.filter((tid) => tid !== id), updatedAt: now }
+        : a
     ),
+    deleted: { ...state.deleted, tiles: { ...state.deleted.tiles, [id]: now } },
   };
   notify();
 }
@@ -148,7 +169,9 @@ export function deleteTile(id: string) {
 export function toggleFavorite(id: string) {
   state = {
     ...state,
-    tiles: state.tiles.map((t) => (t.id === id ? { ...t, favorite: !t.favorite } : t)),
+    tiles: state.tiles.map((t) =>
+      t.id === id ? { ...t, favorite: !t.favorite, updatedAt: Date.now() } : t
+    ),
   };
   notify();
 }
@@ -160,7 +183,7 @@ export function getAllTags(): string[] {
 }
 
 export function addTile(tile: TileItem) {
-  state = { ...state, tiles: [...state.tiles, tile] };
+  state = { ...state, tiles: [...state.tiles, { ...tile, updatedAt: tile.updatedAt ?? Date.now() }] };
   notify();
 }
 
@@ -208,11 +231,13 @@ function generateAlbumId(): string {
 }
 
 export function addAlbum(name: string): Album {
+  const now = Date.now();
   const album: Album = {
     id: generateAlbumId(),
     name: name.trim() || "Untitled album",
     tileIds: [],
-    createdAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
   };
   state = { ...state, albums: [album, ...state.albums] };
   notify();
@@ -222,13 +247,19 @@ export function addAlbum(name: string): Album {
 export function renameAlbum(id: string, name: string) {
   state = {
     ...state,
-    albums: state.albums.map((a) => (a.id === id ? { ...a, name: name.trim() || a.name } : a)),
+    albums: state.albums.map((a) =>
+      a.id === id ? { ...a, name: name.trim() || a.name, updatedAt: Date.now() } : a
+    ),
   };
   notify();
 }
 
 export function deleteAlbum(id: string) {
-  state = { ...state, albums: state.albums.filter((a) => a.id !== id) };
+  state = {
+    ...state,
+    albums: state.albums.filter((a) => a.id !== id),
+    deleted: { ...state.deleted, albums: { ...state.deleted.albums, [id]: Date.now() } },
+  };
   notify();
 }
 
@@ -242,6 +273,7 @@ export function toggleTileInAlbum(albumId: string, tileId: string) {
       return {
         ...a,
         tileIds: has ? a.tileIds.filter((t) => t !== tileId) : [...a.tileIds, tileId],
+        updatedAt: Date.now(),
       };
     }),
   };
@@ -250,4 +282,54 @@ export function toggleTileInAlbum(albumId: string, tileId: string) {
 
 export function getAlbumsForTile(tileId: string): Album[] {
   return state.albums.filter((a) => a.tileIds.includes(tileId));
+}
+
+// --- Sync support ---
+
+export function getTombstones(): Tombstones {
+  return state.deleted;
+}
+
+/** Applies a batch of remote changes in one state update + one notify.
+ * Upserted items keep the remote updatedAt (no local re-stamping) so they
+ * aren't considered dirty by the next push cycle. Local deletions performed
+ * here do NOT create tombstones (the remote is already the source). */
+export function applyRemoteChanges(changes: {
+  upsertTiles?: TileItem[];
+  upsertAlbums?: Album[];
+  deleteTileIds?: string[];
+  deleteAlbumIds?: string[];
+  clearTombstoneTileIds?: string[];
+  clearTombstoneAlbumIds?: string[];
+}) {
+  const deleteTiles = new Set(changes.deleteTileIds || []);
+  const deleteAlbums = new Set(changes.deleteAlbumIds || []);
+  const upsertTileMap = new Map((changes.upsertTiles || []).map((t) => [t.id, t]));
+  const upsertAlbumMap = new Map((changes.upsertAlbums || []).map((a) => [a.id, a]));
+
+  // Updates keep their array position (order is semantic: grid's "recent"
+  // sort reverses the array); only genuinely new items are appended.
+  const existingTileIds = new Set(state.tiles.map((t) => t.id));
+  const tiles = [
+    ...state.tiles
+      .filter((t) => !deleteTiles.has(t.id))
+      .map((t) => upsertTileMap.get(t.id) ?? t),
+    ...[...upsertTileMap.values()].filter((t) => !existingTileIds.has(t.id)),
+  ];
+  const validIds = new Set(tiles.map((t) => t.id));
+  const existingAlbumIds = new Set(state.albums.map((a) => a.id));
+  const albums = [
+    ...state.albums
+      .filter((a) => !deleteAlbums.has(a.id))
+      .map((a) => upsertAlbumMap.get(a.id) ?? a),
+    ...[...upsertAlbumMap.values()].filter((a) => !existingAlbumIds.has(a.id)),
+  ].map((a) => ({ ...a, tileIds: a.tileIds.filter((tid) => validIds.has(tid)) }));
+
+  const deletedTiles = { ...state.deleted.tiles };
+  (changes.clearTombstoneTileIds || []).forEach((id) => delete deletedTiles[id]);
+  const deletedAlbums = { ...state.deleted.albums };
+  (changes.clearTombstoneAlbumIds || []).forEach((id) => delete deletedAlbums[id]);
+
+  state = { ...state, tiles, albums, deleted: { tiles: deletedTiles, albums: deletedAlbums } };
+  notify();
 }
