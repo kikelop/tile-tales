@@ -102,7 +102,7 @@ export default function TileGrid({
   onOpenWallpaper,
   onOpenMap,
   onOpenAlbums,
-  onOpenStats,
+  onOpenProfile,
 }: {
   onSelectTile: (index: number) => void;
   onTakePhoto: () => void;
@@ -110,7 +110,7 @@ export default function TileGrid({
   onOpenWallpaper: () => void;
   onOpenMap: () => void;
   onOpenAlbums: () => void;
-  onOpenStats: () => void;
+  onOpenProfile: () => void;
 }) {
   const { tiles } = useStore();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -306,8 +306,8 @@ export default function TileGrid({
               {counterText}
             </span>
             <button
-              aria-label="Stats"
-              onClick={() => { onOpenStats(); haptic(6); }}
+              aria-label="Profile"
+              onClick={() => { onOpenProfile(); haptic(6); }}
               style={{
                 width: 36, height: 36, borderRadius: 18, border: "none",
                 background: "var(--tt-chip-bg)", color: "var(--tt-fg)", cursor: "pointer",
@@ -316,10 +316,8 @@ export default function TileGrid({
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 3v18h18" />
-                <path d="M18 17V9" />
-                <path d="M13 17V5" />
-                <path d="M8 17v-3" />
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
               </svg>
             </button>
             <button

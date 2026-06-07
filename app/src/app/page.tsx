@@ -13,7 +13,7 @@ const TileMap = dynamic(() => import("@/components/TileMap"), { ssr: false });
 const TileViewer3D = dynamic(() => import("@/components/TileViewer3D"), { ssr: false });
 const Albums = dynamic(() => import("@/components/Albums"), { ssr: false });
 const AlbumDetail = dynamic(() => import("@/components/Albums").then((m) => ({ default: m.AlbumDetail })), { ssr: false });
-const StatsView = dynamic(() => import("@/components/StatsView"), { ssr: false });
+const ProfileView = dynamic(() => import("@/components/ProfileView"), { ssr: false });
 
 const MIN_SPLASH_MS = 2500;
 
@@ -25,7 +25,7 @@ type Screen =
   | { type: "map" }
   | { type: "albums" }
   | { type: "album"; id: string }
-  | { type: "stats" };
+  | { type: "profile"; tab?: "account" | "stats" };
 
 // --- Hash-based deep linking ---------------------------------------------
 // The app is a single client page; we mirror the active screen into the URL
@@ -38,7 +38,7 @@ function screenToHash(s: Screen): string {
     case "map": return "#/map";
     case "albums": return "#/albums";
     case "album": return `#/album/${s.id}`;
-    case "stats": return "#/stats";
+    case "profile": return s.tab === "stats" ? "#/profile/stats" : "#/profile";
     case "grid":
     default: return "#/";
   }
@@ -56,7 +56,8 @@ function hashToScreen(hash: string): Screen {
     case "map": return { type: "map" };
     case "albums": return { type: "albums" };
     case "album": return parts[1] ? { type: "album", id: parts[1] } : { type: "albums" };
-    case "stats": return { type: "stats" };
+    case "profile": return { type: "profile", tab: parts[1] === "stats" ? "stats" : "account" };
+    case "stats": return { type: "profile", tab: "stats" }; // legacy links
     default: return { type: "grid" };
   }
 }
@@ -148,7 +149,7 @@ export default function Home() {
                 onOpenWallpaper={() => setScreen({ type: "wallpaper" })}
                 onOpenMap={() => setScreen({ type: "map" })}
                 onOpenAlbums={() => setScreen({ type: "albums" })}
-                onOpenStats={() => setScreen({ type: "stats" })}
+                onOpenProfile={() => setScreen({ type: "profile" })}
               />
               {pendingImage && (
                 <CropModal
@@ -194,8 +195,8 @@ export default function Home() {
             />
           )}
 
-          {screen.type === "stats" && (
-            <StatsView onBack={() => setScreen({ type: "grid" })} />
+          {screen.type === "profile" && (
+            <ProfileView initialTab={screen.tab} onBack={() => setScreen({ type: "grid" })} />
           )}
         </ScreenTransition>
       )}
