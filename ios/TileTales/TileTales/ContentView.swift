@@ -57,6 +57,7 @@ struct ContentView: View {
                         }
                     }
                 }
+                .tint(Color(red: 52/255, green: 70/255, blue: 188/255)) // #3446BC brand indigo
                 .transition(.opacity)
             }
         }
@@ -69,15 +70,12 @@ struct ContentView: View {
         case .viewer(let index):
             TileViewer3DView(initialIndex: index, navigationPath: path)
                 .navigationBarHidden(true)
-                .toolbar(.hidden, for: .tabBar)
         case .profile:
             ProfileView(navigationPath: path)
                 .navigationBarHidden(true)
-                .toolbar(.hidden, for: .tabBar)
         case .albumDetail(let id):
             AlbumDetailView(albumId: id, navigationPath: path)
                 .navigationBarHidden(true)
-                .toolbar(.hidden, for: .tabBar)
         case .map:
             TileMapView(navigationPath: path)
                 .navigationBarHidden(true)

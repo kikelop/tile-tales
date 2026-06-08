@@ -75,8 +75,9 @@ struct SceneKitTileView: UIViewRepresentable {
                 prevX = 0; prevY = 0
                 slerpProgress = 1
             case .changed:
-                let dx = (Float(loc.x) - prevX) * 0.01
-                let dy = (Float(loc.y) - prevY) * 0.01
+                // Slightly more direct than before (0.01) so the drag tracks the finger.
+                let dx = (Float(loc.x) - prevX) * 0.012
+                let dy = (Float(loc.y) - prevY) * 0.012
                 prevX = Float(loc.x); prevY = Float(loc.y)
                 velX = dx; velY = dy
                 orientation = quat(Double(dy), SIMD3<Float>(1, 0, 0))
@@ -118,8 +119,9 @@ struct SceneKitTileView: UIViewRepresentable {
             let flipEase = 1 - pow(1 - flipP, 3)
             let flipAngle = flipEase * Double.pi * 2
 
-            // Auto-spin starts brisk after the drop and decelerates to a gentle drift.
-            let zSpeed = t < 3 ? 0.04 + 0.5 * pow(1 - t / 3, 2) : 0.04
+            // Auto-spin is part of the entry flourish only: brisk after the drop, then
+            // decays fully to 0 so the tile settles and stays where the user leaves it.
+            let zSpeed = t < 3 ? 0.5 * pow(1 - t / 3, 2) : 0.0
 
             if slerpProgress < 1 {
                 slerpProgress = min(1, slerpProgress + Float(dt) / 0.4)
@@ -132,10 +134,12 @@ struct SceneKitTileView: UIViewRepresentable {
                     velX *= 0.95
                     velY *= 0.95
                 }
-                let autoQ = quat(zSpeed * dt, SIMD3<Float>(0, 1, 0))
-                let wob1 = quat(sin(t * 0.4) * 0.0008, SIMD3<Float>(1, 0, 0))
-                let wob2 = quat(cos(t * 0.3) * 0.0006, SIMD3<Float>(0, 0, 1))
-                orientation = wob2 * wob1 * autoQ * orientation
+                // Only spin while the entry flourish is still winding down (zSpeed > 0).
+                // Once settled, no drift and no wobble — the tile holds its pose.
+                if zSpeed > 0.0001 {
+                    let autoQ = quat(zSpeed * dt, SIMD3<Float>(0, 1, 0))
+                    orientation = autoQ * orientation
+                }
             }
 
             let floatY = Float(sin(t * 0.8)) * 0.06
@@ -317,10 +321,8 @@ struct SceneKitTileView: UIViewRepresentable {
         let renderer = UIGraphicsImageRenderer(size: size)
 
         return renderer.image { ctx in
-            // Mirror horizontally so the text reads correctly once the tile is flipped
-            // to show the back (the back face shows the texture mirrored).
-            ctx.cgContext.translateBy(x: size.width, y: 0)
-            ctx.cgContext.scaleBy(x: -1, y: 1)
+            // The back (-Y) face reads upright when the tile is flipped about its X
+            // axis to reveal it, so the texture is drawn normally (no mirror).
 
             // Background — whitish ceramic texture (already light + grainy, matches the
             // sides). Beige fallback if the asset is missing.

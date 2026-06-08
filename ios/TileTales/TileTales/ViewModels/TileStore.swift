@@ -195,6 +195,11 @@ final class TileStore: ObservableObject {
         saveState()
     }
 
+    func removeWallpaper(id: String) {
+        wallpapers.removeAll { $0.id == id }
+        saveState()
+    }
+
     // MARK: - Backup import
 
     /// Merges imported tiles and albums, skipping any whose id already exists so

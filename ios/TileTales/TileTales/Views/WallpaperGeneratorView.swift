@@ -77,6 +77,9 @@ struct WallpaperGeneratorView: View {
         .sheet(item: $generated) { wallpaper in
             wallpaperPreview(image: wallpaper.image)
         }
+        .sheet(isPresented: $showSaved) {
+            SavedWallpapersView()
+        }
         .task(id: previewKey) {
             // Debounce so dragging the size slider doesn't re-render every frame.
             try? await Task.sleep(nanoseconds: 80_000_000)
@@ -128,22 +131,23 @@ struct WallpaperGeneratorView: View {
     }
 
     private var patternPreview: some View {
+        // Full-bleed: the pattern fills the screen width (cropped vertically) so the
+        // real on-screen scale of the tiles is what you see.
         ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(red: 236/255, green: 232/255, blue: 225/255))
+            Color(red: 236/255, green: 232/255, blue: 225/255)
 
             if let img = previewImage {
                 Image(uiImage: img)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(8)
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
             } else {
                 ProgressView()
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
 
     // MARK: - Controls
@@ -398,15 +402,45 @@ struct WallpaperGeneratorView: View {
         cg.restoreGState()
     }
 
+    // Real duotone, ported from the web (WallpaperGenerator.tsx): per-pixel
+    // luminance → high-contrast S-curve applied twice → linear interpolation
+    // between the dark and light colors. CIFilter.falseColor() looked flat
+    // ("painted") because it skips the contrast curve; this preserves punch.
     private func duotoneFiltered(_ image: UIImage) -> UIImage {
-        guard let ciInput = CIImage(image: image) else { return image }
-        let filter = CIFilter.falseColor()
-        filter.inputImage = ciInput
-        filter.color0 = CIColor(color: UIColor(duoDark))
-        filter.color1 = CIColor(color: UIColor(duoLight))
-        guard let output = filter.outputImage,
-              let cg = CIContext().createCGImage(output, from: output.extent) else { return image }
-        return UIImage(cgImage: cg)
+        guard let cgImage = image.cgImage else { return image }
+        let width = cgImage.width
+        let height = cgImage.height
+        guard width > 0, height > 0 else { return image }
+
+        var dr: CGFloat = 0, dg: CGFloat = 0, db: CGFloat = 0, da: CGFloat = 0
+        UIColor(duoDark).getRed(&dr, green: &dg, blue: &db, alpha: &da)
+        var lr: CGFloat = 0, lg: CGFloat = 0, lb: CGFloat = 0, la: CGFloat = 0
+        UIColor(duoLight).getRed(&lr, green: &lg, blue: &lb, alpha: &la)
+        let darkR = Float(dr * 255), darkG = Float(dg * 255), darkB = Float(db * 255)
+        let lightR = Float(lr * 255), lightG = Float(lg * 255), lightB = Float(lb * 255)
+
+        let bytesPerRow = width * 4
+        var buffer = [UInt8](repeating: 0, count: bytesPerRow * height)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: &buffer, width: width, height: height, bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow, space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return image }
+        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        for i in stride(from: 0, to: buffer.count, by: 4) {
+            var lum = (Float(buffer[i]) * 0.299 + Float(buffer[i + 1]) * 0.587 + Float(buffer[i + 2]) * 0.114) / 255
+            // High-contrast S-curve, applied twice for extra punch (matches web).
+            lum = lum < 0.5 ? 2 * lum * lum : 1 - 2 * (1 - lum) * (1 - lum)
+            lum = lum < 0.5 ? 2 * lum * lum : 1 - 2 * (1 - lum) * (1 - lum)
+            buffer[i]     = UInt8(max(0, min(255, darkR + (lightR - darkR) * lum)))
+            buffer[i + 1] = UInt8(max(0, min(255, darkG + (lightG - darkG) * lum)))
+            buffer[i + 2] = UInt8(max(0, min(255, darkB + (lightB - darkB) * lum)))
+        }
+
+        guard let outCg = ctx.makeImage() else { return image }
+        return UIImage(cgImage: outCg, scale: image.scale, orientation: image.imageOrientation)
     }
 
     // MARK: - Preview

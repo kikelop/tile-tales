@@ -15,6 +15,8 @@ struct TileGridView: View {
     @AppStorage("tt-grid-columns") private var columns = 3
     @AppStorage("tt-sort-order") private var sortRaw = SortOrder.recent.rawValue
     @StateObject private var locationService = LocationService()
+    // Column count captured when a pinch begins, so we can recompute live.
+    @State private var pinchBaseColumns: Int? = nil
 
     private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
     private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
@@ -110,50 +112,57 @@ struct TileGridView: View {
             cropQueue = photos
             libraryPhotos = []
         }
-        // Pinch to zoom columns
+        // Pinch to zoom columns — live: facets resize during the gesture, not on release.
         .gesture(
             MagnificationGesture()
-                .onEnded { value in
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        if value < 0.8 {
-                            columns = min(6, columns + 1)
-                        } else if value > 1.2 {
-                            columns = max(1, columns - 1)
-                        }
+                .onChanged { value in
+                    let base = pinchBaseColumns ?? { pinchBaseColumns = columns; return columns }()
+                    // Pinch out (value > 1) → fewer columns (bigger tiles), and vice versa.
+                    let target = Int((Double(base) / value).rounded())
+                    let clamped = min(6, max(1, target))
+                    if clamped != columns {
+                        withAnimation(.easeOut(duration: 0.18)) { columns = clamped }
                     }
                 }
+                .onEnded { _ in pinchBaseColumns = nil }
         )
     }
 
     // MARK: - Header
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Text("Tile Tales")
-                .font(.system(size: 28, weight: .bold))
-                .tracking(-0.5)
+        // Profile (left) · wordmark (centered) · filters (right).
+        // ZStack keeps the wordmark truly centered regardless of side widths.
+        ZStack {
+            Image("Wordmark")
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: 22)
                 .foregroundColor(fgColor)
 
-            // Count → opens Profile (account & sync + stats)
-            Button {
-                navigationPath.append(AppScreen.profile)
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("\(store.tiles.count)")
-                        .font(.system(size: 14, weight: .medium))
+            HStack(spacing: 10) {
+                // Profile (+ tile count) → account & sync + stats
+                Button {
+                    navigationPath.append(AppScreen.profile)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.crop.circle")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("\(store.tiles.count)")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .foregroundColor(mutedColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.black.opacity(0.06))
+                    .clipShape(Capsule())
                 }
-                .foregroundColor(mutedColor)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Color.black.opacity(0.06))
-                .clipShape(Capsule())
+
+                Spacer()
+
+                viewMenu
             }
-
-            Spacer()
-
-            viewMenu
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
