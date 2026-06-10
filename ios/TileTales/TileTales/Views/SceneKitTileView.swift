@@ -11,6 +11,16 @@ struct SceneKitTileView: UIViewRepresentable {
     /// Bumped by the viewer on double-tap / tile switch to recenter the tile.
     var resetToken: Int = 0
 
+    // Live-tunable params (driven by the calibration panel; baked-in values are
+    // the current defaults). camX/Y/Z = camera position, fov = field of view,
+    // dragSensitivity = radians per drag point, inertiaDecay = flick spin-down.
+    var camX: Float = 0
+    var camY: Float = 8.8
+    var camZ: Float = 3.3
+    var fov: Float = 37
+    var dragSensitivity: Float = 0.012
+    var inertiaDecay: Float = 0.95
+
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     /// Quaternion-based animation engine ported from the web viewer: a per-frame loop
@@ -22,9 +32,12 @@ struct SceneKitTileView: UIViewRepresentable {
         weak var cameraNode: SCNNode?
         private var link: CADisplayLink?
 
-        // Pinch-to-zoom: move the camera along its fixed view direction.
-        private let camDir = simd_normalize(SIMD3<Float>(0, 8.8, 3.3))
-        private var camDistance: Float = 9.4
+        // Pinch-to-zoom: move the camera along its current view direction.
+        var camDir = simd_normalize(SIMD3<Float>(0, 8.8, 3.3))
+        var camDistance: Float = 9.4
+        // Live-tunable from the calibration panel.
+        var dragSensitivity: Float = 0.012
+        var inertiaDecay: Float = 0.95
 
         private var time: Double = 0
         private var orientation = simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0))
@@ -75,9 +88,8 @@ struct SceneKitTileView: UIViewRepresentable {
                 prevX = 0; prevY = 0
                 slerpProgress = 1
             case .changed:
-                // Slightly more direct than before (0.01) so the drag tracks the finger.
-                let dx = (Float(loc.x) - prevX) * 0.012
-                let dy = (Float(loc.y) - prevY) * 0.012
+                let dx = (Float(loc.x) - prevX) * dragSensitivity
+                let dy = (Float(loc.y) - prevY) * dragSensitivity
                 prevX = Float(loc.x); prevY = Float(loc.y)
                 velX = dx; velY = dy
                 orientation = quat(Double(dy), SIMD3<Float>(1, 0, 0))
@@ -131,8 +143,8 @@ struct SceneKitTileView: UIViewRepresentable {
                 if abs(velX) > 0.0001 || abs(velY) > 0.0001 {
                     orientation = quat(Double(velY), SIMD3<Float>(1, 0, 0))
                         * quat(Double(velX), SIMD3<Float>(0, 1, 0)) * orientation
-                    velX *= 0.95
-                    velY *= 0.95
+                    velX *= inertiaDecay
+                    velY *= inertiaDecay
                 }
                 // Only spin while the entry flourish is still winding down (zSpeed > 0).
                 // Once settled, no drift and no wobble — the tile holds its pose.
@@ -155,9 +167,8 @@ struct SceneKitTileView: UIViewRepresentable {
     }
 
     private func applyCamera(_ cameraNode: SCNNode) {
-        // Framing dialled in on device: centered, raised for a near-frontal read.
-        cameraNode.position = SCNVector3(0, 8.8, 3.3)
-        cameraNode.camera?.fieldOfView = 37
+        cameraNode.position = SCNVector3(camX, camY, camZ)
+        cameraNode.camera?.fieldOfView = CGFloat(fov)
         cameraNode.look(at: SCNVector3(0, 0, 0))
     }
 
@@ -244,6 +255,17 @@ struct SceneKitTileView: UIViewRepresentable {
 
     func updateUIView(_ scnView: SCNView, context: Context) {
         guard let tileNode = scnView.scene?.rootNode.childNode(withName: "tile", recursively: false) else { return }
+
+        // Push live-tunable params to the coordinator + camera.
+        context.coordinator.dragSensitivity = dragSensitivity
+        context.coordinator.inertiaDecay = inertiaDecay
+        if let cam = context.coordinator.cameraNode {
+            cam.position = SCNVector3(camX, camY, camZ)
+            cam.camera?.fieldOfView = CGFloat(fov)
+            cam.look(at: SCNVector3(0, 0, 0))
+            context.coordinator.camDir = simd_normalize(SIMD3<Float>(camX, camY, camZ))
+            context.coordinator.camDistance = simd_length(SIMD3<Float>(camX, camY, camZ))
+        }
 
         // Smooth slerp back to rest on double-tap / tile switch.
         if context.coordinator.lastResetToken != resetToken {

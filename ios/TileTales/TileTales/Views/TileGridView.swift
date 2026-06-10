@@ -3,6 +3,7 @@ import CoreLocation
 
 struct TileGridView: View {
     @EnvironmentObject var store: TileStore
+    @EnvironmentObject var viewerPresenter: ViewerPresenter
     @Binding var navigationPath: NavigationPath
     @State private var activeFilter: TileFilter = .all
     @State private var showCamera = false
@@ -71,7 +72,7 @@ struct TileGridView: View {
                             ForEach(displayedTiles) { tile in
                                 TileGridCell(tile: tile) {
                                     if let index = store.tiles.firstIndex(where: { $0.id == tile.id }) {
-                                        navigationPath.append(AppScreen.viewer(initialIndex: index))
+                                        viewerPresenter.open(index)
                                     }
                                 }
                             }
@@ -138,25 +139,21 @@ struct TileGridView: View {
                 .renderingMode(.template)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(height: 22)
+                .frame(height: 17)
                 .foregroundColor(fgColor)
 
             HStack(spacing: 10) {
-                // Profile (+ tile count) → account & sync + stats
+                // Profile → account & sync + stats. Matches the filter button:
+                // grey circle with a person glyph, no count.
                 Button {
                     navigationPath.append(AppScreen.profile)
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "person.crop.circle")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("\(store.tiles.count)")
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    .foregroundColor(mutedColor)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.black.opacity(0.06))
-                    .clipShape(Capsule())
+                    Image(systemName: "person")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(fgColor)
+                        .frame(width: 40, height: 40)
+                        .background(Color.black.opacity(0.06))
+                        .clipShape(Circle())
                 }
 
                 Spacer()

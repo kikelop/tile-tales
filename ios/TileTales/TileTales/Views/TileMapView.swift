@@ -4,9 +4,11 @@ import CoreLocation
 
 struct TileMapView: View {
     @EnvironmentObject var store: TileStore
+    @EnvironmentObject var viewerPresenter: ViewerPresenter
     @Binding var navigationPath: NavigationPath
     var isRoot: Bool = false
-    @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var region: MKCoordinateRegion?
+    @State private var recenterToken = 0
     @State private var selectedTileId: String?
     @State private var selectedLabel: String?
     @StateObject private var locationService = LocationService()
@@ -22,24 +24,14 @@ struct TileMapView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // Map
-            Map(position: $cameraPosition, selection: $selectedTileId) {
-                ForEach(visibleTiles) { tile in
-                    if let coordinate = tile.coordinate {
-                        Annotation(tile.name, coordinate: coordinate, anchor: .bottom) {
-                            VStack(spacing: 0) {
-                                tilePin(tile: tile)
-                                    .onTapGesture { selectTile(tile) }
-                                Triangle()
-                                    .fill(selectedTileId == tile.id ? fgColor : .white)
-                                    .frame(width: 12, height: 6)
-                                    .rotationEffect(.degrees(180))
-                            }
-                        }
-                    }
-                }
-            }
-            .mapStyle(.standard(pointsOfInterest: .excludingAll))
+            // Flat Carto basemap (no Apple greens/blues), custom tile pins.
+            CartoMapView(
+                tiles: visibleTiles,
+                selectedTileId: $selectedTileId,
+                recenterToken: recenterToken,
+                region: region,
+                onSelect: { selectTile($0) }
+            )
             .ignoresSafeArea()
 
             headerBar
@@ -163,7 +155,7 @@ struct TileMapView: View {
 
             Button {
                 if let index = store.tiles.firstIndex(where: { $0.id == tile.id }) {
-                    navigationPath.append(AppScreen.viewer(initialIndex: index))
+                    viewerPresenter.open(index)
                 }
             } label: {
                 Image(systemName: "chevron.right")
@@ -204,21 +196,17 @@ struct TileMapView: View {
             latitude: lats.reduce(0, +) / Double(lats.count),
             longitude: lngs.reduce(0, +) / Double(lngs.count)
         )
-        cameraPosition = .region(MKCoordinateRegion(
-            center: center,
-            span: MKCoordinateSpan(latitudeDelta: 15, longitudeDelta: 15)
-        ))
+        region = MKCoordinateRegion(center: center,
+                                    span: MKCoordinateSpan(latitudeDelta: 15, longitudeDelta: 15))
+        recenterToken += 1
     }
 
     private func goToMyLocation() {
         Task {
             if let location = await locationService.getCurrentLocation() {
-                withAnimation {
-                    cameraPosition = .region(MKCoordinateRegion(
-                        center: location.coordinate,
-                        span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-                    ))
-                }
+                region = MKCoordinateRegion(center: location.coordinate,
+                                            span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
+                recenterToken += 1
             }
         }
     }

@@ -46,12 +46,13 @@ struct WallpaperGeneratorView: View {
     private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
     private let maxTiles = 6
 
+    // Exact hex from the web (WallpaperGenerator.tsx DUOTONE_PRESETS) for parity.
     private let presets: [DuotonePreset] = [
-        DuotonePreset(name: "Ocean", dark: Color(red: 30/255, green: 64/255, blue: 110/255), light: Color(red: 222/255, green: 236/255, blue: 245/255)),
-        DuotonePreset(name: "Sunset", dark: Color(red: 138/255, green: 38/255, blue: 72/255), light: Color(red: 252/255, green: 226/255, blue: 187/255)),
-        DuotonePreset(name: "Forest", dark: Color(red: 30/255, green: 70/255, blue: 50/255), light: Color(red: 226/255, green: 238/255, blue: 214/255)),
-        DuotonePreset(name: "Vintage", dark: Color(red: 92/255, green: 64/255, blue: 40/255), light: Color(red: 240/255, green: 228/255, blue: 206/255)),
-        DuotonePreset(name: "Noir", dark: Color(red: 20/255, green: 20/255, blue: 22/255), light: Color(red: 232/255, green: 232/255, blue: 232/255)),
+        DuotonePreset(name: "Ocean", dark: Color(red: 26/255, green: 77/255, blue: 107/255), light: Color(red: 213/255, green: 231/255, blue: 237/255)),   // #1a4d6b / #d5e7ed
+        DuotonePreset(name: "Sunset", dark: Color(red: 122/255, green: 46/255, blue: 68/255), light: Color(red: 247/255, green: 216/255, blue: 164/255)),   // #7a2e44 / #f7d8a4
+        DuotonePreset(name: "Forest", dark: Color(red: 45/255, green: 74/255, blue: 46/255), light: Color(red: 216/255, green: 224/255, blue: 192/255)),    // #2d4a2e / #d8e0c0
+        DuotonePreset(name: "Vintage", dark: Color(red: 92/255, green: 58/255, blue: 33/255), light: Color(red: 232/255, green: 216/255, blue: 184/255)),   // #5c3a21 / #e8d8b8
+        DuotonePreset(name: "Noir", dark: Color(red: 26/255, green: 26/255, blue: 26/255), light: Color(red: 224/255, green: 224/255, blue: 224/255)),      // #1a1a1a / #e0e0e0
     ]
 
     var body: some View {

@@ -111,6 +111,7 @@ struct AlbumsView: View {
 
 struct AlbumDetailView: View {
     @EnvironmentObject var store: TileStore
+    @EnvironmentObject var viewerPresenter: ViewerPresenter
     let albumId: String
     @Binding var navigationPath: NavigationPath
     @State private var showRename = false
@@ -135,7 +136,7 @@ struct AlbumDetailView: View {
                             ForEach(store.tiles(in: album)) { tile in
                                 TileGridCell(tile: tile) {
                                     if let index = store.tiles.firstIndex(where: { $0.id == tile.id }) {
-                                        navigationPath.append(AppScreen.viewer(initialIndex: index))
+                                        viewerPresenter.open(index)
                                     }
                                 }
                             }

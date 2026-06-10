@@ -34,6 +34,7 @@
 		A10000010000000000000025 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000025 /* SyncEngine.swift */; };
 		A10000010000000000000026 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000026 /* ProfileView.swift */; };
 		A10000010000000000000027 /* SavedWallpapersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000027 /* SavedWallpapersView.swift */; };
+		A10000010000000000000028 /* CartoMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000028 /* CartoMapView.swift */; };
 		B10000010000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B30000010000000000000001 /* Supabase */; };
 /* End PBXBuildFile section */
 
@@ -65,6 +66,7 @@
 		A20000010000000000000025 /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		A20000010000000000000026 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		A20000010000000000000027 /* SavedWallpapersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedWallpapersView.swift; sourceTree = "<group>"; };
+		A20000010000000000000028 /* CartoMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartoMapView.swift; sourceTree = "<group>"; };
 		A30000010000000000000001 /* TileTales.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TileTales.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -126,6 +128,7 @@
 				A20000010000000000000022 /* StatsView.swift */,
 				A20000010000000000000026 /* ProfileView.swift */,
 				A20000010000000000000027 /* SavedWallpapersView.swift */,
+				A20000010000000000000028 /* CartoMapView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -263,6 +266,7 @@
 				A10000010000000000000025 /* SyncEngine.swift in Sources */,
 				A10000010000000000000026 /* ProfileView.swift in Sources */,
 				A10000010000000000000027 /* SavedWallpapersView.swift in Sources */,
+				A10000010000000000000028 /* CartoMapView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -10,6 +10,19 @@ enum AppScreen: Hashable {
     case profile
 }
 
+/// The 3D viewer is presented as a full-screen cover (immersive, no tab bar, no
+/// reflow "pop") from any tab. Child views set `route` instead of pushing.
+struct ViewerRoute: Identifiable, Equatable {
+    let id = UUID()
+    let index: Int
+}
+
+@MainActor
+final class ViewerPresenter: ObservableObject {
+    @Published var route: ViewerRoute?
+    func open(_ index: Int) { route = ViewerRoute(index: index) }
+}
+
 struct ContentView: View {
     @EnvironmentObject var store: TileStore
     @State private var showSplash = true
@@ -18,6 +31,7 @@ struct ContentView: View {
     @State private var albumsPath = NavigationPath()
     @State private var mapPath = NavigationPath()
     @State private var wallpaperPath = NavigationPath()
+    @StateObject private var viewerPresenter = ViewerPresenter()
 
     var body: some View {
         ZStack {
@@ -59,6 +73,14 @@ struct ContentView: View {
                 }
                 .tint(Color(red: 52/255, green: 70/255, blue: 188/255)) // #3446BC brand indigo
                 .transition(.opacity)
+                .environmentObject(viewerPresenter)
+                .fullScreenCover(item: $viewerPresenter.route) { route in
+                    TileViewer3DView(initialIndex: route.index) {
+                        viewerPresenter.route = nil
+                    }
+                    .environmentObject(store)
+                    .environmentObject(viewerPresenter)
+                }
             }
         }
         .animation(.easeOut(duration: 0.5), value: showSplash)
@@ -67,9 +89,8 @@ struct ContentView: View {
     @ViewBuilder
     private func destination(_ screen: AppScreen, _ path: Binding<NavigationPath>) -> some View {
         switch screen {
-        case .viewer(let index):
-            TileViewer3DView(initialIndex: index, navigationPath: path)
-                .navigationBarHidden(true)
+        case .viewer:
+            EmptyView() // viewer is presented as a full-screen cover, not pushed
         case .profile:
             ProfileView(navigationPath: path)
                 .navigationBarHidden(true)
