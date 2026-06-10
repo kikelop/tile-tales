@@ -422,11 +422,15 @@ struct WallpaperGeneratorView: View {
 
         let bytesPerRow = width * 4
         var buffer = [UInt8](repeating: 0, count: bytesPerRow * height)
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        // Explicit sRGB (not DeviceRGB) + big-endian RGBA, so the bytes we read
+        // are gamma-encoded sRGB exactly like the web canvas getImageData — no
+        // implicit color-matching that would compress the contrast.
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
         guard let ctx = CGContext(
             data: &buffer, width: width, height: height, bitsPerComponent: 8,
             bytesPerRow: bytesPerRow, space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            bitmapInfo: bitmapInfo
         ) else { return image }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 

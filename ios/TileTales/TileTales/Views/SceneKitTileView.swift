@@ -158,7 +158,9 @@ struct SceneKitTileView: UIViewRepresentable {
 
             var finalQ = orientation
             if flipP < 1 {
-                finalQ = quat(flipAngle, SIMD3<Float>(0, 1, 0)) * orientation
+                // In-plane spin (Z) during the drop — the original "tumble in from
+                // above" flourish, now landing on the frontal arcball rest pose.
+                finalQ = quat(flipAngle, SIMD3<Float>(0, 0, 1)) * orientation
             }
             tileNode.simdOrientation = finalQ
             tileNode.simdPosition = entryStart * entryAmount + SIMD3<Float>(0, floatY, 0)
