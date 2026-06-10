@@ -121,11 +121,11 @@ struct SceneKitTileView: UIViewRepresentable {
             time += dt
             let t = time
 
-            // Entry: glide in from the top of the screen (up-and-back in this tilted
-            // top-down view), scale up, single transient flip — all eased, a touch slow.
+            // Entry: drop straight down from above (Y+ → center) with a flip on Y —
+            // no Z approach, so it reads as a fall, not a zoom toward the camera.
             let dropEase = 1 - pow(1 - min(t / 1.8, 1), 3)
             let entryAmount = Float(1 - dropEase)
-            let entryStart = SIMD3<Float>(0, 4, -8)
+            let entryStart = SIMD3<Float>(0, 7, 0)
             let scale = Float(1 - pow(1 - min(t / 0.7, 1), 2))
             let flipP = min(t / 2.2, 1)
             let flipEase = 1 - pow(1 - flipP, 3)
@@ -158,9 +158,9 @@ struct SceneKitTileView: UIViewRepresentable {
 
             var finalQ = orientation
             if flipP < 1 {
-                // In-plane spin (Z) during the drop — the original "tumble in from
-                // above" flourish, now landing on the frontal arcball rest pose.
-                finalQ = quat(flipAngle, SIMD3<Float>(0, 0, 1)) * orientation
+                // Spin on Y while dropping in — the original entry flourish, landing
+                // on the frontal arcball rest pose.
+                finalQ = quat(flipAngle, SIMD3<Float>(0, 1, 0)) * orientation
             }
             tileNode.simdOrientation = finalQ
             tileNode.simdPosition = entryStart * entryAmount + SIMD3<Float>(0, floatY, 0)
