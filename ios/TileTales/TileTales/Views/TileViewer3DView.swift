@@ -9,16 +9,6 @@ struct TileViewer3DView: View {
     @State private var showFlipHint = false
     @AppStorage("tt-flip-hint-seen") private var flipHintSeen = false
 
-    // TEMP rotation/camera calibration (persisted so values survive relaunch
-    // while tuning on device). Remove the panel once values are locked.
-    @State private var showCalib = false
-    @AppStorage("tt-cal-camX") private var camX = 0.0
-    @AppStorage("tt-cal-camY") private var camY = 8.8
-    @AppStorage("tt-cal-camZ") private var camZ = 3.3
-    @AppStorage("tt-cal-fov") private var fov = 37.0
-    @AppStorage("tt-cal-drag") private var dragSensitivity = 0.012
-    @AppStorage("tt-cal-inertia") private var inertiaDecay = 0.95
-
     private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
     private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
 
@@ -51,11 +41,7 @@ struct TileViewer3DView: View {
                             memoryText: tile.memory,
                             dateText: tile.date,
                             tileName: tile.name,
-                            resetToken: resetToken,
-                            camX: Float(camX), camY: Float(camY), camZ: Float(camZ),
-                            fov: Float(fov),
-                            dragSensitivity: Float(dragSensitivity),
-                            inertiaDecay: Float(inertiaDecay)
+                            resetToken: resetToken
                         )
                         .onTapGesture(count: 2) {
                             resetToken += 1
@@ -85,8 +71,6 @@ struct TileViewer3DView: View {
                         }
                     }
                 }
-
-                if showCalib { calibPanel.padding(.bottom, 8) }
 
                 thumbnailSelector
             }
@@ -174,61 +158,11 @@ struct TileViewer3DView: View {
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
                 }
-
-                // TEMP calibration toggle — remove once values are locked.
-                Button {
-                    withAnimation { showCalib.toggle() }
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(showCalib ? .white : fgColor)
-                        .frame(width: 44, height: 44)
-                        .background(showCalib ? AnyShapeStyle(Color(red: 52/255, green: 70/255, blue: 188/255)) : AnyShapeStyle(.ultraThinMaterial))
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 12)
-    }
-
-    // MARK: - Calibration panel (TEMP)
-
-    private var calibPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            calibRow("Cam X", $camX, -8, 8)
-            calibRow("Cam Y", $camY, 0, 12)
-            calibRow("Cam Z", $camZ, 0, 14)
-            calibRow("FOV", $fov, 18, 70)
-            calibRow("Drag", $dragSensitivity, 0.004, 0.03)
-            calibRow("Inertia", $inertiaDecay, 0.8, 0.99)
-            HStack {
-                Button("Reset") {
-                    camX = 0; camY = 8.8; camZ = 3.3; fov = 37
-                    dragSensitivity = 0.012; inertiaDecay = 0.95
-                }
-                .font(.system(size: 13, weight: .semibold))
-                Spacer()
-                Text("X \(camX, specifier: "%.1f")  Y \(camY, specifier: "%.1f")  Z \(camZ, specifier: "%.1f")  fov \(fov, specifier: "%.0f")  drag \(dragSensitivity, specifier: "%.3f")  in \(inertiaDecay, specifier: "%.2f")")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(14)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, 16)
-    }
-
-    private func calibRow(_ label: String, _ value: Binding<Double>, _ lo: Double, _ hi: Double) -> some View {
-        HStack(spacing: 10) {
-            Text(label).font(.system(size: 12, weight: .medium)).frame(width: 54, alignment: .leading)
-            Slider(value: value, in: lo...hi)
-            Text("\(value.wrappedValue, specifier: abs(hi) < 1 ? "%.3f" : "%.1f")")
-                .font(.system(size: 11, design: .monospaced)).frame(width: 44, alignment: .trailing)
-        }
     }
 
     // MARK: - Thumbnails

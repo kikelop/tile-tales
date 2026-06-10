@@ -15,8 +15,8 @@ struct SceneKitTileView: UIViewRepresentable {
     // the current defaults). camX/Y/Z = camera position, fov = field of view,
     // dragSensitivity = radians per drag point, inertiaDecay = flick spin-down.
     var camX: Float = 0
-    var camY: Float = 8.8
-    var camZ: Float = 3.3
+    var camY: Float = 0
+    var camZ: Float = 9
     var fov: Float = 37
     var dragSensitivity: Float = 0.012
     var inertiaDecay: Float = 0.95
@@ -33,8 +33,8 @@ struct SceneKitTileView: UIViewRepresentable {
         private var link: CADisplayLink?
 
         // Pinch-to-zoom: move the camera along its current view direction.
-        var camDir = simd_normalize(SIMD3<Float>(0, 8.8, 3.3))
-        var camDistance: Float = 9.4
+        var camDir = simd_normalize(SIMD3<Float>(0, 0, 9))
+        var camDistance: Float = 9
         // Live-tunable from the calibration panel.
         var dragSensitivity: Float = 0.012
         var inertiaDecay: Float = 0.95
@@ -158,7 +158,7 @@ struct SceneKitTileView: UIViewRepresentable {
 
             var finalQ = orientation
             if flipP < 1 {
-                finalQ = quat(flipAngle, SIMD3<Float>(0, 0, 1)) * orientation
+                finalQ = quat(flipAngle, SIMD3<Float>(0, 1, 0)) * orientation
             }
             tileNode.simdOrientation = finalQ
             tileNode.simdPosition = entryStart * entryAmount + SIMD3<Float>(0, floatY, 0)
@@ -273,11 +273,11 @@ struct SceneKitTileView: UIViewRepresentable {
             context.coordinator.reset()
         }
 
-        // Update top (index 4) + back (index 5) textures on the box.
+        // Update front (index 0 = photo) + back (index 2 = memory) textures.
         if let body = tileNode.childNode(withName: "tileBody", recursively: true),
            let mats = body.geometry?.materials, mats.count >= 6 {
-            mats[4].diffuse.contents = tileImage ?? gradientImage()
-            mats[5].diffuse.contents = createMemoryTexture()
+            mats[0].diffuse.contents = tileImage ?? gradientImage()
+            mats[2].diffuse.contents = createMemoryTexture()
         }
     }
 
@@ -286,13 +286,15 @@ struct SceneKitTileView: UIViewRepresentable {
     private func createTileNode(context: Context) -> SCNNode {
         let containerNode = SCNNode()
 
-        let width: CGFloat = 2.4
-        let height: CGFloat = 0.16
+        let side: CGFloat = 2.4
+        let thickness: CGFloat = 0.16
         // Chamfer rounds ALL edges (the tile's rounded bevel). One textured box instead
         // of overlay planes, which met at sharp 90° edges.
         let cornerRadius: CGFloat = 0.075
 
-        let box = SCNBox(width: width, height: height, length: width, chamferRadius: cornerRadius)
+        // Thin in Z so the big faces point at the camera (frontal, square-on view).
+        // Photo on the front (+Z), memory on the back (-Z).
+        let box = SCNBox(width: side, height: side, length: thickness, chamferRadius: cornerRadius)
 
         func sideMat(_ name: String) -> SCNMaterial {
             let m = SCNMaterial()
@@ -302,16 +304,16 @@ struct SceneKitTileView: UIViewRepresentable {
             m.lightingModel = .constant
             return m
         }
-        let topMat = SCNMaterial()
-        topMat.diffuse.contents = tileImage ?? gradientImage()
-        topMat.lightingModel = .constant
+        let frontMat = SCNMaterial()
+        frontMat.diffuse.contents = tileImage ?? gradientImage()
+        frontMat.lightingModel = .constant
         let backMat = SCNMaterial()
         backMat.diffuse.contents = createMemoryTexture()
         backMat.lightingModel = .constant
 
         // SCNBox material order: front(+Z), right(+X), back(-Z), left(-X), top(+Y), bottom(-Y).
-        // All unlit (.constant) to match the web's meshBasicMaterial.
-        box.materials = [sideMat("side1"), sideMat("side3"), sideMat("side2"), sideMat("side4"), topMat, backMat]
+        // Photo faces the camera (+Z); memory is the back (-Z). All unlit (.constant).
+        box.materials = [frontMat, sideMat("side3"), backMat, sideMat("side4"), sideMat("side1"), sideMat("side2")]
 
         let bodyNode = SCNNode(geometry: box)
         bodyNode.name = "tileBody"
