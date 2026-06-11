@@ -46,8 +46,11 @@ struct WallpaperGeneratorView: View {
     private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
     private let maxTiles = 6
 
-    // Exact hex from the web (WallpaperGenerator.tsx DUOTONE_PRESETS) for parity.
+    // Exact hex from the web (WallpaperGenerator.tsx) for parity. "Classic" is the
+    // web's default duotone (cobalt #4a6fa5 on cream #e8dcc8) — the warm look Kike
+    // wanted; it wasn't selectable before, only the named presets were.
     private let presets: [DuotonePreset] = [
+        DuotonePreset(name: "Classic", dark: Color(red: 74/255, green: 111/255, blue: 165/255), light: Color(red: 232/255, green: 220/255, blue: 200/255)), // #4a6fa5 / #e8dcc8
         DuotonePreset(name: "Ocean", dark: Color(red: 26/255, green: 77/255, blue: 107/255), light: Color(red: 213/255, green: 231/255, blue: 237/255)),   // #1a4d6b / #d5e7ed
         DuotonePreset(name: "Sunset", dark: Color(red: 122/255, green: 46/255, blue: 68/255), light: Color(red: 247/255, green: 216/255, blue: 164/255)),   // #7a2e44 / #f7d8a4
         DuotonePreset(name: "Forest", dark: Color(red: 45/255, green: 74/255, blue: 46/255), light: Color(red: 216/255, green: 224/255, blue: 192/255)),    // #2d4a2e / #d8e0c0
@@ -327,16 +330,13 @@ struct WallpaperGeneratorView: View {
     /// Composites the selected tiles into a wallpaper at the given pixel size.
     /// Tile density is held constant across preview and export by scaling `ts` with width.
     private func renderWallpaper(size: CGSize) -> UIImage? {
-        let baseTiles = selectedTileIds.compactMap { id in store.tiles.first { $0.id == id }?.image }
-        guard !baseTiles.isEmpty else { return nil }
-
-        // Pre-apply duotone once per tile.
-        let tiles = duotone ? baseTiles.map { duotoneFiltered($0) } : baseTiles
+        let tiles = selectedTileIds.compactMap { id in store.tiles.first { $0.id == id }?.image }
+        guard !tiles.isEmpty else { return nil }
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1 // size is already in pixels
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
-        return renderer.image { ctx in
+        let composed = renderer.image { ctx in
             let cg = ctx.cgContext
             let ts = tileSize * 2 * (size.width / 1080) // keep tiling identical at any size
             let cols = Int(ceil(size.width / ts)) + 1
@@ -348,6 +348,9 @@ struct WallpaperGeneratorView: View {
                 }
             }
         }
+        // Duotone the fully composed wallpaper (matches the web, which applies it
+        // to the final canvas — not per tile before scaling).
+        return duotone ? duotoneFiltered(composed) : composed
     }
 
     private func generateWallpaper() {
