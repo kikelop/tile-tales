@@ -406,10 +406,10 @@ struct WallpaperGeneratorView: View {
         cg.restoreGState()
     }
 
-    // Duotone as a color layer multiplied over the image (Kike's "capa fundida"):
-    // per pixel, luminance × the accent (dark) color. Unlike a gradient map (which
-    // sends highlights to the light/paper color and washes out light tiles), multiply
-    // keeps strong color presence everywhere while preserving the tile's texture.
+    // Duotone gradient map (matches the web): per-pixel luminance → high-contrast
+    // S-curve (twice) → interpolate between the dark and light colors. Maps the
+    // tile's two tones to (dark, light) keeping both strong + texture, which is the
+    // target look. (A multiply made everything take the dark color — wrong.)
     private func duotoneFiltered(_ image: UIImage) -> UIImage {
         guard let cgImage = image.cgImage else { return image }
         let width = cgImage.width
@@ -418,7 +418,10 @@ struct WallpaperGeneratorView: View {
 
         var dr: CGFloat = 0, dg: CGFloat = 0, db: CGFloat = 0, da: CGFloat = 0
         UIColor(duoDark).getRed(&dr, green: &dg, blue: &db, alpha: &da)
+        var lr: CGFloat = 0, lg: CGFloat = 0, lb: CGFloat = 0, la: CGFloat = 0
+        UIColor(duoLight).getRed(&lr, green: &lg, blue: &lb, alpha: &la)
         let darkR = Float(dr * 255), darkG = Float(dg * 255), darkB = Float(db * 255)
+        let lightR = Float(lr * 255), lightG = Float(lg * 255), lightB = Float(lb * 255)
 
         let bytesPerRow = width * 4
         var buffer = [UInt8](repeating: 0, count: bytesPerRow * height)
@@ -435,12 +438,12 @@ struct WallpaperGeneratorView: View {
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
         for i in stride(from: 0, to: buffer.count, by: 4) {
-            let lum = (Float(buffer[i]) * 0.299 + Float(buffer[i + 1]) * 0.587 + Float(buffer[i + 2]) * 0.114) / 255
-            // Multiply the accent color over the texture: lights take the color,
-            // shadows go darker — strong, fused, never washed out.
-            buffer[i]     = UInt8(max(0, min(255, lum * darkR)))
-            buffer[i + 1] = UInt8(max(0, min(255, lum * darkG)))
-            buffer[i + 2] = UInt8(max(0, min(255, lum * darkB)))
+            var lum = (Float(buffer[i]) * 0.299 + Float(buffer[i + 1]) * 0.587 + Float(buffer[i + 2]) * 0.114) / 255
+            lum = lum < 0.5 ? 2 * lum * lum : 1 - 2 * (1 - lum) * (1 - lum)
+            lum = lum < 0.5 ? 2 * lum * lum : 1 - 2 * (1 - lum) * (1 - lum)
+            buffer[i]     = UInt8(max(0, min(255, darkR + (lightR - darkR) * lum)))
+            buffer[i + 1] = UInt8(max(0, min(255, darkG + (lightG - darkG) * lum)))
+            buffer[i + 2] = UInt8(max(0, min(255, darkB + (lightB - darkB) * lum)))
         }
 
         guard let outCg = ctx.makeImage() else { return image }
