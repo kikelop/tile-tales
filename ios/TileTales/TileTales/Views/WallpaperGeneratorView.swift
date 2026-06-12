@@ -406,10 +406,11 @@ struct WallpaperGeneratorView: View {
         cg.restoreGState()
     }
 
-    // Duotone gradient map (matches the web): per-pixel luminance → high-contrast
-    // S-curve (twice) → interpolate between the dark and light colors. Maps the
-    // tile's two tones to (dark, light) keeping both strong + texture, which is the
-    // target look. (A multiply made everything take the dark color — wrong.)
+    // Duotone gradient map, variant B from the duotone-lab contact sheets
+    // (personal/tile-tales/duotone-lab): per-pixel luminance → autocontrast
+    // stretch (2% cutoff per side, so light tiles like terrazzo don't wash out
+    // to a single tone) → S-curve x2.5 → interpolate dark→light. Picked by Kike
+    // over the web's plain S-curve x2, which washes out low-contrast tiles.
     private func duotoneFiltered(_ image: UIImage) -> UIImage {
         guard let cgImage = image.cgImage else { return image }
         let width = cgImage.width
@@ -437,10 +438,44 @@ struct WallpaperGeneratorView: View {
         ) else { return image }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
+        // Pass 1: 8-bit luminance per pixel + histogram (mirrors PIL "L" + autocontrast).
+        var lumBytes = [UInt8](repeating: 0, count: width * height)
+        var histogram = [Int](repeating: 0, count: 256)
+        var p = 0
         for i in stride(from: 0, to: buffer.count, by: 4) {
-            var lum = (Float(buffer[i]) * 0.299 + Float(buffer[i + 1]) * 0.587 + Float(buffer[i + 2]) * 0.114) / 255
-            lum = lum < 0.5 ? 2 * lum * lum : 1 - 2 * (1 - lum) * (1 - lum)
-            lum = lum < 0.5 ? 2 * lum * lum : 1 - 2 * (1 - lum) * (1 - lum)
+            let l = (Float(buffer[i]) * 0.299 + Float(buffer[i + 1]) * 0.587 + Float(buffer[i + 2]) * 0.114)
+            let lb = UInt8(max(0, min(255, l.rounded())))
+            lumBytes[p] = lb
+            histogram[Int(lb)] += 1
+            p += 1
+        }
+
+        // Autocontrast bounds: drop 2% of pixels from each end, stretch the rest.
+        let cutoff = (width * height) * 2 / 100
+        var lo = 0, hi = 255
+        var acc = 0
+        while lo < 255 { acc += histogram[lo]; if acc > cutoff { break }; lo += 1 }
+        acc = 0
+        while hi > lo { acc += histogram[hi]; if acc > cutoff { break }; hi -= 1 }
+        let range = Float(max(hi - lo, 1))
+
+        // LUT: stretch → S-curve x2 → half blend toward a third pass (x2.5).
+        func sCurve(_ x: Float) -> Float {
+            x < 0.5 ? 2 * x * x : 1 - 2 * (1 - x) * (1 - x)
+        }
+        var lut = [Float](repeating: 0, count: 256)
+        for v in 0..<256 {
+            var x = max(0, min(1, (Float(v) - Float(lo)) / range))
+            x = sCurve(x)
+            x = sCurve(x)
+            x = x * 0.5 + sCurve(x) * 0.5
+            lut[v] = x
+        }
+
+        p = 0
+        for i in stride(from: 0, to: buffer.count, by: 4) {
+            let lum = lut[Int(lumBytes[p])]
+            p += 1
             buffer[i]     = UInt8(max(0, min(255, darkR + (lightR - darkR) * lum)))
             buffer[i + 1] = UInt8(max(0, min(255, darkG + (lightG - darkG) * lum)))
             buffer[i + 2] = UInt8(max(0, min(255, darkB + (lightB - darkB) * lum)))
