@@ -34,8 +34,8 @@ struct WallpaperGeneratorView: View {
     @State private var pattern: WallpaperPattern = .grid
     @State private var tileSize: CGFloat = 120
     @State private var duotone = false
-    @State private var duoDark = Color(red: 74/255, green: 111/255, blue: 165/255)
-    @State private var duoLight = Color(red: 232/255, green: 220/255, blue: 200/255)
+    @State private var duoDark = Color(red: 74/255, green: 111/255, blue: 165/255)   // Lisboa #4a6fa5
+    @State private var duoLight = Color(red: 241/255, green: 234/255, blue: 217/255) // Lisboa #f1ead9
     @State private var portrait = true
     @State private var generated: GeneratedWallpaper?
     @State private var previewImage: UIImage?
@@ -46,16 +46,16 @@ struct WallpaperGeneratorView: View {
     private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
     private let maxTiles = 6
 
-    // Exact hex from the web (WallpaperGenerator.tsx) for parity. "Classic" is the
-    // web's default duotone (cobalt #4a6fa5 on cream #e8dcc8) — the warm look Kike
-    // wanted; it wasn't selectable before, only the named presets were.
+    // Tile-city presets picked by Kike from the duotone-lab palette sheets
+    // (personal/tile-tales/duotone-lab/palettes.py): deep saturated dark + light
+    // warm white, all in the spirit of the old "Classic" (now Lisboa, the default).
     private let presets: [DuotonePreset] = [
-        DuotonePreset(name: "Classic", dark: Color(red: 74/255, green: 111/255, blue: 165/255), light: Color(red: 232/255, green: 220/255, blue: 200/255)), // #4a6fa5 / #e8dcc8
-        DuotonePreset(name: "Ocean", dark: Color(red: 26/255, green: 77/255, blue: 107/255), light: Color(red: 213/255, green: 231/255, blue: 237/255)),   // #1a4d6b / #d5e7ed
-        DuotonePreset(name: "Sunset", dark: Color(red: 122/255, green: 46/255, blue: 68/255), light: Color(red: 247/255, green: 216/255, blue: 164/255)),   // #7a2e44 / #f7d8a4
-        DuotonePreset(name: "Forest", dark: Color(red: 45/255, green: 74/255, blue: 46/255), light: Color(red: 216/255, green: 224/255, blue: 192/255)),    // #2d4a2e / #d8e0c0
-        DuotonePreset(name: "Vintage", dark: Color(red: 92/255, green: 58/255, blue: 33/255), light: Color(red: 232/255, green: 216/255, blue: 184/255)),   // #5c3a21 / #e8d8b8
-        DuotonePreset(name: "Noir", dark: Color(red: 26/255, green: 26/255, blue: 26/255), light: Color(red: 224/255, green: 224/255, blue: 224/255)),      // #1a1a1a / #e0e0e0
+        DuotonePreset(name: "Lisboa", dark: Color(red: 74/255, green: 111/255, blue: 165/255), light: Color(red: 241/255, green: 234/255, blue: 217/255)),   // #4a6fa5 / #f1ead9
+        DuotonePreset(name: "Delft", dark: Color(red: 43/255, green: 58/255, blue: 103/255), light: Color(red: 247/255, green: 243/255, blue: 233/255)),     // #2b3a67 / #f7f3e9
+        DuotonePreset(name: "Porto", dark: Color(red: 30/255, green: 107/255, blue: 115/255), light: Color(red: 249/255, green: 241/255, blue: 227/255)),    // #1e6b73 / #f9f1e3
+        DuotonePreset(name: "Sevilla", dark: Color(red: 156/255, green: 74/255, blue: 47/255), light: Color(red: 248/255, green: 239/255, blue: 223/255)),   // #9c4a2f / #f8efdf
+        DuotonePreset(name: "Talavera", dark: Color(red: 63/255, green: 82/255, blue: 119/255), light: Color(red: 249/255, green: 231/255, blue: 196/255)),  // #3f5277 / #f9e7c4
+        DuotonePreset(name: "Nápoles", dark: Color(red: 125/255, green: 90/255, blue: 36/255), light: Color(red: 247/255, green: 240/255, blue: 222/255)),   // #7d5a24 / #f7f0de
     ]
 
     var body: some View {
