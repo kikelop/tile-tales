@@ -59,25 +59,24 @@ struct WallpaperGeneratorView: View {
     ]
 
     var body: some View {
-        ZStack {
-            bgColor.ignoresSafeArea()
+        VStack(spacing: 0) {
+            header
 
-            VStack(spacing: 0) {
-                header
-
-                if selectedTileIds.isEmpty {
-                    placeholderPreview
-                } else {
-                    patternPreview
-                }
-
-                if !selectedTileIds.isEmpty {
-                    controls
-                }
-
-                tileSelector
+            // Preview takes the leftover space and yields to the controls/selector
+            // (the Color-backed preview cedes height instead of dictating it).
+            if selectedTileIds.isEmpty {
+                placeholderPreview
+            } else {
+                patternPreview
             }
+
+            if !selectedTileIds.isEmpty {
+                controls
+            }
+
+            tileSelector
         }
+        .background(bgColor.ignoresSafeArea())
         .sheet(item: $generated) { wallpaper in
             wallpaperPreview(image: wallpaper.image)
         }
@@ -106,7 +105,7 @@ struct WallpaperGeneratorView: View {
                         .clipShape(Circle())
                 }
             }
-            Text("Wallpaper").font(.system(size: 22, weight: .bold)).tracking(-0.3)
+            Text("Compose").font(.system(size: 22, weight: .bold)).tracking(-0.3)
             Spacer()
             if !store.wallpapers.isEmpty {
                 Button { showSaved = true } label: {
@@ -136,22 +135,20 @@ struct WallpaperGeneratorView: View {
 
     private var patternPreview: some View {
         // Full-bleed: the pattern fills the screen width (cropped vertically) so the
-        // real on-screen scale of the tiles is what you see.
-        ZStack {
-            Color(red: 236/255, green: 232/255, blue: 225/255)
-
-            if let img = previewImage {
-                Image(uiImage: img)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
-            } else {
-                ProgressView()
+        // real on-screen scale of the tiles is what you see. The Color defines the
+        // (flexible) size and the image rides on top as an overlay — otherwise the
+        // scaledToFill image dictates a huge ideal size and shoves the controls and
+        // selector off-screen instead of yielding space in the VStack.
+        Color(red: 236/255, green: 232/255, blue: 225/255)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay {
+                if let img = previewImage {
+                    Image(uiImage: img).resizable().scaledToFill()
+                } else {
+                    ProgressView()
+                }
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
+            .clipped()
     }
 
     // MARK: - Controls
@@ -225,7 +222,7 @@ struct WallpaperGeneratorView: View {
 
             // Create button at the bottom
             Button { generateWallpaper() } label: {
-                Text("Create Wallpaper")
+                Text("Compose")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

@@ -63,7 +63,7 @@ struct ContentView: View {
                                 .navigationDestination(for: AppScreen.self) { destination($0, $mapPath) }
                         }
                     }
-                    Tab("Wallpaper", systemImage: "square.on.square", value: 3) {
+                    Tab("Compose", systemImage: "square.on.square", value: 3) {
                         NavigationStack(path: $wallpaperPath) {
                             WallpaperGeneratorView(isRoot: true)
                                 .navigationBarHidden(true)

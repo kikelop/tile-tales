@@ -204,7 +204,8 @@ struct TileViewer3DView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
             }
             .onChange(of: activeIndex) { _, newIndex in
                 if let tile = store.tiles[safe: newIndex] {
@@ -222,7 +223,19 @@ struct TileViewer3DView: View {
                 }
             }
         }
-        .background(bgColor.opacity(0.92).background(.ultraThinMaterial))
+        // Extend the translucent backing below the home indicator so the bar sits on
+        // the material (legible) instead of over the colourful thumbnails, and the
+        // thumbnails keep their safe-area space above it.
+        .background(
+            bgColor.opacity(0.92).background(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .bottom)
+        )
+        // Hairline separator along the top edge of the selector.
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(fgColor.opacity(0.1))
+                .frame(height: 0.5)
+        }
     }
 }
 

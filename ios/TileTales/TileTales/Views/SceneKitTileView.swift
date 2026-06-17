@@ -58,6 +58,16 @@ struct SceneKitTileView: UIViewRepresentable {
             simd_quatf(angle: Float(angle), axis: axis)
         }
 
+        // Velocity curves, like After Effects easing. easeOutExpo = a heavy, weighted
+        // settle. easeOutBack = overshoots the target and eases back (the "alive" pop).
+        private func easeOutExpo(_ x: Double) -> Double {
+            x >= 1 ? 1 : 1 - pow(2, -10 * x)
+        }
+        private func easeOutBack(_ x: Double, _ overshoot: Double = 1.70158) -> Double {
+            let c3 = overshoot + 1
+            return 1 + c3 * pow(x - 1, 3) + overshoot * pow(x - 1, 2)
+        }
+
         func start() {
             guard link == nil else { return }
             let l = CADisplayLink(target: self, selector: #selector(step(_:)))
@@ -121,19 +131,21 @@ struct SceneKitTileView: UIViewRepresentable {
             time += dt
             let t = time
 
-            // Entry: drop straight down from above (Y+ → center) with a flip on Y —
-            // no Z approach, so it reads as a fall, not a zoom toward the camera.
+            // Entry: drop straight down from above (Y+ → center) — no Z approach, so it
+            // reads as a fall, not a zoom toward the camera. Velocity curves give it an
+            // AE-style feel: a heavy weighted drop, and spin/scale that overshoot the
+            // target a touch and ease back (the "alive" settle).
             let dropEase = 1 - pow(1 - min(t / 1.8, 1), 3)
             let entryAmount = Float(1 - dropEase)
             let entryStart = SIMD3<Float>(0, 7, 0)
-            let scale = Float(1 - pow(1 - min(t / 0.7, 1), 2))
+            let scale = Float(easeOutBack(min(t / 0.7, 1), 0.3))
+            // Spin in on two axes while dropping, both unwinding to 0 so it lands dead
+            // frontal: just over a half turn on Y, half turn on Z, with a whisper of
+            // overshoot so it settles with a little life (not a hard stop).
             let flipP = min(t / 2.2, 1)
-            let flipEase = 1 - pow(1 - flipP, 3)
-            let flipAngle = flipEase * Double.pi * 2
-
-            // Auto-spin is part of the entry flourish only: brisk after the drop, then
-            // decays fully to 0 so the tile settles and stays where the user leaves it.
-            let zSpeed = t < 3 ? 0.5 * pow(1 - t / 3, 2) : 0.0
+            let flipEase = easeOutBack(flipP, 0.35)
+            let yAngle = (1 - flipEase) * Double.pi * 1.35
+            let zAngle = (1 - flipEase) * Double.pi
 
             if slerpProgress < 1 {
                 slerpProgress = min(1, slerpProgress + Float(dt) / 0.4)
@@ -146,24 +158,26 @@ struct SceneKitTileView: UIViewRepresentable {
                     velX *= inertiaDecay
                     velY *= inertiaDecay
                 }
-                // Only spin while the entry flourish is still winding down (zSpeed > 0).
-                // Once settled, no drift and no wobble — the tile holds its pose.
-                if zSpeed > 0.0001 {
-                    let autoQ = quat(zSpeed * dt, SIMD3<Float>(0, 1, 0))
-                    orientation = autoQ * orientation
-                }
+                // No auto-spin: once settled the tile holds its frontal rest pose.
             }
 
-            let floatY = Float(sin(t * 0.8)) * 0.06
+            // Floating drift on Y and Z only (no horizontal X sway) — different
+            // frequencies so it never lines up into an obvious bob.
+            let floatX: Float = 0
+            let floatY = Float(sin(t * 0.73)) * 0.120
+            let floatZ = Float(cos(t * 0.61)) * 0.055
 
             var finalQ = orientation
             if flipP < 1 {
-                // Spin on Y while dropping in — the original entry flourish, landing
-                // on the frontal arcball rest pose.
-                finalQ = quat(flipAngle, SIMD3<Float>(0, 1, 0)) * orientation
+                // Half-turn on Y and Z, unwinding to the frontal rest pose.
+                finalQ = quat(yAngle, SIMD3<Float>(0, 1, 0))
+                    * quat(zAngle, SIMD3<Float>(0, 0, 1)) * orientation
             }
+            // Lift the resting position a little: the tile selector at the bottom eats
+            // screen space, so dead-center in world space reads as too low. +0.3 recenters.
+            let centerY: Float = 0.3
             tileNode.simdOrientation = finalQ
-            tileNode.simdPosition = entryStart * entryAmount + SIMD3<Float>(0, floatY, 0)
+            tileNode.simdPosition = entryStart * entryAmount + SIMD3<Float>(floatX, floatY + centerY, floatZ)
             tileNode.simdScale = SIMD3<Float>(repeating: max(scale, 0.0001))
         }
     }
@@ -176,7 +190,11 @@ struct SceneKitTileView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> SCNView {
         let scnView = SCNView()
-        scnView.backgroundColor = UIColor(red: 245/255, green: 242/255, blue: 237/255, alpha: 1)
+        // Transparent canvas so the SwiftUI beige shows through uniformly. Painting the
+        // beige here too renders it in a slightly different tone (SceneKit DeviceRGB vs
+        // SwiftUI sRGB), which showed as a seam near the notch / top bar.
+        scnView.backgroundColor = .clear
+        scnView.isOpaque = false
         scnView.antialiasingMode = .multisampling4X
         scnView.allowsCameraControl = false
         scnView.autoenablesDefaultLighting = false
