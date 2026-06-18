@@ -26,6 +26,7 @@ final class ViewerPresenter: ObservableObject {
 struct ContentView: View {
     @EnvironmentObject var store: TileStore
     @EnvironmentObject var auth: AuthService
+    @EnvironmentObject var sync: SyncEngine
     @AppStorage("tt-onboarding-seen") private var onboardingSeen = false
     @AppStorage("tt-tour-seen") private var tourSeen = false
     @State private var showOnboarding = false
@@ -95,13 +96,15 @@ struct ContentView: View {
         }
         .animation(.easeOut(duration: 0.5), value: showSplash)
         .fullScreenCover(isPresented: $showOnboarding) {
-            OnboardingView(isLoggedIn: auth.session != nil) {
+            OnboardingView {
                 onboardingSeen = true
                 showOnboarding = false
                 if !tourSeen {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { withAnimation { showTour = true } }
                 }
             }
+            .environmentObject(auth)
+            .environmentObject(sync)
         }
         .overlay {
             if showTour {
@@ -143,29 +146,32 @@ struct ContentView: View {
 /// paged cards explaining the app; the last card recommends signing in (only when
 /// anonymous) so the user doesn't lose their collection.
 struct OnboardingView: View {
-    let isLoggedIn: Bool
     let onDone: () -> Void
+    @EnvironmentObject var auth: AuthService
     @State private var page = 0
+    @State private var showLogin = false
+
+    private var isLoggedIn: Bool { auth.session != nil }
 
     private let bg = Color(red: 245/255, green: 242/255, blue: 237/255)
     private let fg = Color(red: 26/255, green: 26/255, blue: 26/255)
     private let muted = Color(red: 138/255, green: 133/255, blue: 120/255)
     private let accent = Color(red: 52/255, green: 70/255, blue: 188/255)
 
-    private struct Page { let icon: String; let title: String; let body: String }
+    private struct Page { let icon: String; let title: String; let body: String; let isLogin: Bool }
 
     private var pages: [Page] {
         var p = [
             Page(icon: "square.grid.2x2.fill", title: "Collect street tiles",
-                 body: "Tile Tales is your collection of the beautiful tiles you spot out in the world."),
+                 body: "Tile Tales is your collection of the beautiful tiles you spot out in the world.", isLogin: false),
             Page(icon: "camera.fill", title: "Capture & fix",
-                 body: "Tap + to photograph a tile, then crop it and fix the light right away."),
+                 body: "Tap + to photograph a tile, then crop it and fix the light right away.", isLogin: false),
             Page(icon: "cube.fill", title: "See them in 3D",
-                 body: "Tap any tile to spin it in 3D — and write the memory of where you found it on the back."),
+                 body: "Tap any tile to spin it in 3D — and write the memory of where you found it on the back.", isLogin: false),
         ]
         if !isLoggedIn {
             p.append(Page(icon: "icloud.fill", title: "Keep them safe",
-                          body: "Sign in from your profile to back up your collection, so you never lose a tile."))
+                          body: "Sign in to back up your collection so you never lose a tile. You can always do this later.", isLogin: true))
         }
         return p
     }
@@ -193,6 +199,15 @@ struct OnboardingView: View {
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.horizontal, 36)
+                            if pages[i].isLogin {
+                                Button { showLogin = true } label: {
+                                    Text("Sign in")
+                                        .font(.system(size: 16, weight: .semibold)).foregroundColor(accent)
+                                        .padding(.horizontal, 28).padding(.vertical, 12)
+                                        .overlay(Capsule().stroke(accent, lineWidth: 1.5))
+                                }
+                                .padding(.top, 4)
+                            }
                         }
                         .tag(i)
                     }
@@ -206,6 +221,36 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 16)
                 .background(accent).clipShape(RoundedRectangle(cornerRadius: 14))
                 .padding(.horizontal, 24).padding(.bottom, 24)
+            }
+        }
+        // Login as a dismissable modal — never blocks finishing onboarding.
+        .sheet(isPresented: $showLogin) { LoginSheet() }
+    }
+}
+
+/// The account/login form (AccountSectionView) presented as a dismissable sheet,
+/// e.g. from onboarding. Optional — you can close it and continue without signing in.
+struct LoginSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var auth: AuthService
+    private let bg = Color(red: 245/255, green: 242/255, blue: 237/255)
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                bg.ignoresSafeArea()
+                ScrollView { AccountSectionView().padding(16) }
+            }
+            .navigationTitle("Sign in")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            // Auto-close once signed in.
+            .onChange(of: auth.session != nil) { _, loggedIn in
+                if loggedIn { dismiss() }
             }
         }
     }
