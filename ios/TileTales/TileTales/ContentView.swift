@@ -29,6 +29,9 @@ struct ContentView: View {
     @EnvironmentObject var sync: SyncEngine
     @AppStorage("tt-onboarding-seen") private var onboardingSeen = false
     @AppStorage("tt-tour-seen") private var tourSeen = false
+    /// TEMP (testing): always show onboarding + tour on every launch. Set false
+    /// (or remove + restore the `!seen` checks) before release.
+    private let alwaysShowIntro = true
     @State private var showOnboarding = false
     @State private var showTour = false
     @State private var showSplash = true
@@ -44,7 +47,7 @@ struct ContentView: View {
             if showSplash {
                 SplashView {
                     withAnimation(.easeOut(duration: 0.5)) { showSplash = false }
-                    if !onboardingSeen {
+                    if alwaysShowIntro || !onboardingSeen {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { showOnboarding = true }
                     } else if !tourSeen {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { withAnimation { showTour = true } }
@@ -99,7 +102,7 @@ struct ContentView: View {
             OnboardingView {
                 onboardingSeen = true
                 showOnboarding = false
-                if !tourSeen {
+                if alwaysShowIntro || !tourSeen {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { withAnimation { showTour = true } }
                 }
             }
