@@ -25,20 +25,20 @@ struct GeneratedWallpaper: Identifiable {
     let image: UIImage
 }
 
+/// Drives the push into edit mode. A fresh id per entry resets composition.
+struct ComposeSession: Identifiable, Hashable {
+    let id = UUID()
+    let initialTileId: String
+}
+
+// MARK: - Root (initial state, lives inside the Compose tab with the tab bar)
+
 struct WallpaperGeneratorView: View {
     @EnvironmentObject var store: TileStore
     @Environment(\.dismiss) private var dismiss
     var isRoot: Bool = false
 
-    @State private var selectedTileIds: [String] = []
-    @State private var pattern: WallpaperPattern = .grid
-    @State private var tileSize: CGFloat = 120
-    @State private var duotone = false
-    @State private var duoDark = Color(red: 74/255, green: 111/255, blue: 165/255)   // Lisboa #4a6fa5
-    @State private var duoLight = Color(red: 241/255, green: 234/255, blue: 217/255) // Lisboa #f1ead9
-    @State private var portrait = true
-    @State private var generated: GeneratedWallpaper?
-    @State private var previewImage: UIImage?
+    @State private var session: ComposeSession?
     @State private var showSaved = false
 
     private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
@@ -46,52 +46,26 @@ struct WallpaperGeneratorView: View {
     private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
     private let maxTiles = 6
 
-    // Tile-city presets picked by Kike from the duotone-lab palette sheets
-    // (personal/tile-tales/duotone-lab/palettes.py): deep saturated dark + light
-    // warm white, all in the spirit of the old "Classic" (now Lisboa, the default).
-    private let presets: [DuotonePreset] = [
-        DuotonePreset(name: "Lisboa", dark: Color(red: 74/255, green: 111/255, blue: 165/255), light: Color(red: 241/255, green: 234/255, blue: 217/255)),   // #4a6fa5 / #f1ead9
-        DuotonePreset(name: "Delft", dark: Color(red: 43/255, green: 58/255, blue: 103/255), light: Color(red: 247/255, green: 243/255, blue: 233/255)),     // #2b3a67 / #f7f3e9
-        DuotonePreset(name: "Porto", dark: Color(red: 30/255, green: 107/255, blue: 115/255), light: Color(red: 249/255, green: 241/255, blue: 227/255)),    // #1e6b73 / #f9f1e3
-        DuotonePreset(name: "Sevilla", dark: Color(red: 156/255, green: 74/255, blue: 47/255), light: Color(red: 248/255, green: 239/255, blue: 223/255)),   // #9c4a2f / #f8efdf
-        DuotonePreset(name: "Talavera", dark: Color(red: 63/255, green: 82/255, blue: 119/255), light: Color(red: 249/255, green: 231/255, blue: 196/255)),  // #3f5277 / #f9e7c4
-        DuotonePreset(name: "Nápoles", dark: Color(red: 125/255, green: 90/255, blue: 36/255), light: Color(red: 247/255, green: 240/255, blue: 222/255)),   // #7d5a24 / #f7f0de
-    ]
-
     var body: some View {
         VStack(spacing: 0) {
             header
-
-            // Preview takes the leftover space and yields to the controls/selector
-            // (the Color-backed preview cedes height instead of dictating it).
-            if selectedTileIds.isEmpty {
-                placeholderPreview
-            } else {
-                patternPreview
-            }
-
-            if !selectedTileIds.isEmpty {
-                controls
-            }
-
+            placeholderPreview
             tileSelector
         }
         .background(bgColor.ignoresSafeArea())
-        .sheet(item: $generated) { wallpaper in
-            wallpaperPreview(image: wallpaper.image)
+        // Tapping a tile pushes an immersive edit mode (slides in, not a modal); the
+        // tab bar hides while it's on screen. A fresh ComposeSession resets composition.
+        .navigationDestination(item: $session) { s in
+            ComposeEditView(initialTileId: s.initialTileId)
+                .environmentObject(store)
+                // Modern hide (not .navigationBarHidden, which leaves a ghost bar that
+                // swallows taps on the custom back button in the top area).
+                .toolbar(.hidden, for: .navigationBar, .tabBar)
         }
         .sheet(isPresented: $showSaved) {
             SavedWallpapersView()
         }
-        .task(id: previewKey) {
-            // Debounce so dragging the size slider doesn't re-render every frame.
-            try? await Task.sleep(nanoseconds: 80_000_000)
-            if Task.isCancelled { return }
-            previewImage = selectedTileIds.isEmpty ? nil : renderWallpaper(size: previewSize)
-        }
     }
-
-    // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 12) {
@@ -123,22 +97,131 @@ struct WallpaperGeneratorView: View {
     private var placeholderPreview: some View {
         VStack {
             Spacer()
-            Text("Select up to \(maxTiles) tiles below")
+            Text("Tap a tile below to start composing")
                 .foregroundColor(mutedColor).font(.system(size: 15))
             Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(red: 236/255, green: 232/255, blue: 225/255))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 16)
     }
 
-    private var patternPreview: some View {
-        // Full-bleed: the pattern fills the screen width (cropped vertically) so the
-        // real on-screen scale of the tiles is what you see. The Color defines the
-        // (flexible) size and the image rides on top as an overlay — otherwise the
-        // scaledToFill image dictates a huge ideal size and shoves the controls and
-        // selector off-screen instead of yielding space in the VStack.
+    // Root selector: tapping any tile enters edit mode pre-seeded with that tile.
+    private var tileSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(store.tiles) { tile in
+                    Button { session = ComposeSession(initialTileId: tile.id) } label: {
+                        Group {
+                            if let image = tile.image {
+                                Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
+                            } else {
+                                Color.gray.opacity(0.2)
+                            }
+                        }
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 8)
+        }
+    }
+}
+
+// MARK: - Edit mode (immersive full-screen, no tab bar — styled like the 3D viewer)
+
+struct ComposeEditView: View {
+    @EnvironmentObject var store: TileStore
+    @Environment(\.dismiss) private var dismiss
+    let initialTileId: String
+
+    @State private var selectedTileIds: [String]
+    @State private var pattern: WallpaperPattern = .grid
+    @State private var columns: Int = 4           // whole tiles across the width
+    @State private var duotone = false
+    @State private var duoDark = Color(red: 74/255, green: 111/255, blue: 165/255)   // Lisboa #4a6fa5
+    @State private var duoLight = Color(red: 241/255, green: 234/255, blue: 217/255) // Lisboa #f1ead9
+    @State private var portrait = true
+    @State private var generated: GeneratedWallpaper?
+    @State private var previewImage: UIImage?
+
+    private let minColumns = 2
+    private let maxColumns = 8
+
+    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
+    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
+    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let maxTiles = 6
+
+    // Tile-city presets picked by Kike from the duotone-lab palette sheets
+    // (personal/tile-tales/duotone-lab/palettes.py): deep saturated dark + light
+    // warm white, all in the spirit of the old "Classic" (now Lisboa, the default).
+    private let presets: [DuotonePreset] = [
+        DuotonePreset(name: "Lisboa", dark: Color(red: 74/255, green: 111/255, blue: 165/255), light: Color(red: 241/255, green: 234/255, blue: 217/255)),   // #4a6fa5 / #f1ead9
+        DuotonePreset(name: "Delft", dark: Color(red: 43/255, green: 58/255, blue: 103/255), light: Color(red: 247/255, green: 243/255, blue: 233/255)),     // #2b3a67 / #f7f3e9
+        DuotonePreset(name: "Porto", dark: Color(red: 30/255, green: 107/255, blue: 115/255), light: Color(red: 249/255, green: 241/255, blue: 227/255)),    // #1e6b73 / #f9f1e3
+        DuotonePreset(name: "Sevilla", dark: Color(red: 156/255, green: 74/255, blue: 47/255), light: Color(red: 248/255, green: 239/255, blue: 223/255)),   // #9c4a2f / #f8efdf
+        DuotonePreset(name: "Talavera", dark: Color(red: 63/255, green: 82/255, blue: 119/255), light: Color(red: 249/255, green: 231/255, blue: 196/255)),  // #3f5277 / #f9e7c4
+        DuotonePreset(name: "Nápoles", dark: Color(red: 125/255, green: 90/255, blue: 36/255), light: Color(red: 247/255, green: 240/255, blue: 222/255)),   // #7d5a24 / #f7f0de
+    ]
+
+    init(initialTileId: String) {
+        self.initialTileId = initialTileId
+        _selectedTileIds = State(initialValue: [initialTileId])
+    }
+
+    var body: some View {
+        ZStack {
+            bgColor.ignoresSafeArea()
+
+            // Order: preview → tile list → options → "Preview" button at the bottom.
+            // (To flip tiles/options, swap `tileSelector` and `controls` below.)
+            VStack(spacing: 0) {
+                topBar
+                roundedCardPreview
+                tileSelector
+                controls
+                previewButton
+            }
+        }
+        .fullScreenCover(item: $generated) { w in
+            FinalPreviewView(image: w.image, onBack: { generated = nil })
+                .environmentObject(store)
+        }
+        .task(id: previewKey) {
+            // Debounce so dragging the size slider doesn't re-render every frame.
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            if Task.isCancelled { return }
+            previewImage = selectedTileIds.isEmpty ? nil : renderWallpaper(size: previewSize)
+        }
+    }
+
+    // MARK: Top bar (mirrors the 3D viewer)
+
+    private var topBar: some View {
+        HStack {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(fgColor)
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+                    .contentShape(Circle()) // make the whole circle tappable (Material bg isn't hit-testable on its own)
+                    .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+            }
+            .buttonStyle(.plain)
+            Text("Compose").font(.system(size: 20, weight: .semibold)).tracking(-0.3)
+            Spacer()
+        }
+        .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 12)
+    }
+
+    // MARK: Preview (rounded card, matches the placeholder framing)
+
+    private var roundedCardPreview: some View {
         Color(red: 236/255, green: 232/255, blue: 225/255)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay {
@@ -148,13 +231,55 @@ struct WallpaperGeneratorView: View {
                     ProgressView()
                 }
             }
-            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 16)
+            // Purely visual; the scaledToFill image overflows its frame and would
+            // otherwise steal taps from the top bar above it.
+            .allowsHitTesting(false)
     }
 
-    // MARK: - Controls
+    // MARK: Tile selector (add/remove up to maxTiles)
+
+    private var tileSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(store.tiles) { tile in
+                    Button { toggleTile(tile.id) } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Group {
+                                if let image = tile.image {
+                                    Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
+                                } else {
+                                    Color.gray.opacity(0.2)
+                                }
+                            }
+                            .frame(width: 64, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10)
+                                .stroke(selectedTileIds.contains(tile.id) ? fgColor : Color.clear, lineWidth: 2.5))
+                            .opacity(opacity(for: tile.id))
+
+                            if let position = selectedTileIds.firstIndex(of: tile.id) {
+                                Text("\(position + 1)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 20, height: 20)
+                                    .background(fgColor)
+                                    .clipShape(Circle())
+                                    .offset(x: 4, y: -4)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+        }
+    }
+
+    // MARK: Controls
 
     private var controls: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             // Pattern + Color as two dropdown menus
             HStack(spacing: 10) {
                 Menu {
@@ -190,22 +315,22 @@ struct WallpaperGeneratorView: View {
             }
             .padding(.horizontal, 16)
 
-            // Custom duotone color pickers (only when a duotone is active)
-            if duotone {
-                HStack(spacing: 12) {
-                    Text("Custom").font(.system(size: 13)).foregroundColor(mutedColor)
-                    ColorPicker("", selection: $duoDark).labelsHidden().frame(width: 28, height: 28)
-                    ColorPicker("", selection: $duoLight).labelsHidden().frame(width: 28, height: 28)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-            }
-
-            // Size slider + orientation toggle
+            // Size: discrete steps, each adds/removes a whole tile across the width.
             HStack(spacing: 12) {
-                Image(systemName: "minus.magnifyingglass").foregroundColor(mutedColor)
-                Slider(value: $tileSize, in: 60...240).tint(fgColor)
-                Image(systemName: "plus.magnifyingglass").foregroundColor(mutedColor)
+                Button { columns = min(maxColumns, columns + 1) } label: {
+                    Image(systemName: "minus.magnifyingglass").foregroundColor(mutedColor)
+                }
+                Slider(
+                    value: Binding(
+                        get: { Double(columns) },
+                        set: { columns = Int($0.rounded()) }
+                    ),
+                    in: Double(minColumns)...Double(maxColumns),
+                    step: 1
+                ).tint(fgColor)
+                Button { columns = max(minColumns, columns - 1) } label: {
+                    Image(systemName: "plus.magnifyingglass").foregroundColor(mutedColor)
+                }
 
                 Button {
                     portrait.toggle()
@@ -219,20 +344,24 @@ struct WallpaperGeneratorView: View {
                 }
             }
             .padding(.horizontal, 16)
-
-            // Create button at the bottom
-            Button { generateWallpaper() } label: {
-                Text("Compose")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(fgColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .padding(.horizontal, 16)
         }
-        .padding(.vertical, 14)
+        .padding(.bottom, 14)
+    }
+
+    // Larger column count = smaller tiles = "zoom out" (minus icon); hence minus
+    // increments columns and plus decrements, matching the magnifier semantics.
+
+    private var previewButton: some View {
+        Button { generateWallpaper() } label: {
+            Text("Preview")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(fgColor)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .padding(.horizontal, 16).padding(.bottom, 8)
     }
 
     private func dropdownLabel(title: String, value: String) -> some View {
@@ -251,49 +380,11 @@ struct WallpaperGeneratorView: View {
     }
 
     private var currentPresetName: String {
-        presets.first { isPreset($0) }?.name ?? "Custom"
+        presets.first { isPreset($0) }?.name ?? "Lisboa"
     }
 
     private func isPreset(_ preset: DuotonePreset) -> Bool {
         duotone && UIColor(duoDark) == UIColor(preset.dark) && UIColor(duoLight) == UIColor(preset.light)
-    }
-
-    // MARK: - Tile selector
-
-    private var tileSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(store.tiles) { tile in
-                    Button { toggleTile(tile.id) } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Group {
-                                if let image = tile.image {
-                                    Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
-                                } else {
-                                    Color.gray.opacity(0.2)
-                                }
-                            }
-                            .frame(width: 64, height: 64)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(RoundedRectangle(cornerRadius: 10)
-                                .stroke(selectedTileIds.contains(tile.id) ? fgColor : Color.clear, lineWidth: 2.5))
-                            .opacity(opacity(for: tile.id))
-
-                            if let position = selectedTileIds.firstIndex(of: tile.id) {
-                                Text("\(position + 1)")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 20, height: 20)
-                                    .background(fgColor)
-                                    .clipShape(Circle())
-                                    .offset(x: 4, y: -4)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 16).padding(.vertical, 8)
-        }
     }
 
     private func opacity(for id: String) -> Double {
@@ -303,7 +394,7 @@ struct WallpaperGeneratorView: View {
 
     private func toggleTile(_ id: String) {
         if let idx = selectedTileIds.firstIndex(of: id) {
-            selectedTileIds.remove(at: idx)
+            if selectedTileIds.count > 1 { selectedTileIds.remove(at: idx) } // keep at least one
         } else if selectedTileIds.count < maxTiles {
             selectedTileIds.append(id)
         }
@@ -321,11 +412,13 @@ struct WallpaperGeneratorView: View {
     // Recompute the preview whenever any of these change.
     private var previewKey: String {
         let colorKey = duotone ? "\(UIColor(duoDark).hashValue):\(UIColor(duoLight).hashValue)" : "none"
-        return "\(selectedTileIds.joined(separator: ","))|\(pattern.rawValue)|\(Int(tileSize))|\(colorKey)|\(portrait)"
+        return "\(selectedTileIds.joined(separator: ","))|\(pattern.rawValue)|\(columns)|\(colorKey)|\(portrait)"
     }
 
     /// Composites the selected tiles into a wallpaper at the given pixel size.
-    /// Tile density is held constant across preview and export by scaling `ts` with width.
+    /// `ts = width / columns` puts exactly `columns` whole tiles across the width, so
+    /// every size step adds/removes one full tile (identical density in preview and
+    /// export, since both derive `ts` from their own width).
     private func renderWallpaper(size: CGSize) -> UIImage? {
         let tiles = selectedTileIds.compactMap { id in store.tiles.first { $0.id == id }?.image }
         guard !tiles.isEmpty else { return nil }
@@ -335,8 +428,10 @@ struct WallpaperGeneratorView: View {
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let composed = renderer.image { ctx in
             let cg = ctx.cgContext
-            let ts = tileSize * 2 * (size.width / 1080) // keep tiling identical at any size
-            let cols = Int(ceil(size.width / ts)) + 1
+            let ts = size.width / CGFloat(columns) // exact whole tiles across the width
+            // One extra column/row past the edge so brick/diamond/rotated cells don't
+            // leave gaps; the overflow is clipped to the canvas bounds.
+            let cols = columns + 1
             let rows = Int(ceil(size.height / ts)) + 1
 
             for row in 0..<rows {
@@ -481,18 +576,30 @@ struct WallpaperGeneratorView: View {
         guard let outCg = ctx.makeImage() else { return image }
         return UIImage(cgImage: outCg, scale: image.scale, orientation: image.imageOrientation)
     }
+}
 
-    // MARK: - Preview
+// MARK: - Final preview (full-screen black, image complete, solid bottom bar)
 
-    private func wallpaperPreview(image: UIImage) -> some View {
+struct FinalPreviewView: View {
+    @EnvironmentObject var store: TileStore
+    let image: UIImage
+    let onBack: () -> Void
+
+    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
+
+    var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            Image(uiImage: image).resizable().aspectRatio(contentMode: .fit)
 
-            VStack {
-                Spacer()
+            // Image pinned to the top with the action bar flush against its bottom edge
+            // (no black gap between them); any leftover black collects below the bar.
+            VStack(spacing: 0) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+
                 HStack(spacing: 10) {
-                    Button("Back") { generated = nil }
+                    Button("Back") { onBack() }
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -501,7 +608,7 @@ struct WallpaperGeneratorView: View {
 
                     Button("Save") {
                         store.addWallpaper(image: image)
-                        generated = nil
+                        onBack()
                     }
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(fgColor)
@@ -518,7 +625,11 @@ struct WallpaperGeneratorView: View {
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .padding(.horizontal, 16).padding(.bottom, 16)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(.ultraThinMaterial)
+
+                Spacer(minLength: 0)
             }
         }
     }
