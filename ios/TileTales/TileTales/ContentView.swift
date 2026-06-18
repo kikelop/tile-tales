@@ -27,7 +27,9 @@ struct ContentView: View {
     @EnvironmentObject var store: TileStore
     @EnvironmentObject var auth: AuthService
     @AppStorage("tt-onboarding-seen") private var onboardingSeen = false
+    @AppStorage("tt-tour-seen") private var tourSeen = false
     @State private var showOnboarding = false
+    @State private var showTour = false
     @State private var showSplash = true
     @State private var selection = 0
     @State private var homePath = NavigationPath()
@@ -43,6 +45,8 @@ struct ContentView: View {
                     withAnimation(.easeOut(duration: 0.5)) { showSplash = false }
                     if !onboardingSeen {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { showOnboarding = true }
+                    } else if !tourSeen {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { withAnimation { showTour = true } }
                     }
                 }
                 .transition(.opacity)
@@ -94,6 +98,15 @@ struct ContentView: View {
             OnboardingView(isLoggedIn: auth.session != nil) {
                 onboardingSeen = true
                 showOnboarding = false
+                if !tourSeen {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { withAnimation { showTour = true } }
+                }
+            }
+        }
+        .overlay {
+            if showTour {
+                TourOverlay { tourSeen = true; withAnimation { showTour = false } }
+                    .transition(.opacity)
             }
         }
     }
@@ -195,5 +208,86 @@ struct OnboardingView: View {
                 .padding(.horizontal, 24).padding(.bottom, 24)
             }
         }
+    }
+}
+
+// MARK: - First-run guided tour (coachmarks over the real UI)
+
+/// Dims the app and walks through its parts: the tile grid, the + button, the
+/// section tabs. A white frame highlights each spot with a caption + Next/Skip.
+/// Positions are derived from the screen geometry (no per-element frame capture),
+/// which keeps it robust. Gated by @AppStorage "tt-tour-seen".
+struct TourOverlay: View {
+    let onDone: () -> Void
+    @State private var step = 0
+
+    private let accent = Color(red: 52/255, green: 70/255, blue: 188/255)
+
+    private struct Spot { let rect: (CGSize, EdgeInsets) -> CGRect; let captionTop: Bool; let text: String }
+
+    private let steps: [Spot] = [
+        Spot(rect: { size, safe in
+            CGRect(x: 16, y: safe.top + 64, width: size.width - 32, height: size.height * 0.42)
+        }, captionTop: false, text: "Your tiles live here. Tap one to spin it in 3D and read its story."),
+        Spot(rect: { size, safe in
+            let d: CGFloat = 72
+            return CGRect(x: size.width - 16 - d, y: size.height - safe.bottom - 96 - d, width: d, height: d)
+        }, captionTop: true, text: "Tap + to add a tile you found — snap it, crop it, fix the light."),
+        Spot(rect: { size, safe in
+            CGRect(x: 12, y: size.height - safe.bottom - 78, width: size.width - 24, height: 64)
+        }, captionTop: true, text: "Albums to group them, Map to see where you found them, Compose to make patterns."),
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            let safe = geo.safeAreaInsets
+            let spot = steps[step]
+            let r = spot.rect(geo.size, safe)
+
+            ZStack(alignment: .topLeading) {
+                Color.black.opacity(0.6).ignoresSafeArea()
+                    .onTapGesture { advance() }
+
+                // Highlight frame around the current spot.
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white, lineWidth: 3)
+                    .frame(width: r.width, height: r.height)
+                    .position(x: r.midX, y: r.midY)
+
+                // Caption card, above or below the spot.
+                captionCard(text: spot.text)
+                    .frame(maxWidth: geo.size.width - 48)
+                    .position(x: geo.size.width / 2,
+                              y: spot.captionTop ? max(r.minY - 70, safe.top + 60) : r.maxY + 80)
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    private func captionCard(text: String) -> some View {
+        VStack(spacing: 14) {
+            Text(text)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(Color(red: 26/255, green: 26/255, blue: 26/255))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Skip") { onDone() }
+                    .font(.system(size: 14)).foregroundColor(.secondary)
+                Spacer()
+                Text("\(step + 1)/\(steps.count)").font(.system(size: 13)).foregroundColor(.secondary)
+                Spacer()
+                Button(step == steps.count - 1 ? "Done" : "Next") { advance() }
+                    .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
+            }
+        }
+        .padding(16)
+        .background(Color(red: 245/255, green: 242/255, blue: 237/255))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+    }
+
+    private func advance() {
+        if step < steps.count - 1 { withAnimation { step += 1 } } else { onDone() }
     }
 }
