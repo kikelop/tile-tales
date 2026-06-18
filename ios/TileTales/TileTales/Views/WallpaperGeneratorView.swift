@@ -7,7 +7,6 @@ enum WallpaperPattern: String, CaseIterable {
     case mirror = "Mirror"
     case diamond = "Diamond"
     case pinwheel = "Pinwheel"
-    case brick = "Brick"
 }
 
 /// Duotone presets mirroring the web (Ocean / Sunset / Forest / Vintage / Noir).
@@ -429,13 +428,22 @@ struct ComposeEditView: View {
         let composed = renderer.image { ctx in
             let cg = ctx.cgContext
             let ts = size.width / CGFloat(columns) // exact whole tiles across the width
-            // One extra column/row past the edge so brick/diamond/rotated cells don't
-            // leave gaps; the overflow is clipped to the canvas bounds.
+
+            // Diamond = the whole grid rotated 45° (tiles stay whole, laid on a
+            // diagonal lattice). Rotate the context and draw an oversized grid so
+            // the rotated lattice still covers the corners.
+            let isDiamond = pattern == .diamond
+            if isDiamond {
+                cg.translateBy(x: size.width / 2, y: size.height / 2)
+                cg.rotate(by: .pi / 4)
+                cg.translateBy(x: -size.width / 2, y: -size.height / 2)
+            }
+            let extra = isDiamond ? columns : 0
             let cols = columns + 1
             let rows = Int(ceil(size.height / ts)) + 1
 
-            for row in 0..<rows {
-                for col in 0..<cols {
+            for row in -extra ..< rows + extra {
+                for col in -extra ..< cols + extra {
                     drawCell(cg: cg, row: row, col: col, ts: ts, tiles: tiles)
                 }
             }
@@ -453,36 +461,26 @@ struct ComposeEditView: View {
 
     private func drawCell(cg: CGContext, row: Int, col: Int, ts: CGFloat, tiles: [UIImage]) {
         let n = tiles.count
+        // Safe modulo (row/col can be negative for the diamond's oversized grid).
+        func tileAt(_ i: Int) -> UIImage { tiles[((i % n) + n) % n] }
         switch pattern {
         case .grid:
-            let tile = tiles[(row + col) % n]
+            let tile = tileAt(row + col)
             tile.draw(in: CGRect(x: CGFloat(col) * ts, y: CGFloat(row) * ts, width: ts, height: ts))
 
         case .mirror:
-            let tile = tiles[(row + col) % n]
+            let tile = tileAt(row + col)
             let flipH = col % 2 == 1
             let flipV = row % 2 == 1
             drawTransformed(cg: cg, image: tile,
                             origin: CGPoint(x: CGFloat(col) * ts, y: CGFloat(row) * ts),
                             ts: ts, rotation: 0, flipH: flipH, flipV: flipV)
 
-        case .brick:
-            let offset = row % 2 == 1 ? ts / 2 : 0
-            let tile = tiles[(row + col) % n]
-            tile.draw(in: CGRect(x: CGFloat(col) * ts - offset, y: CGFloat(row) * ts, width: ts, height: ts))
-
         case .diamond:
-            // Fill the cell with a 45°-rotated tile: scale up by √2 so the rotated
-            // copy covers the square, then clip to the cell (no triangular gaps).
-            let tile = tiles[(row + col) % n]
-            let cell = CGRect(x: CGFloat(col) * ts, y: CGFloat(row) * ts, width: ts, height: ts)
-            cg.saveGState()
-            cg.clip(to: cell)
-            cg.translateBy(x: cell.midX, y: cell.midY)
-            cg.rotate(by: .pi / 4)
-            let big = ts * 1.41421356
-            tile.draw(in: CGRect(x: -big / 2, y: -big / 2, width: big, height: big))
-            cg.restoreGState()
+            // Whole tile like grid; the 45° rotation is applied to the whole context
+            // in renderWallpaper, so the lattice (not each tile) is diagonal.
+            let tile = tileAt(row + col)
+            tile.draw(in: CGRect(x: CGFloat(col) * ts, y: CGFloat(row) * ts, width: ts, height: ts))
 
         case .pinwheel:
             // 2x2 block, each quadrant rotated 90°.
