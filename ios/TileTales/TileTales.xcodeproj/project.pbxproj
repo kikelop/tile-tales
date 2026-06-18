@@ -28,9 +28,11 @@
 		A10000010000000000000018 /* CaptureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000018 /* CaptureSupport.swift */; };
 		A10000010000000000000019 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019 /* BackupService.swift */; };
 		A10000010000000000000020 /* CropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020 /* CropView.swift */; };
+		A10000010000000000000091 /* PhotoEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000091 /* PhotoEditView.swift */; };
 		A10000010000000000000021 /* AlbumsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021 /* AlbumsView.swift */; };
 		A10000010000000000000022 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000022 /* StatsView.swift */; };
 		A10000010000000000000024 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000024 /* SupabaseService.swift */; };
+		A10000010000000000000090 /* PhotoRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000090 /* PhotoRenderer.swift */; };
 		A10000010000000000000025 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000025 /* SyncEngine.swift */; };
 		A10000010000000000000026 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000026 /* ProfileView.swift */; };
 		A10000010000000000000027 /* SavedWallpapersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000027 /* SavedWallpapersView.swift */; };
@@ -60,9 +62,11 @@
 		A20000010000000000000018 /* CaptureSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSupport.swift; sourceTree = "<group>"; };
 		A20000010000000000000019 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
 		A20000010000000000000020 /* CropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropView.swift; sourceTree = "<group>"; };
+		A20000010000000000000091 /* PhotoEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEditView.swift; sourceTree = "<group>"; };
 		A20000010000000000000021 /* AlbumsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumsView.swift; sourceTree = "<group>"; };
 		A20000010000000000000022 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		A20000010000000000000024 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		A20000010000000000000090 /* PhotoRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoRenderer.swift; sourceTree = "<group>"; };
 		A20000010000000000000025 /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		A20000010000000000000026 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		A20000010000000000000027 /* SavedWallpapersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedWallpapersView.swift; sourceTree = "<group>"; };
@@ -124,6 +128,7 @@
 				A20000010000000000000014 /* SplashView.swift */,
 				A20000010000000000000015 /* WallpaperGeneratorView.swift */,
 				A20000010000000000000020 /* CropView.swift */,
+				A20000010000000000000091 /* PhotoEditView.swift */,
 				A20000010000000000000021 /* AlbumsView.swift */,
 				A20000010000000000000022 /* StatsView.swift */,
 				A20000010000000000000026 /* ProfileView.swift */,
@@ -152,6 +157,7 @@
 				A20000010000000000000018 /* CaptureSupport.swift */,
 				A20000010000000000000019 /* BackupService.swift */,
 				A20000010000000000000024 /* SupabaseService.swift */,
+				A20000010000000000000090 /* PhotoRenderer.swift */,
 				A20000010000000000000025 /* SyncEngine.swift */,
 			);
 			path = Services;
@@ -260,9 +266,11 @@
 				A10000010000000000000018 /* CaptureSupport.swift in Sources */,
 				A10000010000000000000019 /* BackupService.swift in Sources */,
 				A10000010000000000000020 /* CropView.swift in Sources */,
+				A10000010000000000000091 /* PhotoEditView.swift in Sources */,
 				A10000010000000000000021 /* AlbumsView.swift in Sources */,
 				A10000010000000000000022 /* StatsView.swift in Sources */,
 				A10000010000000000000024 /* SupabaseService.swift in Sources */,
+				A10000010000000000000090 /* PhotoRenderer.swift in Sources */,
 				A10000010000000000000025 /* SyncEngine.swift in Sources */,
 				A10000010000000000000026 /* ProfileView.swift in Sources */,
 				A10000010000000000000027 /* SavedWallpapersView.swift in Sources */,
