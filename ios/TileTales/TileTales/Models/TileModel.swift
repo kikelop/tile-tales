@@ -122,22 +122,22 @@ extension TileItem {
                  latitude: lat, longitude: lng, createdAt: Date())
     }
 
-    /// Order matches the web DEFAULT_TILES: the default "recent" sort reverses
-    /// this list, so the last entry (Star Compass) is the hero the grid shows
-    /// first and the 3D viewer opens on.
+    /// Curated samples. The default "recent" sort reverses this list, so the LAST
+    /// entry (Star Compass) is the hero the grid shows first / the 3D viewer opens
+    /// on. Ordered so the boldest tiles lead the grid and the subtler ones trail;
+    /// dropped "Pink Marble" (a flat marble, not a patterned street tile).
     static let samples: [TileItem] = [
-        sample("t7", "Pink Marble", "pink-marble", tags: ["marble"]),
-        sample("t4", "Floral Green", "floral-green", tags: ["floral"], lat: 41.1579, lng: -8.6291),
-        sample("t12", "Fleur de Lis", "fleur-de-lis-rust", tags: ["classic"], lat: 43.2630, lng: -2.9350),
         sample("t1", "Terrazzo Star", "terrazzo-star", tags: ["geometric"], lat: 38.7223, lng: -9.1393),
-        sample("t8", "Yellow Zellige", "yellow-zellige", tags: ["artisan"], favorite: true, lat: 33.9716, lng: -6.8498),
-        sample("t13", "Black Baroque", "black-baroque", tags: ["classic"], lat: 41.3874, lng: 2.1686),
-        sample("t3", "Geometric Orange", "geometric-orange", tags: ["geometric"], lat: 37.3891, lng: -5.9845),
-        sample("t6", "Green Baroque", "green-baroque", tags: ["classic", "geometric"], lat: 41.3874, lng: 2.1686),
+        sample("t12", "Fleur de Lis", "fleur-de-lis-rust", tags: ["classic"], lat: 43.2630, lng: -2.9350),
         sample("t14", "Ochre Scrollwork", "ochre-scrollwork", tags: ["classic", "floral"], lat: 40.4168, lng: -3.7038),
-        sample("t9", "Star Blue Gold", "star-blue-gold", tags: ["geometric"], favorite: true, lat: 37.3891, lng: -5.9845),
+        sample("t4", "Floral Green", "floral-green", tags: ["floral"], lat: 41.1579, lng: -8.6291),
+        sample("t8", "Yellow Zellige", "yellow-zellige", tags: ["artisan"], favorite: true, lat: 33.9716, lng: -6.8498),
+        sample("t6", "Green Baroque", "green-baroque", tags: ["classic", "geometric"], lat: 41.3874, lng: 2.1686),
+        sample("t3", "Geometric Orange", "geometric-orange", tags: ["geometric"], lat: 37.3891, lng: -5.9845),
         sample("t2", "Zellige Rose", "zellige-rose", tags: ["floral", "artisan"], favorite: true, lat: 34.0331, lng: -5.0003),
         sample("t11", "Blue Floral Delft", "blue-floral-delft", tags: ["floral", "classic"], favorite: true, lat: 52.0116, lng: 4.3571),
+        sample("t13", "Black Baroque", "black-baroque", tags: ["classic"], lat: 41.3874, lng: 2.1686),
+        sample("t9", "Star Blue Gold", "star-blue-gold", tags: ["geometric"], favorite: true, lat: 37.3891, lng: -5.9845),
         sample("t10", "Star Compass", "star-compass", tags: ["geometric"], favorite: true, lat: 38.7223, lng: -9.1393),
     ]
 }
