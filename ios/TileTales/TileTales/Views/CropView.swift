@@ -1,133 +1,244 @@
 import SwiftUI
 
-/// Interactive square crop with pinch-zoom, drag-pan and rotation. Walks a queue
-/// of captured photos one at a time (multi-import), calling onConfirm per tile.
-/// Mirrors the web CropModal: pill "N left" + Skip vs Cancel when batching.
+/// Walks a queue of captured photos one at a time (multi-import), presenting the
+/// full PhotoEditView (Crop + Adjust) for each. So a brand-new tile gets the same
+/// crop AND light adjustments as re-editing an existing one. Mirrors the web
+/// CropModal's "N left" + Skip/Use batch chrome via PhotoEditView's batch params.
 struct CropView: View {
     let photos: [CapturedPhoto]
-    /// Called for each confirmed crop, in order.
-    let onConfirm: (CapturedPhoto, UIImage) -> Void
+    /// Called for each confirmed crop, in order: the source photo, the rendered
+    /// 1024² image (crop + colour), and the edit (so it can be re-applied later).
+    let onConfirm: (CapturedPhoto, UIImage, PhotoEdit) -> Void
     /// Called when the queue is exhausted or the user cancels the whole batch.
     let onClose: () -> Void
 
     @State private var index = 0
-    @State private var scale: CGFloat = 1
-    @State private var baseScale: CGFloat = 1
-    @State private var offset: CGSize = .zero
-    @State private var baseOffset: CGSize = .zero
-    @State private var rotation: Angle = .zero
-    @State private var baseRotation: Angle = .zero
-
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let outputSize: CGFloat = 1024
 
     private var current: CapturedPhoto? { photos[safe: index] }
     private var remaining: Int { max(0, photos.count - index) }
     private var isBatch: Bool { photos.count > 1 }
 
     var body: some View {
+        if let photo = current {
+            PhotoEditView(
+                baseImage: photo.image,
+                initialEdit: .identity,
+                hasOriginalOnDisk: true, // the original IS this photo; no "not stored" hint
+                batchLabel: isBatch ? "\(remaining) photo\(remaining == 1 ? "" : "s") left" : nil,
+                doneLabel: "Use",
+                cancelLabel: isBatch ? "Skip" : "Cancel",
+                onDone: { edit, rendered in
+                    onConfirm(photo, rendered, edit)
+                    advance()
+                },
+                onCancel: {
+                    if isBatch { advance() } else { onClose() }
+                }
+            )
+            .id(index) // fresh editor state per photo
+        } else {
+            Color.black.ignoresSafeArea()
+        }
+    }
+
+    private func advance() {
+        if index + 1 < photos.count {
+            index += 1
+        } else {
+            onClose()
+        }
+    }
+}
+
+// MARK: - Photo editor (re-crop + light adjustments)
+
+/// Full-screen editor for an existing tile: a "Crop" tab (same gestures as capture)
+/// and an "Adjust" tab (brightness/contrast/exposure/saturation/warmth), with a live
+/// preview. Non-destructive — returns a PhotoEdit + the rendered 1024² image.
+struct PhotoEditView: View {
+    let baseImage: UIImage
+    let initialEdit: PhotoEdit
+    /// false for legacy tiles whose original is gone (re-crop is limited to within
+    /// the already-cropped image; shown as a hint).
+    let hasOriginalOnDisk: Bool
+    /// Batch hint shown at the top during multi-import (e.g. "3 photos left"); nil otherwise.
+    var batchLabel: String? = nil
+    var doneLabel: String = "Done"
+    var cancelLabel: String = "Cancel"
+    let onDone: (PhotoEdit, UIImage) -> Void
+    let onCancel: () -> Void
+
+    enum Mode: String, CaseIterable { case crop = "Crop", adjust = "Adjust" }
+    @State private var mode: Mode = .crop
+
+    @State private var scale: CGFloat
+    @State private var baseScale: CGFloat
+    @State private var offset: CGSize = .zero
+    @State private var baseOffset: CGSize = .zero
+    @State private var rotation: Angle
+    @State private var baseRotation: Angle
+
+    @State private var brightness: Double
+    @State private var contrast: Double
+    @State private var saturation: Double
+    @State private var exposure: Double
+    @State private var warmth: Double
+
+    @State private var side: CGFloat = 320
+    @State private var seeded = false
+    @State private var previewBase: UIImage?   // downscaled baseImage for smooth gestures
+    @State private var croppedBase: UIImage?
+    @State private var adjustPreview: UIImage?
+
+    init(baseImage: UIImage, initialEdit: PhotoEdit, hasOriginalOnDisk: Bool,
+         batchLabel: String? = nil, doneLabel: String = "Done", cancelLabel: String = "Cancel",
+         onDone: @escaping (PhotoEdit, UIImage) -> Void, onCancel: @escaping () -> Void) {
+        self.baseImage = baseImage
+        self.initialEdit = initialEdit
+        self.hasOriginalOnDisk = hasOriginalOnDisk
+        self.batchLabel = batchLabel
+        self.doneLabel = doneLabel
+        self.cancelLabel = cancelLabel
+        self.onDone = onDone
+        self.onCancel = onCancel
+        _scale = State(initialValue: initialEdit.scale)
+        _baseScale = State(initialValue: initialEdit.scale)
+        _rotation = State(initialValue: .radians(initialEdit.rotationRadians))
+        _baseRotation = State(initialValue: .radians(initialEdit.rotationRadians))
+        _brightness = State(initialValue: initialEdit.brightness)
+        _contrast = State(initialValue: initialEdit.contrast)
+        _saturation = State(initialValue: initialEdit.saturation)
+        _exposure = State(initialValue: initialEdit.exposure)
+        _warmth = State(initialValue: initialEdit.warmth)
+        // offset is seeded in onAppear once `side` is known (it's normalized).
+    }
+
+    private var cropEdit: PhotoEdit {
+        PhotoEdit(scale: scale, offsetX: offset.width / side, offsetY: offset.height / side,
+                  rotationRadians: rotation.radians)
+    }
+
+    private var currentEdit: PhotoEdit {
+        var e = cropEdit
+        e.brightness = brightness; e.contrast = contrast
+        e.saturation = saturation; e.exposure = exposure; e.warmth = warmth
+        return e
+    }
+
+    var body: some View {
         GeometryReader { geo in
-            let side = min(geo.size.width - 32, geo.size.height - 220)
+            let computedSide = min(geo.size.width - 32, geo.size.height - 280)
 
             ZStack {
                 Color.black.ignoresSafeArea()
 
                 VStack(spacing: 20) {
-                    if isBatch {
-                        Text("\(remaining) photo\(remaining == 1 ? "" : "s") left")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14).padding(.vertical, 6)
-                            .background(Color.white.opacity(0.18))
-                            .clipShape(Capsule())
-                    }
+                    topBar
+
+                    modeSwitch
 
                     Spacer()
 
-                    if let photo = current {
-                        Image(uiImage: photo.image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: side, height: side)
-                            .scaleEffect(scale)
-                            .rotationEffect(rotation)
-                            .offset(offset)
-                            .frame(width: side, height: side)
-                            .clipped()
-                            .overlay(
-                                Rectangle().stroke(Color.white.opacity(0.6), lineWidth: 1)
-                            )
-                            .contentShape(Rectangle())
-                            .gesture(dragGesture.simultaneously(with: magnifyGesture).simultaneously(with: rotateGesture))
+                    if mode == .crop {
+                        cropCanvas(side: computedSide)
+                        if !hasOriginalOnDisk {
+                            Text("Original not stored — you can reframe within the saved crop")
+                                .font(.system(size: 12)).foregroundColor(.white.opacity(0.5))
+                                .multilineTextAlignment(.center).padding(.horizontal, 24)
+                        }
+                        rotateControls
+                    } else {
+                        adjustCanvas(side: computedSide)
+                        adjustSliders
                     }
 
                     Spacer()
-
-                    // Rotation fine controls
-                    HStack(spacing: 24) {
-                        rotateButton(systemName: "rotate.left", delta: -10)
-                        Text("\(Int(rotation.degrees.truncatingRemainder(dividingBy: 360)))°")
-                            .font(.system(size: 14, weight: .medium, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 60)
-                        rotateButton(systemName: "rotate.right", delta: 10)
-                    }
-
-                    // Actions
-                    HStack(spacing: 10) {
-                        Button(isBatch ? "Skip" : "Cancel") {
-                            if isBatch { advance() } else { onClose() }
-                        }
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.white.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                        Button("Use") {
-                            if let photo = current {
-                                let cropped = renderCrop(photo.image, side: side)
-                                onConfirm(photo, cropped)
-                            }
-                            advance()
-                        }
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(fgColor)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
                 }
-                .frame(maxWidth: .infinity)
+            }
+            .onAppear {
+                side = computedSide
+                if previewBase == nil { previewBase = PhotoRenderer.downscaled(baseImage) }
+                if !seeded {
+                    offset = CGSize(width: initialEdit.offsetX * computedSide,
+                                    height: initialEdit.offsetY * computedSide)
+                    baseOffset = offset
+                    seeded = true
+                }
             }
         }
     }
 
-    // MARK: - Gestures
+    // MARK: Top bar
 
-    private var dragGesture: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                offset = CGSize(width: baseOffset.width + value.translation.width,
-                                height: baseOffset.height + value.translation.height)
+    private var topBar: some View {
+        HStack {
+            Button(cancelLabel) { onCancel() }
+                .font(.system(size: 16)).foregroundColor(.white)
+            Spacer()
+            if let batchLabel {
+                Text(batchLabel)
+                    .font(.system(size: 13, weight: .semibold)).foregroundColor(.white.opacity(0.7))
             }
-            .onEnded { _ in baseOffset = offset }
+            Spacer()
+            Button(doneLabel) {
+                let edit = currentEdit
+                let rendered = PhotoRenderer.render(original: baseImage, edit: edit, side: side)
+                onDone(edit, rendered)
+            }
+            .font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
+        }
+        .padding(.horizontal, 16).padding(.top, 16)
     }
 
-    private var magnifyGesture: some Gesture {
-        MagnificationGesture()
-            .onChanged { value in scale = max(0.5, min(4, baseScale * value)) }
-            .onEnded { _ in baseScale = scale }
+    // Custom segmented control — the native Picker(.segmented) is unreadable on black.
+    private var modeSwitch: some View {
+        HStack(spacing: 0) {
+            ForEach(Mode.allCases, id: \.self) { m in
+                Button {
+                    mode = m
+                    if m == .adjust { rebuildCroppedBase() } // offset already seeded by now
+                } label: {
+                    Text(m.rawValue)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(mode == m ? .black : .white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(mode == m ? Color.white : Color.clear)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(4)
+        .background(Color.white.opacity(0.15))
+        .clipShape(Capsule())
+        .padding(.horizontal, 60)
     }
 
-    private var rotateGesture: some Gesture {
-        RotationGesture()
-            .onChanged { value in rotation = baseRotation + value }
-            .onEnded { _ in baseRotation = rotation }
+    // MARK: Crop tab
+
+    private func cropCanvas(side: CGFloat) -> some View {
+        Image(uiImage: previewBase ?? baseImage)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: side, height: side)
+            .scaleEffect(scale)
+            .rotationEffect(rotation)
+            .offset(offset)
+            .frame(width: side, height: side)
+            .clipped()
+            .overlay(Rectangle().stroke(Color.white.opacity(0.6), lineWidth: 1))
+            .contentShape(Rectangle())
+            .gesture(dragGesture.simultaneously(with: magnifyGesture).simultaneously(with: rotateGesture))
+    }
+
+    private var rotateControls: some View {
+        HStack(spacing: 24) {
+            rotateButton(systemName: "rotate.left", delta: -10)
+            Text("\(Int(rotation.degrees.truncatingRemainder(dividingBy: 360)))°")
+                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.8)).frame(width: 60)
+            rotateButton(systemName: "rotate.right", delta: 10)
+        }
     }
 
     private func rotateButton(systemName: String, delta: Double) -> some View {
@@ -138,48 +249,82 @@ struct CropView: View {
             }
         } label: {
             Image(systemName: systemName)
-                .font(.system(size: 18))
-                .foregroundColor(.white)
+                .font(.system(size: 18)).foregroundColor(.white)
                 .frame(width: 44, height: 44)
-                .background(Color.white.opacity(0.18))
-                .clipShape(Circle())
+                .background(Color.white.opacity(0.18)).clipShape(Circle())
         }
     }
 
-    // MARK: - Flow
+    private var dragGesture: some Gesture {
+        DragGesture()
+            .onChanged { v in offset = CGSize(width: baseOffset.width + v.translation.width,
+                                              height: baseOffset.height + v.translation.height) }
+            .onEnded { _ in baseOffset = offset }
+    }
+    private var magnifyGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { v in scale = max(0.5, min(4, baseScale * v)) }
+            .onEnded { _ in baseScale = scale }
+    }
+    private var rotateGesture: some Gesture {
+        RotationGesture()
+            .onChanged { v in rotation = baseRotation + v }
+            .onEnded { _ in baseRotation = rotation }
+    }
 
-    private func advance() {
-        // Reset transform for the next photo.
-        scale = 1; baseScale = 1
-        offset = .zero; baseOffset = .zero
-        rotation = .zero; baseRotation = .zero
-        if index + 1 < photos.count {
-            index += 1
-        } else {
-            onClose()
+    // MARK: Adjust tab
+
+    private func adjustCanvas(side: CGFloat) -> some View {
+        Group {
+            if let img = adjustPreview ?? croppedBase {
+                Image(uiImage: img).resizable().scaledToFit()
+                    .frame(width: side, height: side)
+                    .clipped()
+            } else {
+                Color.white.opacity(0.05).frame(width: side, height: side)
+                    .overlay(ProgressView().tint(.white))
+            }
         }
     }
 
-    // MARK: - Crop rendering
+    private var adjustSliders: some View {
+        VStack(spacing: 12) {
+            slider("Brightness", value: $brightness, range: -1...1)
+            slider("Contrast", value: $contrast, range: 0...2)
+            slider("Exposure", value: $exposure, range: -2...2)
+            slider("Saturation", value: $saturation, range: 0...2)
+            slider("Warmth", value: $warmth, range: -1...1)
 
-    /// Replays the on-screen transform (offset → rotate → scale, centered) into
-    /// a square output, drawing the image aspect-filled the same way the preview
-    /// frame does.
-    private func renderCrop(_ image: UIImage, side: CGFloat) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: outputSize, height: outputSize))
-        return renderer.image { ctx in
-            let cg = ctx.cgContext
-            let f = outputSize / side
-            cg.translateBy(x: outputSize / 2, y: outputSize / 2)
-            cg.translateBy(x: offset.width * f, y: offset.height * f)
-            cg.rotate(by: CGFloat(rotation.radians))
-            cg.scaleBy(x: scale, y: scale)
-
-            let imgSize = image.size
-            let fillScale = max(outputSize / imgSize.width, outputSize / imgSize.height)
-            let drawW = imgSize.width * fillScale
-            let drawH = imgSize.height * fillScale
-            image.draw(in: CGRect(x: -drawW / 2, y: -drawH / 2, width: drawW, height: drawH))
+            Button("Reset adjustments") {
+                brightness = 0; contrast = 1; saturation = 1; exposure = 0; warmth = 0
+                refreshColor()
+            }
+            .font(.system(size: 13, weight: .medium)).foregroundColor(.white.opacity(0.7))
+            .padding(.top, 4)
         }
+        .padding(.horizontal, 20)
+    }
+
+    private func slider(_ label: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        HStack(spacing: 12) {
+            Text(label).font(.system(size: 13)).foregroundColor(.white.opacity(0.85))
+                .frame(width: 86, alignment: .leading)
+            Slider(value: value, in: range)
+                .tint(.white)
+                .onChange(of: value.wrappedValue) { _, _ in refreshColor() }
+        }
+    }
+
+    // MARK: Preview rendering
+
+    private func rebuildCroppedBase() {
+        // Preview uses the downscaled copy (fast); Done re-renders from the full-res original.
+        croppedBase = PhotoRenderer.crop(previewBase ?? baseImage, edit: cropEdit, side: side)
+        refreshColor()
+    }
+
+    private func refreshColor() {
+        guard let base = croppedBase else { return }
+        adjustPreview = currentEdit.isColorIdentity ? base : PhotoRenderer.applyColor(base, edit: currentEdit)
     }
 }

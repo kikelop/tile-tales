@@ -50,8 +50,27 @@ final class TileStore: ObservableObject {
         saveState()
     }
 
+    /// Adds a captured tile and writes its uncropped original to disk (for lossless
+    /// re-cropping later). The original is local-only; sync only uploads `imageData`.
+    func addCapturedTile(_ tile: TileItem, original: UIImage) {
+        var t = tile
+        if writeOriginal(original, for: t.id) { t.hasOriginal = true }
+        addTile(t)
+    }
+
+    /// Re-renders a tile's photo from a non-destructive edit: sets the new 1024²
+    /// `imageData` (so display/viewer/share/sync all pick it up) and stores the edit.
+    func updatePhotoEdit(id: String, edit: PhotoEdit, renderedImage: UIImage) {
+        guard let index = tiles.firstIndex(where: { $0.id == id }) else { return }
+        tiles[index].imageData = renderedImage.jpegData(compressionQuality: 0.85)
+        tiles[index].photoEdit = edit
+        tiles[index].updatedAt = Date()
+        saveState()
+    }
+
     func deleteTile(id: String) {
         tiles.removeAll { $0.id == id }
+        deleteOriginal(for: id)
         // Remove the tile from any album that referenced it.
         for i in albums.indices where albums[i].tileIds.contains(id) {
             albums[i].tileIds.removeAll { $0 == id }
@@ -233,6 +252,7 @@ final class TileStore: ObservableObject {
         defer { applyingRemote = false }
 
         let deleteTiles = Set(deleteTileIds)
+        deleteTiles.forEach { deleteOriginal(for: $0) } // remote deletes drop the local original too
         let deleteAlbumsSet = Set(deleteAlbumIds)
         let upsertTileMap = Dictionary(uniqueKeysWithValues: upsertTiles.map { ($0.id, $0) })
         let upsertAlbumMap = Dictionary(uniqueKeysWithValues: upsertAlbums.map { ($0.id, $0) })
@@ -289,6 +309,35 @@ final class TileStore: ObservableObject {
         for i in albums.indices {
             albums[i].tileIds.removeAll { !validIds.contains($0) }
         }
+    }
+
+    // MARK: - Original photos on disk (Documents/originals/<id>.jpg, local-only)
+
+    private var originalsDir: URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return docs.appendingPathComponent("originals", isDirectory: true)
+    }
+
+    private func originalURL(for id: String) -> URL {
+        originalsDir.appendingPathComponent("\(id).jpg")
+    }
+
+    /// The uncropped original for a tile, if one was saved to disk.
+    func originalImage(for id: String) -> UIImage? {
+        guard let data = try? Data(contentsOf: originalURL(for: id)) else { return nil }
+        return UIImage(data: data)
+    }
+
+    /// Writes the original (higher quality than the 0.85 display image). Returns success.
+    @discardableResult
+    func writeOriginal(_ image: UIImage, for id: String) -> Bool {
+        try? FileManager.default.createDirectory(at: originalsDir, withIntermediateDirectories: true)
+        guard let data = image.jpegData(compressionQuality: 0.92) else { return false }
+        return (try? data.write(to: originalURL(for: id), options: .atomic)) != nil
+    }
+
+    private func deleteOriginal(for id: String) {
+        try? FileManager.default.removeItem(at: originalURL(for: id))
     }
 }
 

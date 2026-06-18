@@ -12,6 +12,7 @@ struct TileEditSheet: View {
     @State private var date = ""
     @State private var tagsText = ""
     @State private var showDeleteConfirm = false
+    @State private var showPhotoEditor = false
 
     // Location drafts
     @State private var geoLat: Double?
@@ -45,6 +46,7 @@ struct TileEditSheet: View {
                     nameField
                     memoryField
                     dateField
+                    if tile.isCaptured { editPhotoButton }
                     locationSection
                     albumsSection
                     actionButtons
@@ -67,6 +69,37 @@ struct TileEditSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .fullScreenCover(isPresented: $showPhotoEditor) {
+            let base = (tile.hasOriginal ? store.originalImage(for: tile.id) : nil) ?? tile.image ?? UIImage()
+            PhotoEditView(
+                baseImage: base,
+                initialEdit: tile.photoEdit ?? .identity,
+                hasOriginalOnDisk: tile.hasOriginal,
+                onDone: { edit, rendered in
+                    // Promote a legacy tile (no original on disk) to non-destructive.
+                    if !tile.hasOriginal { store.writeOriginal(base, for: tile.id) }
+                    store.updatePhotoEdit(id: tile.id, edit: edit, renderedImage: rendered)
+                    showPhotoEditor = false
+                },
+                onCancel: { showPhotoEditor = false }
+            )
+        }
+    }
+
+    private var editPhotoButton: some View {
+        Button { showPhotoEditor = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "slider.horizontal.below.rectangle")
+                Text("Edit photo")
+            }
+            .font(.system(size: 15, weight: .medium))
+            .foregroundColor(fgColor)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(fieldBg)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(fieldBorder, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
     }
 
     // MARK: - Fields

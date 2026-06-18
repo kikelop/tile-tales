@@ -99,7 +99,7 @@ struct TileGridView: View {
         )) {
             CropView(
                 photos: cropQueue,
-                onConfirm: { photo, cropped in saveTile(from: photo, cropped: cropped) },
+                onConfirm: { photo, cropped, edit in saveTile(from: photo, cropped: cropped, edit: edit) },
                 onClose: { cropQueue = [] }
             )
         }
@@ -272,7 +272,7 @@ struct TileGridView: View {
 
     // MARK: - Save captured tile
 
-    private func saveTile(from photo: CapturedPhoto, cropped: UIImage) {
+    private func saveTile(from photo: CapturedPhoto, cropped: UIImage, edit: PhotoEdit) {
         Task {
             var location: CLLocation?
             switch photo.source {
@@ -283,12 +283,14 @@ struct TileGridView: View {
                     location = CLLocation(latitude: c.latitude, longitude: c.longitude)
                 }
             }
-            let tile = TileItem.create(
+            var tile = TileItem.create(
                 name: "Tile #\(store.tiles.count + 1)",
                 image: cropped,
                 location: location
             )
-            store.addTile(tile)
+            tile.photoEdit = edit
+            // Persists the uncropped original to disk too (enables lossless re-crop).
+            store.addCapturedTile(tile, original: photo.image)
         }
     }
 }
