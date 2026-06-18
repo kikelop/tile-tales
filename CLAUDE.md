@@ -22,7 +22,10 @@ tile-tales/
 │   ├── UPDATES.md         ← Log de sesiones
 │   ├── AUDIT.md           ← Auditoria UX/UI completa (30 mejoras + 16 features)
 │   ├── DECISIONS.md       ← ADRs
-│   └── REFERENCES.md      ← Descripcion de 20 referencias visuales
+│   ├── REFERENCES.md      ← Descripcion de 20 referencias visuales
+│   └── X-BUILD-IN-PUBLIC.md ← Estrategia/arco de la serie de X (build in public hacia App Store)
+├── scripts/               ← Utilidades del repo
+│   └── compress-for-x.sh  ← Comprime video <10MB para subir a X via Typefully (uso general)
 ├── references/            ← Capturas de inspiracion visual
 ├── ios/                   ← App iOS nativa (SwiftUI + SceneKit)
 │   └── TileTales/         ← Proyecto Xcode (15 archivos Swift)
