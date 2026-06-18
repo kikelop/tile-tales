@@ -28,12 +28,10 @@ struct ContentView: View {
     @EnvironmentObject var auth: AuthService
     @EnvironmentObject var sync: SyncEngine
     @AppStorage("tt-onboarding-seen") private var onboardingSeen = false
-    @AppStorage("tt-tour-seen") private var tourSeen = false
-    /// TEMP (testing): always show onboarding + tour on every launch. Set false
-    /// (or remove + restore the `!seen` checks) before release.
+    /// TEMP (testing): always show onboarding on every launch. Set false (or
+    /// remove + restore the `!onboardingSeen` check) before release.
     private let alwaysShowIntro = true
     @State private var showOnboarding = false
-    @State private var showTour = false
     @State private var showSplash = true
     @State private var selection = 0
     @State private var homePath = NavigationPath()
@@ -49,8 +47,6 @@ struct ContentView: View {
                     withAnimation(.easeOut(duration: 0.5)) { showSplash = false }
                     if alwaysShowIntro || !onboardingSeen {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { showOnboarding = true }
-                    } else if !tourSeen {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { withAnimation { showTour = true } }
                     }
                 }
                 .transition(.opacity)
@@ -102,37 +98,9 @@ struct ContentView: View {
             OnboardingView {
                 onboardingSeen = true
                 showOnboarding = false
-                if alwaysShowIntro || !tourSeen {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { withAnimation { showTour = true } }
-                }
             }
             .environmentObject(auth)
             .environmentObject(sync)
-        }
-        .overlayPreferenceValue(TourAnchorKey.self) { anchors in
-            if showTour {
-                GeometryReader { geo in
-                    let tabRect = CGRect(x: 10,
-                                         y: geo.size.height - geo.safeAreaInsets.bottom - 62,
-                                         width: geo.size.width - 20, height: 58)
-                    // Grid fills the screen, so frame just its top rows (with inner
-                    // margins) — a full-viewport frame would sit at the screen edges.
-                    let gridRect = anchors[.grid].map { a -> CGRect in
-                        let r = geo[a]
-                        return CGRect(x: r.minX + 8, y: r.minY + 6,
-                                      width: r.width - 16, height: min(r.height - 12, 300))
-                    }
-                    TourOverlay(
-                        gridRect: gridRect,
-                        addRect: anchors[.add].map { geo[$0].insetBy(dx: -8, dy: -8) },
-                        tabRect: tabRect,
-                        screenSize: geo.size,
-                        safeTop: geo.safeAreaInsets.top
-                    ) { tourSeen = true; withAnimation { showTour = false } }
-                }
-                .ignoresSafeArea()
-                .transition(.opacity)
-            }
         }
     }
 
@@ -306,109 +274,3 @@ struct LoginSheet: View {
     }
 }
 
-// MARK: - Tour anchors (so coachmark frames hug the real elements)
-
-enum TourSpot: Hashable { case grid, add }
-
-struct TourAnchorKey: PreferenceKey {
-    static var defaultValue: [TourSpot: Anchor<CGRect>] = [:]
-    static func reduce(value: inout [TourSpot: Anchor<CGRect>], nextValue: () -> [TourSpot: Anchor<CGRect>]) {
-        value.merge(nextValue()) { $1 }
-    }
-}
-
-extension View {
-    /// Reports this view's bounds so the guided tour can frame it exactly.
-    func tourAnchor(_ spot: TourSpot) -> some View {
-        anchorPreference(key: TourAnchorKey.self, value: .bounds) { [spot: $0] }
-    }
-}
-
-// MARK: - First-run guided tour (coachmarks over the real UI)
-
-/// Dims the app and walks through its parts: the tile grid, the + button, the
-/// section tabs. A white frame highlights each spot with a caption + Next/Skip.
-/// Positions are derived from the screen geometry (no per-element frame capture),
-/// which keeps it robust. Gated by @AppStorage "tt-tour-seen".
-struct TourOverlay: View {
-    let gridRect: CGRect?
-    let addRect: CGRect?
-    let tabRect: CGRect
-    let screenSize: CGSize
-    let safeTop: CGFloat
-    let onDone: () -> Void
-    @State private var step = 0
-
-    private let accent = Color(red: 52/255, green: 70/255, blue: 188/255)
-    private let bg = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fg = Color(red: 26/255, green: 26/255, blue: 26/255)
-
-    private struct Step { let rect: CGRect?; let captionTop: Bool; let text: String }
-
-    private var steps: [Step] {
-        [
-            Step(rect: gridRect, captionTop: false,
-                 text: "Your tiles live here. Tap one to spin it in 3D and read its story."),
-            Step(rect: addRect, captionTop: true,
-                 text: "Tap + to add a tile you found — snap it, crop it, fix the light."),
-            Step(rect: tabRect, captionTop: true,
-                 text: "Albums to group them, Map to see where you found them, Compose to make patterns."),
-        ]
-    }
-
-    var body: some View {
-        let s = steps[step]
-        let r = s.rect  // rects already padded per-element by the caller
-
-        ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture { advance() }
-
-            if let r {
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(bg, lineWidth: 2.5)
-                    .frame(width: r.width, height: r.height)
-                    .position(x: r.midX, y: r.midY)
-                    .shadow(color: accent.opacity(0.5), radius: 8)
-            }
-
-            captionCard(text: s.text)
-                .frame(maxWidth: screenSize.width - 48)
-                .position(x: screenSize.width / 2, y: captionY(for: r, top: s.captionTop))
-        }
-    }
-
-    private func captionY(for r: CGRect?, top: Bool) -> CGFloat {
-        guard let r else { return screenSize.height / 2 }
-        return top ? max(r.minY - 78, safeTop + 70) : min(r.maxY + 84, screenSize.height - 120)
-    }
-
-    private func captionCard(text: String) -> some View {
-        VStack(spacing: 14) {
-            Text(text)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(fg)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Button("Skip") { onDone() }
-                    .font(.system(size: 14)).foregroundColor(Color(red: 138/255, green: 133/255, blue: 120/255))
-                Spacer()
-                Text("\(step + 1)/\(steps.count)")
-                    .font(.system(size: 13)).foregroundColor(Color(red: 138/255, green: 133/255, blue: 120/255))
-                Spacer()
-                Button(step == steps.count - 1 ? "Done" : "Next") { advance() }
-                    .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
-            }
-        }
-        .padding(18)
-        .background(bg)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .shadow(color: .black.opacity(0.22), radius: 14, y: 6)
-    }
-
-    private func advance() {
-        if step < steps.count - 1 { withAnimation { step += 1 } } else { onDone() }
-    }
-}

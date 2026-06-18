@@ -57,7 +57,7 @@ struct TileGridView: View {
                 }
 
                 // Tile grid
-                ScrollView {  // tourAnchor on the ScrollView (viewport), not the grid content
+                ScrollView {
                     if displayedTiles.isEmpty {
                         VStack {
                             Spacer(minLength: 100)
@@ -79,14 +79,12 @@ struct TileGridView: View {
                         }
                     }
                 }
-                .tourAnchor(.grid)
             }
         }
         .overlay(alignment: .bottomTrailing) {
             addFAB
                 .padding(.trailing, 20)
                 .padding(.bottom, 12)
-                .tourAnchor(.add)
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showCamera) {
