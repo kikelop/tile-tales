@@ -177,6 +177,7 @@ struct OnboardingView: View {
     }
 
     var body: some View {
+        let safePage = min(page, pages.count - 1)
         ZStack {
             bg.ignoresSafeArea()
             VStack(spacing: 0) {
@@ -187,34 +188,34 @@ struct OnboardingView: View {
                         .padding(.horizontal, 20).padding(.top, 16)
                 }
 
-                TabView(selection: $page) {
-                    ForEach(pages.indices, id: \.self) { i in
-                        VStack(spacing: 22) {
-                            Image(systemName: pages[i].icon)
-                                .font(.system(size: 60)).foregroundColor(accent)
-                            Text(pages[i].title)
-                                .font(.system(size: 26, weight: .bold)).foregroundColor(fg)
-                            Text(pages[i].body)
-                                .font(.system(size: 16)).foregroundColor(muted)
-                                .multilineTextAlignment(.center)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .padding(.horizontal, 36)
-                            if pages[i].isLogin {
-                                Button { showLogin = true } label: {
-                                    Text("Sign in")
-                                        .font(.system(size: 16, weight: .semibold)).foregroundColor(accent)
-                                        .padding(.horizontal, 28).padding(.vertical, 12)
-                                        .overlay(Capsule().stroke(accent, lineWidth: 1.5))
-                                }
-                                .padding(.top, 4)
-                            }
+                Spacer()
+
+                // Manual paging (not TabView .page — its scroll view swallowed the
+                // Next button's taps). Swipe horizontally or use the button.
+                pageView(pages[safePage])
+                    .id(safePage)
+                    .transition(.opacity)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 30).onEnded { v in
+                            if v.translation.width < -40, page < pages.count - 1 { withAnimation { page += 1 } }
+                            if v.translation.width > 40, page > 0 { withAnimation { page -= 1 } }
                         }
-                        .tag(i)
+                    )
+
+                Spacer()
+
+                HStack(spacing: 8) {
+                    ForEach(pages.indices, id: \.self) { i in
+                        Circle()
+                            .fill(i == safePage ? accent : Color.black.opacity(0.15))
+                            .frame(width: 8, height: 8)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .always))
+                .padding(.bottom, 16)
 
-                Button(page == pages.count - 1 ? "Get started" : "Next") {
+                Button(safePage == pages.count - 1 ? "Get started" : "Next") {
                     if page < pages.count - 1 { withAnimation { page += 1 } } else { onDone() }
                 }
                 .font(.system(size: 17, weight: .semibold)).foregroundColor(.white)
@@ -225,6 +226,29 @@ struct OnboardingView: View {
         }
         // Login as a dismissable modal — never blocks finishing onboarding.
         .sheet(isPresented: $showLogin) { LoginSheet() }
+    }
+
+    private func pageView(_ p: Page) -> some View {
+        VStack(spacing: 22) {
+            Image(systemName: p.icon)
+                .font(.system(size: 60)).foregroundColor(accent)
+            Text(p.title)
+                .font(.system(size: 26, weight: .bold)).foregroundColor(fg)
+            Text(p.body)
+                .font(.system(size: 16)).foregroundColor(muted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 36)
+            if p.isLogin {
+                Button { showLogin = true } label: {
+                    Text("Sign in")
+                        .font(.system(size: 16, weight: .semibold)).foregroundColor(accent)
+                        .padding(.horizontal, 28).padding(.vertical, 12)
+                        .overlay(Capsule().stroke(accent, lineWidth: 1.5))
+                }
+                .padding(.top, 4)
+            }
+        }
     }
 }
 
