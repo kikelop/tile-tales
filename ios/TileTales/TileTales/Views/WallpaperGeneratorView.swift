@@ -472,10 +472,17 @@ struct ComposeEditView: View {
             tile.draw(in: CGRect(x: CGFloat(col) * ts - offset, y: CGFloat(row) * ts, width: ts, height: ts))
 
         case .diamond:
+            // Fill the cell with a 45°-rotated tile: scale up by √2 so the rotated
+            // copy covers the square, then clip to the cell (no triangular gaps).
             let tile = tiles[(row + col) % n]
-            drawTransformed(cg: cg, image: tile,
-                            origin: CGPoint(x: CGFloat(col) * ts, y: CGFloat(row) * ts),
-                            ts: ts, rotation: .pi / 4, flipH: false, flipV: false)
+            let cell = CGRect(x: CGFloat(col) * ts, y: CGFloat(row) * ts, width: ts, height: ts)
+            cg.saveGState()
+            cg.clip(to: cell)
+            cg.translateBy(x: cell.midX, y: cell.midY)
+            cg.rotate(by: .pi / 4)
+            let big = ts * 1.41421356
+            tile.draw(in: CGRect(x: -big / 2, y: -big / 2, width: big, height: big))
+            cg.restoreGState()
 
         case .pinwheel:
             // 2x2 block, each quadrant rotated 90°.
