@@ -194,18 +194,11 @@ struct OnboardingView: View {
                 Spacer()
 
                 // Manual paging (not TabView .page — its scroll view swallowed the
-                // Next button's taps). Swipe horizontally or use the button.
+                // Next button's taps).
                 pageView(pages[safePage])
                     .id(safePage)
                     .transition(.opacity)
                     .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 30).onEnded { v in
-                            if v.translation.width < -40, page < pages.count - 1 { withAnimation { page += 1 } }
-                            if v.translation.width > 40, page > 0 { withAnimation { page -= 1 } }
-                        }
-                    )
 
                 Spacer()
 
@@ -218,15 +211,26 @@ struct OnboardingView: View {
                 }
                 .padding(.bottom, 16)
 
-                Button(safePage == pages.count - 1 ? "Get started" : "Next") {
+                Button {
                     if page < pages.count - 1 { withAnimation { page += 1 } } else { onDone() }
+                } label: {
+                    Text(safePage == pages.count - 1 ? "Get started" : "Next")
+                        .font(.system(size: 17, weight: .semibold)).foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 16)
+                        .background(accent).clipShape(RoundedRectangle(cornerRadius: 14))
+                        .contentShape(Rectangle()) // whole pill is tappable, not just the text
                 }
-                .font(.system(size: 17, weight: .semibold)).foregroundColor(.white)
-                .frame(maxWidth: .infinity).padding(.vertical, 16)
-                .background(accent).clipShape(RoundedRectangle(cornerRadius: 14))
                 .padding(.horizontal, 24).padding(.bottom, 24)
             }
         }
+        // Swipe anywhere on the screen to change page.
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 30).onEnded { v in
+                if v.translation.width < -40, page < pages.count - 1 { withAnimation { page += 1 } }
+                if v.translation.width > 40, page > 0 { withAnimation { page -= 1 } }
+            }
+        )
         // Login as a dismissable modal — never blocks finishing onboarding.
         .sheet(isPresented: $showLogin) { LoginSheet() }
     }
