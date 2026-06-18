@@ -7,6 +7,10 @@ enum WallpaperPattern: String, CaseIterable {
     case mirror = "Mirror"
     case diamond = "Diamond"
     case pinwheel = "Pinwheel"
+    case accent = "Accent"   // field tile + accent tile; needs ≥2 tiles
+
+    /// Patterns that only make sense with more than one tile.
+    var needsMultipleTiles: Bool { self == .accent }
 }
 
 /// Duotone presets mirroring the web (Ocean / Sunset / Forest / Vintage / Noir).
@@ -283,11 +287,14 @@ struct ComposeEditView: View {
             HStack(spacing: 10) {
                 Menu {
                     ForEach(WallpaperPattern.allCases, id: \.self) { p in
-                        Button {
-                            pattern = p
-                        } label: {
-                            if pattern == p { Label(p.rawValue, systemImage: "checkmark") }
-                            else { Text(p.rawValue) }
+                        // Multi-tile-only patterns (Accent) hidden until ≥2 tiles.
+                        if !p.needsMultipleTiles || selectedTileIds.count >= 2 {
+                            Button {
+                                pattern = p
+                            } label: {
+                                if pattern == p { Label(p.rawValue, systemImage: "checkmark") }
+                                else { Text(p.rawValue) }
+                            }
                         }
                     }
                 } label: {
@@ -397,6 +404,8 @@ struct ComposeEditView: View {
         } else if selectedTileIds.count < maxTiles {
             selectedTileIds.append(id)
         }
+        // A multi-tile-only pattern can't survive dropping back to one tile.
+        if pattern.needsMultipleTiles && selectedTileIds.count < 2 { pattern = .grid }
     }
 
     // MARK: - Generation
@@ -490,6 +499,13 @@ struct ComposeEditView: View {
             drawTransformed(cg: cg, image: tile,
                             origin: CGPoint(x: CGFloat(col) * ts, y: CGFloat(row) * ts),
                             ts: ts, rotation: rotation, flipH: false, flipV: false)
+
+        case .accent:
+            // First tile is the field; second is an accent placed at the centre of
+            // each 3×3 block. Falls back to the field if only one tile is selected.
+            let isAccent = (((row % 3) + 3) % 3 == 1) && (((col % 3) + 3) % 3 == 1)
+            let tile = (isAccent && n > 1) ? tiles[1] : tiles[0]
+            tile.draw(in: CGRect(x: CGFloat(col) * ts, y: CGFloat(row) * ts, width: ts, height: ts))
         }
     }
 
