@@ -152,11 +152,29 @@ Intentado en web 2026-05-19 y descartado:
 - **Codigo recuperable** en git history: `c4d17ea` (ScanModal sobre foto estatica con OpenCV.js + 4 esquinas + lupa), `0db1673` (CameraScanner live con getUserMedia + overlay realtime).
 - **Side-effect util conservado**: el service worker (`app/public/sw.js`) ahora NO intercepta requests cross-origin (cache name bumped a `v2`). Era el bug raiz que rompia la carga de OpenCV.js — util tener ese fix por si alguna libreria externa se anade en el futuro.
 
-### 5. Social con Supabase (mas adelante)
-- Auth (login/registro)
-- Storage para imagenes de tiles
-- Base de datos para colecciones
-- Ver tiles de otros usuarios en el mapa comunitario
+### 5. Social con Supabase — v2, DESPUES de publicar v1 (decidido 2026-06-19)
+Direccion elegida: **mapa comunal geolocalizado**, NO un feed estilo Instagram. El feed
+clasico es trampa (cold start, moderacion, scope que retrasa el ship). El valor diferencial
+unico es el mapa: "azulejos encontrados cerca de ti / en esta ciudad".
+
+**Forma en la app**: el tab Map gana un selector `Mine` / `Community`. Community muestra los
+tiles publicos clusterizados; tap en pin → ficha (imagen, quien lo encontro, estilo) +
+`Save to my collection` (repin con atribucion) + like ligero. Filtros por ciudad/estilo/color
+(reutilizar los existentes). Kike siembra el mapa con sus tiles curados → no aparece vacio.
+
+**Datos** (encima de `feat/supabase-sync`): `is_public` (bool, opt-in) + RLS de lectura
+publica; tablas `likes` (tile_id, user_id) y `saves` (`source_tile_id` + `source_owner`);
+display name publico en perfil.
+
+**3 innegociables**: (1) opt-in puro, privado por defecto; (2) difuminar ubicacion de pines
+publicos a nivel barrio/calle (~100-200m), nunca coordenada exacta; (3) moderacion obligatoria
+por Apple (guideline 1.2): reportar contenido, bloquear usuario, EULA tolerancia cero.
+
+**Scope v2.0 minimo**: compartir al mapa + ver Community + guardar con atribucion +
+reportar/bloquear. SIN follow, feed ni comentarios — esas capas solo con densidad.
+
+Capa previa barata, candidata a hito de X build-in-public: **perfil publico = la coleccion
+como galeria compartible** (sin feed, cero moderacion pesada).
 
 ## Instrucciones para Claude
 1. Al inicio de cada sesion, lee CLAUDE.md para tener contexto
@@ -168,6 +186,10 @@ Intentado en web 2026-05-19 y descartado:
 7. Push: `git push origin main`
 8. Iteracion rapida, sin pausas de validacion, efectos sutiles y elegantes
 9. Siempre verificar build antes de commit: `cd app && npx next build`
+
+## Radar de contenido X (build in public)
+
+Tile Tales alimenta la cuenta de X. **Durante cualquier sesión de trabajo aquí**, detecta momentos con valor de tuit —hito, blocker, bug, "no sabía que había que X", decisión de diseño no obvia, rejection, o batallita del pasado— y anótalos en `docs/X-CONTENT-RADAR.md` como candidato (1 línea + ángulo). **No interrumpas a mitad de trabajo.** En el **checkpoint** (fin de sesión, o cuando pasa algo gordo) suelta un "esto daría para tuit: X, Y" y deja que Kike elija — él los olvida, por eso se capturan. Regla de honestidad: hitos solo con fecha cuando son ciertos. Arco/estrategia en `docs/X-BUILD-IN-PUBLIC.md`.
 
 ## Paleta de colores
 - Background: `#f5f2ed`
