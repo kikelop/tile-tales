@@ -7,9 +7,9 @@ struct AlbumsView: View {
     @State private var newAlbumName = ""
     @State private var showCreate = false
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
@@ -80,7 +80,7 @@ struct AlbumsView: View {
                     .font(.system(size: 18, weight: .medium))
                     .foregroundColor(.white)
                     .frame(width: 40, height: 40)
-                    .background(fgColor)
+                    .background(Brand.accent) // #5485C6
                     .clipShape(Circle())
             }
         }
@@ -118,9 +118,9 @@ struct AlbumDetailView: View {
     @State private var renameText = ""
     @State private var showDeleteConfirm = false
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
     private let columns = [GridItem(.flexible(), spacing: 2), GridItem(.flexible(), spacing: 2), GridItem(.flexible(), spacing: 2)]
 
     private var album: Album? { store.albums.first { $0.id == albumId } }

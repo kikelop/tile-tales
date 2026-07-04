@@ -9,8 +9,8 @@ struct TileViewer3DView: View {
     @State private var showFlipHint = false
     @AppStorage("tt-flip-hint-seen") private var flipHintSeen = false
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
 
     init(initialIndex: Int, onClose: @escaping () -> Void) {
         _activeIndex = State(initialValue: initialIndex)

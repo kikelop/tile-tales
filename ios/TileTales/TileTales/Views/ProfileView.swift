@@ -17,30 +17,21 @@ struct ProfileView: View {
 
     @State private var tab: Tab = .account
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
 
     var body: some View {
         ZStack {
             bgColor.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
-                Picker("Section", selection: $tab) {
-                    ForEach(Tab.allCases) { t in Text(t.rawValue).tag(t) }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 4)
-
+                // v1 local-only: no account/sign-in. Stats + local backup only.
+                // (Account/sync tab returns in v2 with the community map.)
                 ScrollView {
                     VStack(spacing: 20) {
-                        if tab == .account {
-                            AccountSectionView()
-                            BackupSectionView()
-                        } else {
-                            StatsContent()
-                        }
+                        StatsContent()
+                        BackupSectionView()
                     }
                     .padding(16)
                 }
@@ -82,9 +73,9 @@ struct AccountSectionView: View {
     @State private var showDeleteConfirm = false
     @State private var deleting = false
 
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
-    private let accent = Color(red: 52/255, green: 70/255, blue: 188/255) // #3446BC
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
+    private let accent = Brand.accent // #5485C6
     private let danger = Color(red: 179/255, green: 64/255, blue: 42/255)
 
     var body: some View {

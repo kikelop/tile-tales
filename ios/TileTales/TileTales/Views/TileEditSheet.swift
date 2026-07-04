@@ -32,10 +32,10 @@ struct TileEditSheet: View {
 
     private enum LocationMode { case none, search, pinMap }
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
-    private let fieldBg = Color(red: 250/255, green: 248/255, blue: 245/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
+    private let fieldBg = Brand.bg
     private let fieldBorder = Color(red: 224/255, green: 216/255, blue: 204/255)
     private let accentGreen = Color(red: 46/255, green: 125/255, blue: 90/255)
 
@@ -46,9 +46,9 @@ struct TileEditSheet: View {
                     nameField
                     memoryField
                     dateField
-                    if tile.isCaptured { editPhotoButton }
                     locationSection
                     albumsSection
+                    if tile.isCaptured { editPhotoButton }
                     actionButtons
                     deleteButton
                 }

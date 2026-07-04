@@ -10,7 +10,7 @@ struct ShareService {
             let context = ctx.cgContext
 
             // Background
-            UIColor(red: 245/255, green: 242/255, blue: 237/255, alpha: 1).setFill()
+            UIColor(red: 250/255, green: 249/255, blue: 246/255, alpha: 1).setFill()
             context.fill(CGRect(origin: .zero, size: size))
 
             // Tile image

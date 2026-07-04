@@ -8,9 +8,9 @@ struct SavedWallpapersView: View {
 
     @State private var preview: SavedWallpaper?
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
 
     private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
@@ -66,7 +66,7 @@ private struct SavedWallpaperPreview: View {
 
     @State private var showShare = false
 
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
+    private let fgColor = Brand.fg
 
     var body: some View {
         ZStack {

@@ -19,9 +19,9 @@ struct TileGridView: View {
     // Column count captured when a pinch begins, so we can recompute live.
     @State private var pinchBaseColumns: Int? = nil
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
 
     private var sortOrder: SortOrder { SortOrder(rawValue: sortRaw) ?? .recent }
 
@@ -87,8 +87,11 @@ struct TileGridView: View {
                 .padding(.bottom, 12)
         }
         .navigationBarHidden(true)
-        .sheet(isPresented: $showCamera) {
+        // Camera must be full screen — a .sheet letterboxes UIImagePickerController
+        // and leaves white/grey bands around the capture + "Use Photo" screen.
+        .fullScreenCover(isPresented: $showCamera) {
             CameraPicker(photos: $cameraPhotos)
+                .ignoresSafeArea()
         }
         .sheet(isPresented: $showLibrary) {
             PhotoLibraryPicker(photos: $libraryPhotos)
@@ -143,17 +146,14 @@ struct TileGridView: View {
                 .foregroundColor(fgColor)
 
             HStack(spacing: 10) {
-                // Profile → account & sync + stats. Matches the filter button:
-                // grey circle with a person glyph, no count.
+                // Profile → account & sync + stats. Filled glyph, no circle.
                 Button {
                     navigationPath.append(AppScreen.profile)
                 } label: {
-                    Image(systemName: "person")
-                        .font(.system(size: 16, weight: .medium))
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundColor(fgColor)
                         .frame(width: 40, height: 40)
-                        .background(Color.black.opacity(0.06))
-                        .clipShape(Circle())
                 }
 
                 Spacer()
@@ -203,11 +203,9 @@ struct TileGridView: View {
             } label: { Label(searchVisible ? "Hide search" : "Search", systemImage: "magnifyingglass") }
         } label: {
             Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 18, weight: .medium))
                 .foregroundColor(fgColor)
                 .frame(width: 40, height: 40)
-                .background(Color.black.opacity(0.06))
-                .clipShape(Circle())
         }
     }
 
@@ -255,15 +253,15 @@ struct TileGridView: View {
             if #available(iOS 26, *) {
                 Image(systemName: "plus")
                     .font(.system(size: 27, weight: .semibold))
-                    .foregroundStyle(fgColor)
+                    .foregroundStyle(.white)
                     .frame(width: 64, height: 64)
-                    .glassEffect(.regular.interactive(), in: .circle)
+                    .glassEffect(.regular.tint(Brand.accent).interactive(), in: .circle)
             } else {
                 Image(systemName: "plus")
                     .font(.system(size: 27, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(width: 64, height: 64)
-                    .background(fgColor)
+                    .background(Brand.accent) // #5485C6
                     .clipShape(Circle())
                     .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
             }

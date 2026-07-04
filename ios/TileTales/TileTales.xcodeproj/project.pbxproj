@@ -23,20 +23,20 @@
 		A10000010000000000000014 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014 /* SplashView.swift */; };
 		A10000010000000000000015 /* WallpaperGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015 /* WallpaperGeneratorView.swift */; };
 		A10000010000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000016 /* Assets.xcassets */; };
-		A10000010000000000000023 /* Caveat.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000023 /* Caveat.ttf */; };
 		A10000010000000000000017 /* GeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000017 /* GeocodingService.swift */; };
 		A10000010000000000000018 /* CaptureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000018 /* CaptureSupport.swift */; };
 		A10000010000000000000019 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019 /* BackupService.swift */; };
 		A10000010000000000000020 /* CropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020 /* CropView.swift */; };
-		A10000010000000000000091 /* PhotoEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000091 /* PhotoEditView.swift */; };
 		A10000010000000000000021 /* AlbumsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021 /* AlbumsView.swift */; };
 		A10000010000000000000022 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000022 /* StatsView.swift */; };
+		A10000010000000000000023 /* Caveat.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000023 /* Caveat.ttf */; };
 		A10000010000000000000024 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000024 /* SupabaseService.swift */; };
-		A10000010000000000000090 /* PhotoRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000090 /* PhotoRenderer.swift */; };
 		A10000010000000000000025 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000025 /* SyncEngine.swift */; };
 		A10000010000000000000026 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000026 /* ProfileView.swift */; };
 		A10000010000000000000027 /* SavedWallpapersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000027 /* SavedWallpapersView.swift */; };
 		A10000010000000000000028 /* CartoMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000028 /* CartoMapView.swift */; };
+		A10000010000000000000090 /* PhotoRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000090 /* PhotoRenderer.swift */; };
+		A10000010000000000000091 /* PhotoEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000091 /* PhotoEditView.swift */; };
 		B10000010000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B30000010000000000000001 /* Supabase */; };
 /* End PBXBuildFile section */
 
@@ -57,20 +57,20 @@
 		A20000010000000000000014 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		A20000010000000000000015 /* WallpaperGeneratorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperGeneratorView.swift; sourceTree = "<group>"; };
 		A20000010000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A20000010000000000000023 /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
 		A20000010000000000000017 /* GeocodingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeocodingService.swift; sourceTree = "<group>"; };
 		A20000010000000000000018 /* CaptureSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSupport.swift; sourceTree = "<group>"; };
 		A20000010000000000000019 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
 		A20000010000000000000020 /* CropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropView.swift; sourceTree = "<group>"; };
-		A20000010000000000000091 /* PhotoEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEditView.swift; sourceTree = "<group>"; };
 		A20000010000000000000021 /* AlbumsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumsView.swift; sourceTree = "<group>"; };
 		A20000010000000000000022 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		A20000010000000000000023 /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
 		A20000010000000000000024 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
-		A20000010000000000000090 /* PhotoRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoRenderer.swift; sourceTree = "<group>"; };
 		A20000010000000000000025 /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		A20000010000000000000026 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		A20000010000000000000027 /* SavedWallpapersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedWallpapersView.swift; sourceTree = "<group>"; };
 		A20000010000000000000028 /* CartoMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartoMapView.swift; sourceTree = "<group>"; };
+		A20000010000000000000090 /* PhotoRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoRenderer.swift; sourceTree = "<group>"; };
+		A20000010000000000000091 /* PhotoEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEditView.swift; sourceTree = "<group>"; };
 		A30000010000000000000001 /* TileTales.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TileTales.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -202,7 +202,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					A60000010000000000000001 = {
 						CreatedOnToolsVersion = 16.0;
@@ -217,10 +217,10 @@
 				en,
 				Base,
 			);
+			mainGroup = A50000010000000000000001;
 			packageReferences = (
 				B20000010000000000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
-			mainGroup = A50000010000000000000001;
 			productRefGroup = A50000010000000000000009 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -280,25 +280,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		B20000010000000000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/supabase/supabase-swift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.0.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		B30000010000000000000001 /* Supabase */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B20000010000000000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Supabase;
-		};
-/* End XCSwiftPackageProductDependency section */
-
 /* Begin XCBuildConfiguration section */
 		A80000010000000000000004 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -309,22 +290,48 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 4V43H3637W;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -339,14 +346,40 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 4V43H3637W;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -358,10 +391,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4V43H3637W;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Tile Tales";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of street tiles to add to your collection";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Save the location where you found each tile";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save your generated wallpapers to your photo library";
@@ -381,7 +414,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -391,10 +424,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4V43H3637W;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Tile Tales";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of street tiles to add to your collection";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Save the location where you found each tile";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save your generated wallpapers to your photo library";
@@ -414,7 +447,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -440,6 +473,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B20000010000000000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B30000010000000000000001 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B20000010000000000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A90000010000000000000001 /* Project object */;
 }

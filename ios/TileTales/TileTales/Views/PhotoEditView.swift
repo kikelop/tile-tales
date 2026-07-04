@@ -75,14 +75,20 @@ struct PhotoEditView: View {
         return e
     }
 
+    // Real window insets — reliable regardless of how this cover is presented
+    // (a fullScreenCover nested in a NavigationStack/TabView doesn't propagate
+    // the safe area the way a root-level one does).
+    private var safeInsets: UIEdgeInsets {
+        UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+            .first?.safeAreaInsets ?? .zero
+    }
+
     var body: some View {
         GeometryReader { geo in
             let computedSide = min(geo.size.width - 32, geo.size.height - 280)
 
-            ZStack {
-                Color.black.ignoresSafeArea()
-
-                VStack(spacing: 20) {
+            VStack(spacing: 20) {
                     topBar
 
                     modeSwitch
@@ -104,9 +110,12 @@ struct PhotoEditView: View {
 
                     Spacer()
                 }
-            }
-            .onAppear {
-                side = computedSide
+                .padding(.top, safeInsets.top)
+                .padding(.bottom, safeInsets.bottom)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
+                .onAppear {
+                    side = computedSide
                 if previewBase == nil { previewBase = PhotoRenderer.downscaled(baseImage) }
                 if !seeded {
                     offset = CGSize(width: initialEdit.offsetX * computedSide,
@@ -116,6 +125,7 @@ struct PhotoEditView: View {
                 }
             }
         }
+        .ignoresSafeArea()
     }
 
     // MARK: Top bar

@@ -44,9 +44,9 @@ struct WallpaperGeneratorView: View {
     @State private var session: ComposeSession?
     @State private var showSaved = false
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
     private let maxTiles = 6
 
     var body: some View {
@@ -105,7 +105,7 @@ struct WallpaperGeneratorView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(red: 236/255, green: 232/255, blue: 225/255))
+        .background(Color.black.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 16)
     }
@@ -153,9 +153,9 @@ struct ComposeEditView: View {
     private let minColumns = 2
     private let maxColumns = 8
 
-    private let bgColor = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let mutedColor = Color(red: 138/255, green: 133/255, blue: 120/255)
+    private let bgColor = Brand.bg
+    private let fgColor = Brand.fg
+    private let mutedColor = Brand.muted
     private let maxTiles = 6
 
     // Tile-city presets picked by Kike from the duotone-lab palette sheets
@@ -225,7 +225,7 @@ struct ComposeEditView: View {
     // MARK: Preview (rounded card, matches the placeholder framing)
 
     private var roundedCardPreview: some View {
-        Color(red: 236/255, green: 232/255, blue: 225/255)
+        Color.black.opacity(0.04)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay {
                 if let img = previewImage {
@@ -606,7 +606,7 @@ struct FinalPreviewView: View {
     let image: UIImage
     let onBack: () -> Void
 
-    private let fgColor = Color(red: 26/255, green: 26/255, blue: 26/255)
+    private let fgColor = Brand.fg
 
     var body: some View {
         ZStack {

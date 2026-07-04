@@ -28,9 +28,7 @@ struct ContentView: View {
     @EnvironmentObject var auth: AuthService
     @EnvironmentObject var sync: SyncEngine
     @AppStorage("tt-onboarding-seen") private var onboardingSeen = false
-    /// TEMP (testing): always show onboarding on every launch. Set false (or
-    /// remove + restore the `!onboardingSeen` check) before release.
-    private let alwaysShowIntro = true
+    private let alwaysShowIntro = false
     @State private var showOnboarding = false
     @State private var showSplash = true
     @State private var selection = 0
@@ -81,7 +79,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                .tint(Color(red: 52/255, green: 70/255, blue: 188/255)) // #3446BC brand indigo
+                .tint(Brand.accent) // #5485C6
                 .transition(.opacity)
                 .environmentObject(viewerPresenter)
                 .fullScreenCover(item: $viewerPresenter.route) { route in
@@ -143,10 +141,11 @@ struct OnboardingView: View {
 
     private var isLoggedIn: Bool { auth.session != nil }
 
-    private let bg = Color(red: 245/255, green: 242/255, blue: 237/255)
-    private let fg = Color(red: 26/255, green: 26/255, blue: 26/255)
-    private let muted = Color(red: 138/255, green: 133/255, blue: 120/255)
-    private let accent = Color(red: 52/255, green: 70/255, blue: 188/255)
+    private let bg = Brand.bg
+    private let fg = Brand.fg
+    private let muted = Brand.muted
+    private let accent = Brand.accent  // #5485C6
+    private let action = Brand.accent  // #5485C6
 
     private struct Page { let icon: String; let title: String; let body: String; let isLogin: Bool }
 
@@ -159,10 +158,8 @@ struct OnboardingView: View {
             Page(icon: "cube.fill", title: "See them in 3D",
                  body: "Tap any tile to spin it in 3D — and write the memory of where you found it on the back.", isLogin: false),
         ]
-        if !isLoggedIn {
-            p.append(Page(icon: "icloud.fill", title: "Keep them safe",
-                          body: "Sign in to back up your collection so you never lose a tile. You can always do this later.", isLogin: true))
-        }
+        // v1 is local-only (no account). Sign-in / sync return in v2 with the
+        // community map — no login card in onboarding for now.
         return p
     }
 
@@ -204,7 +201,7 @@ struct OnboardingView: View {
                     Text(safePage == pages.count - 1 ? "Get started" : "Next")
                         .font(.system(size: 17, weight: .semibold)).foregroundColor(.white)
                         .frame(maxWidth: .infinity).padding(.vertical, 16)
-                        .background(accent).clipShape(RoundedRectangle(cornerRadius: 14))
+                        .background(action).clipShape(RoundedRectangle(cornerRadius: 14))
                         .contentShape(Rectangle()) // whole pill is tappable, not just the text
                 }
                 .padding(.horizontal, 24).padding(.bottom, 24)
@@ -251,7 +248,7 @@ struct OnboardingView: View {
 struct LoginSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var auth: AuthService
-    private let bg = Color(red: 245/255, green: 242/255, blue: 237/255)
+    private let bg = Brand.bg
 
     var body: some View {
         NavigationStack {
@@ -271,6 +268,25 @@ struct LoginSheet: View {
                 if loggedIn { dismiss() }
             }
         }
+    }
+}
+
+// MARK: - Brand tokens
+// Single source of truth for the palette so colour tests are one-line changes.
+enum Brand {
+    static let accent = Color(hex: 0x3586F2)  // bright azure
+    static let bg     = Color(hex: 0xFAF9F6)  // near-white warm
+    static let fg     = Color(hex: 0x1A1A1A)
+    static let muted  = Color(hex: 0x8A8578)
+}
+
+extension Color {
+    init(hex: UInt) {
+        self.init(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255
+        )
     }
 }
 
