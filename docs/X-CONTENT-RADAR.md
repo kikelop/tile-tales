@@ -28,8 +28,14 @@ Estados: `idea` → `drafted` → `scheduled` → `posted`.
 | primer tester en TestFlight | primera persona que no soy yo | draft FIRE-WHEN-REAL |
 | icono + screenshots de store | el terreno del diseñador | draft FIRE-WHEN-REAL |
 | submitted to review | botón pulsado, "waiting for review" | draft FIRE-WHEN-REAL |
-| rejected | qué dijo Apple y por qué | draft FIRE-WHEN-REAL |
-| it's live | el recuento: semanas, 99€, rejections, bugs | draft FIRE-WHEN-REAL |
+| rejected | qué dijo Apple y por qué | ❌ NO PASÓ — aprobada a la primera, sin rejection. Ese ángulo ya no aplica |
+| **it's live** 🚀 | **YA ES CIERTO (2026-07-09): aprobada + publicada, descargable en la Store.** El recuento del viaje: semanas, 99€, 0 rejections, los bugs. Borrador FIRE-WHEN-REAL está en VOZ VIEJA → reescribir a voz actual antes de disparar. Kike decide cuándo (tarda hasta 24h en ser buscable; link directo ya vivo: apps.apple.com/app/tile-tales/id6787395482) | **listo para disparar** — pendiente reescritura + OK de Kike |
+
+### Post-lanzamiento (v1.1)
+| Candidato | Ángulo | Estado |
+|---|---|---|
+| el primer test con un usuario real | días después de publicar, un tester encontró 6 fricciones en 5 min que yo no veía (crear tile "no hace nada", no sabía si el wallpaper se guardó y fue a buscarlo a otra pantalla). shipping ≠ terminado; el primer usuario ajeno ve lo que tú ya no | idea (fuerte — "launch is the start") |
+| bug de percepción: el guardado no era lento, lo parecía | encodeaba todo el estado en el hilo principal → la UI se congelaba 1s y parecía que no pasaba nada. fix = mover la escritura a background, no un spinner. a veces el fix de UX es de arquitectura | idea (técnico + producto) |
 
 ### Blockers / "no sabía que…"
 | Candidato | Ángulo | Estado |
