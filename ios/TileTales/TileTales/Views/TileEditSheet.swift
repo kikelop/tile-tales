@@ -9,8 +9,18 @@ struct TileEditSheet: View {
 
     @State private var name = ""
     @State private var memory = ""
-    @State private var date = ""
+    @State private var dateValue = Date()
+    @State private var hasDate = false
     @State private var tagsText = ""
+
+    /// English, fixed format so the date on the tile back reads consistently
+    /// regardless of device locale (the app's UI copy is English).
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.dateFormat = "MMM d, yyyy"
+        return f
+    }()
     @State private var showDeleteConfirm = false
     @State private var showPhotoEditor = false
 
@@ -139,13 +149,35 @@ struct TileEditSheet: View {
     private var dateField: some View {
         VStack(alignment: .leading, spacing: 8) {
             fieldLabel("Date")
-            TextField("e.g. March 2026", text: $date)
-                .font(.custom("Caveat", size: 19))
-                .foregroundColor(mutedColor)
+            if hasDate {
+                HStack {
+                    DatePicker("", selection: $dateValue, displayedComponents: .date)
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
+                    Spacer()
+                    Button { hasDate = false } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(mutedColor)
+                    }
+                }
                 .padding(12)
                 .background(fieldBg)
                 .cornerRadius(12)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(fieldBorder, lineWidth: 1))
+            } else {
+                Button { hasDate = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar")
+                        Text("Add a date")
+                        Spacer()
+                    }
+                    .font(.system(size: 15))
+                    .foregroundColor(mutedColor)
+                    .padding(12)
+                    .background(fieldBg)
+                    .cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(fieldBorder, lineWidth: 1))
+                }
+            }
         }
     }
 
@@ -311,18 +343,20 @@ struct TileEditSheet: View {
                 }
             }
 
-            HStack {
+            HStack(spacing: 8) {
                 TextField("New album…", text: $newAlbumName)
                     .font(.system(size: 14))
-                Button("Add") {
-                    let trimmed = newAlbumName.trimmingCharacters(in: .whitespaces)
-                    guard !trimmed.isEmpty else { return }
-                    let album = store.addAlbum(name: trimmed)
-                    store.toggleTileInAlbum(albumId: album.id, tileId: tile.id)
-                    newAlbumName = ""
+                    .submitLabel(.done)
+                    .onSubmit { createAlbum() }
+                Button { createAlbum() } label: {
+                    Text("Create")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16).padding(.vertical, 8)
+                        .background(newAlbumIsEmpty ? mutedColor.opacity(0.4) : accentGreen)
+                        .clipShape(Capsule())
                 }
-                .font(.system(size: 13, weight: .semibold))
-                .disabled(newAlbumName.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(newAlbumIsEmpty)
             }
             .padding(10)
             .background(fieldBg)
@@ -368,7 +402,12 @@ struct TileEditSheet: View {
     private func seed() {
         name = tile.name
         memory = tile.memory
-        date = tile.date
+        if let parsed = Self.dateFormatter.date(from: tile.date) {
+            dateValue = parsed
+            hasDate = true
+        } else {
+            hasDate = false
+        }
         tagsText = tile.tags.joined(separator: ", ")
         geoLat = tile.latitude
         geoLng = tile.longitude
@@ -379,9 +418,22 @@ struct TileEditSheet: View {
         let tags = tagsText.split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
             .filter { !$0.isEmpty }
-        store.updateTile(id: tile.id, name: name, memory: memory, date: date,
+        let dateString = hasDate ? Self.dateFormatter.string(from: dateValue) : ""
+        store.updateTile(id: tile.id, name: name, memory: memory, date: dateString,
                          tags: tags, latitude: geoLat, longitude: geoLng)
         dismiss()
+    }
+
+    private var newAlbumIsEmpty: Bool {
+        newAlbumName.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private func createAlbum() {
+        let trimmed = newAlbumName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        let album = store.addAlbum(name: trimmed)
+        store.toggleTileInAlbum(albumId: album.id, tileId: tile.id)
+        newAlbumName = ""
     }
 
     private func setLocation(lat: Double, lng: Double) {

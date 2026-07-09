@@ -19,6 +19,12 @@ final class TileStore: ObservableObject {
 
     private let storageKey = "tile-tales-ios-state"
 
+    /// Serial queue for off-main-thread persistence. Encoding the whole state
+    /// (captured JPEGs + saved wallpapers, base64 in JSON) on the main thread
+    /// froze the UI for ~1s on every save — the grid didn't paint a new tile,
+    /// and a saved wallpaper took seconds to appear. Snapshot on main, write here.
+    private let persistQueue = DispatchQueue(label: "tile-tales.persist", qos: .utility)
+
     init() {
         loadState()
         if tiles.isEmpty {
@@ -202,9 +208,12 @@ final class TileStore: ObservableObject {
     // MARK: - Wallpapers
 
     func addWallpaper(image: UIImage) {
+        // JPEG, not PNG: a full-res wallpaper PNG is several MB — 10 of them turned
+        // UserDefaults into a multi-tens-of-MB blob that took seconds to encode on
+        // save. JPEG 0.9 is visually indistinguishable here and ~10× smaller.
         let wp = SavedWallpaper(
             id: "wp-\(UUID().uuidString)",
-            imageData: image.pngData(),
+            imageData: image.jpegData(compressionQuality: 0.9),
             createdAt: Date()
         )
         wallpapers.insert(wp, at: 0)
@@ -283,13 +292,19 @@ final class TileStore: ObservableObject {
     // MARK: - Persistence
 
     private func saveState() {
-        let encoder = JSONEncoder()
+        // Snapshot on the main actor — value-type COW arrays, so this is cheap and
+        // doesn't deep-copy the image data. Encode + write happen off-main so the
+        // @Published mutation that just fired paints this run-loop tick instead of
+        // waiting on the encode. UserDefaults is thread-safe.
         let snapshot = StorageState(
             tiles: tiles, wallpapers: wallpapers, albums: albums,
             deletedTiles: deletedTiles, deletedAlbums: deletedAlbums
         )
-        if let data = try? encoder.encode(snapshot) {
-            UserDefaults.standard.set(data, forKey: storageKey)
+        let key = storageKey
+        persistQueue.async {
+            if let data = try? JSONEncoder().encode(snapshot) {
+                UserDefaults.standard.set(data, forKey: key)
+            }
         }
         if !applyingRemote { onLocalMutation?() }
     }

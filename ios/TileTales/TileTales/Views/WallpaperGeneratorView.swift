@@ -359,7 +359,7 @@ struct ComposeEditView: View {
 
     private var previewButton: some View {
         Button { generateWallpaper() } label: {
-            Text("Preview")
+            Text("Continue")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -606,6 +606,13 @@ struct FinalPreviewView: View {
     let image: UIImage
     let onBack: () -> Void
 
+    // Distinguishing the two destinations was the confusion in testing: users
+    // couldn't tell "Save" (into the app's Saved gallery) from "Download" (out to
+    // the iOS Photos library), and saving gave no feedback at all — one tester
+    // went hunting for it in Albums. Explicit copy + a confirmation banner fix it.
+    @State private var savedInApp = false
+    @State private var confirmation: String?
+
     private let fgColor = Brand.fg
 
     var body: some View {
@@ -620,31 +627,19 @@ struct FinalPreviewView: View {
                     .aspectRatio(contentMode: .fit)
 
                 HStack(spacing: 10) {
-                    Button("Back") { onBack() }
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity).padding(.vertical, 14)
-                        .background(Color.white.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    barButton("Back", filled: false) { onBack() }
 
-                    Button("Save") {
+                    barButton(savedInApp ? "Saved ✓" : "Save in app", filled: true) {
+                        guard !savedInApp else { return }
                         store.addWallpaper(image: image)
-                        onBack()
+                        savedInApp = true
+                        showConfirmation("Saved to your wallpapers")
                     }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(fgColor)
-                    .frame(maxWidth: .infinity).padding(.vertical, 14)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                    Button("Download") {
+                    barButton("Save to Photos", filled: true) {
                         UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                        showConfirmation("Saved to Photos")
                     }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(fgColor)
-                    .frame(maxWidth: .infinity).padding(.vertical, 14)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
@@ -652,6 +647,40 @@ struct FinalPreviewView: View {
 
                 Spacer(minLength: 0)
             }
+
+            if let confirmation {
+                VStack {
+                    Text(confirmation)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(fgColor.opacity(0.85))
+                        .clipShape(Capsule())
+                        .padding(.top, 60)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private func barButton(_ title: String, filled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .lineLimit(1).minimumScaleFactor(0.8)
+                .foregroundColor(filled ? fgColor : .white)
+                .frame(maxWidth: .infinity).padding(.vertical, 14)
+                .background(filled ? Color.white : Color.white.opacity(0.2))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private func showConfirmation(_ text: String) {
+        withAnimation(.easeOut(duration: 0.2)) { confirmation = text }
+        Task {
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            withAnimation(.easeIn(duration: 0.2)) { confirmation = nil }
         }
     }
 }
