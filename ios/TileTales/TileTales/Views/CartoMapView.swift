@@ -32,6 +32,14 @@ struct CartoMapView: UIViewRepresentable {
         map.addOverlay(overlay, level: .aboveLabels)
 
         map.register(TilePinView.self, forAnnotationViewWithReuseIdentifier: "tilePin")
+
+        // Tap on empty map (not a pin) dismisses the selected-tile card.
+        let tap = UITapGestureRecognizer(target: context.coordinator,
+                                         action: #selector(Coordinator.handleMapTap(_:)))
+        tap.delegate = context.coordinator
+        tap.cancelsTouchesInView = false
+        map.addGestureRecognizer(tap)
+
         context.coordinator.syncAnnotations(on: map)
         if let region { map.setRegion(region, animated: false) }
         return map
@@ -49,11 +57,26 @@ struct CartoMapView: UIViewRepresentable {
         context.coordinator.refreshSelection(on: map)
     }
 
-    final class Coordinator: NSObject, MKMapViewDelegate {
+    final class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: CartoMapView
         var lastRecenter = 0
 
         init(_ parent: CartoMapView) { self.parent = parent }
+
+        // Empty-map tap clears the selection (dismisses the card). Taps on a pin are
+        // ignored here — MKMapView's own selection handling (didSelect) takes those.
+        @objc func handleMapTap(_ g: UITapGestureRecognizer) {
+            guard parent.selectedTileId != nil else { return }
+            let map = g.view as! MKMapView
+            let point = g.location(in: map)
+            if let hit = map.hitTest(point, with: nil),
+               hit is MKAnnotationView || hit.superview is MKAnnotationView { return }
+            parent.selectedTileId = nil
+            refreshSelection(on: map)
+        }
+
+        func gestureRecognizer(_ g: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
 
         func syncAnnotations(on map: MKMapView) {
             let existing = map.annotations.compactMap { $0 as? TileAnnotation }

@@ -57,18 +57,23 @@ struct StatsContent: View {
     private var cardsGrid: some View {
         let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
         return LazyVGrid(columns: columns, spacing: 12) {
-            statCard("Favorites", value: favoriteCount, icon: "heart.fill")
-            statCard("Located", value: locatedCount, icon: "mappin.circle.fill")
-            statCard("Countries", value: countryCount, icon: "globe.europe.africa.fill")
-            statCard("Albums", value: store.albums.count, icon: "rectangle.stack.fill")
+            statCard("Favorites", value: "\(favoriteCount)", icon: "heart.fill")
+            statCard("Located", value: "\(locatedCount)", icon: "mappin.circle.fill")
+            // While geocoding is still resolving, show "—" instead of a misleading 0.
+            statCard("Countries", value: countriesDisplay, icon: "globe.europe.africa.fill")
+            statCard("Albums", value: "\(store.albums.count)", icon: "rectangle.stack.fill")
         }
     }
 
-    private func statCard(_ title: String, value: Int, icon: String) -> some View {
+    private var countriesDisplay: String {
+        (resolvingPlaces && placeCounts.isEmpty) ? "—" : "\(countryCount)"
+    }
+
+    private func statCard(_ title: String, value: String, icon: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.system(size: 20)).foregroundColor(fgColor.opacity(0.7))
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(value)").font(.system(size: 24, weight: .bold)).foregroundColor(fgColor)
+                Text(value).font(.system(size: 24, weight: .bold)).foregroundColor(fgColor)
                 Text(title).font(.system(size: 12)).foregroundColor(mutedColor)
             }
             Spacer()

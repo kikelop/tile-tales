@@ -56,6 +56,7 @@ struct TileEditSheet: View {
                     nameField
                     memoryField
                     dateField
+                    tagsField
                     locationSection
                     albumsSection
                     if tile.isCaptured { editPhotoButton }
@@ -113,6 +114,20 @@ struct TileEditSheet: View {
     }
 
     // MARK: - Fields
+
+    private var tagsField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            fieldLabel("Tags")
+            TextField("geometric, floral (comma-separated)", text: $tagsText)
+                .font(.system(size: 15))
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .padding(12)
+                .background(fieldBg)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(fieldBorder, lineWidth: 1))
+        }
+    }
 
     private func fieldLabel(_ text: String) -> some View {
         Text(text)

@@ -601,6 +601,23 @@ struct ComposeEditView: View {
 
 // MARK: - Final preview (full-screen black, image complete, solid bottom bar)
 
+/// Writes an image to the Photos library and reports real success/failure via the
+/// completion selector — so we never show a "Saved" confirmation when the write
+/// actually failed (e.g. Photos-add permission denied). Held as @State so it stays
+/// alive until the async callback fires.
+final class PhotoSaver: NSObject {
+    private var onComplete: ((Bool) -> Void)?
+    func save(_ image: UIImage, completion: @escaping (Bool) -> Void) {
+        onComplete = completion
+        UIImageWriteToSavedPhotosAlbum(image, self,
+            #selector(finished(_:didFinishSavingWithError:contextInfo:)), nil)
+    }
+    @objc private func finished(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+        onComplete?(error == nil)
+        onComplete = nil
+    }
+}
+
 struct FinalPreviewView: View {
     @EnvironmentObject var store: TileStore
     let image: UIImage
@@ -612,6 +629,7 @@ struct FinalPreviewView: View {
     // went hunting for it in Albums. Explicit copy + a confirmation banner fix it.
     @State private var savedInApp = false
     @State private var confirmation: String?
+    @State private var photoSaver = PhotoSaver()
 
     private let fgColor = Brand.fg
 
@@ -637,8 +655,10 @@ struct FinalPreviewView: View {
                     }
 
                     barButton("Save to Photos", filled: true) {
-                        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-                        showConfirmation("Saved to Photos")
+                        photoSaver.save(image) { ok in
+                            showConfirmation(ok ? "Saved to Photos"
+                                : "Couldn't save — allow Photos access in Settings")
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
