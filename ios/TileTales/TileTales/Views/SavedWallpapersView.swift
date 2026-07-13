@@ -65,6 +65,7 @@ private struct SavedWallpaperPreview: View {
     let wallpaper: SavedWallpaper
 
     @State private var showShare = false
+    @State private var showDeleteConfirm = false
 
     private let fgColor = Brand.fg
 
@@ -93,8 +94,7 @@ private struct SavedWallpaperPreview: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
 
                     Button {
-                        store.removeWallpaper(id: wallpaper.id)
-                        dismiss()
+                        showDeleteConfirm = true
                     } label: {
                         Image(systemName: "trash")
                             .font(.system(size: 16, weight: .semibold))
@@ -110,6 +110,13 @@ private struct SavedWallpaperPreview: View {
         }
         .sheet(isPresented: $showShare) {
             if let img = wallpaper.image { ActivityView(items: [img]) }
+        }
+        .alert("Delete wallpaper?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                store.removeWallpaper(id: wallpaper.id)
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 }

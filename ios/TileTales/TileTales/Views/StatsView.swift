@@ -7,6 +7,9 @@ struct StatsContent: View {
 
     @State private var placeCounts: [(label: String, count: Int)] = []
     @State private var resolvingPlaces = false
+    /// Ids of the geolocated set we last resolved, so re-appearing doesn't re-run
+    /// the whole geocoding loop unless the set actually changed.
+    @State private var resolvedKey: String?
 
     private let bgColor = Brand.bg
     private let fgColor = Brand.fg
@@ -133,6 +136,8 @@ struct StatsContent: View {
     private func resolvePlaces() {
         let tiles = store.geolocatedTiles
         guard !tiles.isEmpty else { return }
+        let key = tiles.map(\.id).sorted().joined(separator: ",")
+        guard key != resolvedKey else { return }   // already resolved this exact set
         resolvingPlaces = true
         Task {
             var counts: [String: Int] = [:]
@@ -144,6 +149,7 @@ struct StatsContent: View {
             }
             placeCounts = counts.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
             resolvingPlaces = false
+            resolvedKey = key
         }
     }
 }

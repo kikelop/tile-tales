@@ -326,10 +326,13 @@ struct ComposeEditView: View {
                 Button { columns = min(maxColumns, columns + 1) } label: {
                     Image(systemName: "minus.magnifyingglass").foregroundColor(mutedColor)
                 }
+                // Inverted so slider-left = more columns = zoom out, matching the left
+                // "minus" magnifier button (and slider-right = zoom in, matching the
+                // right "plus"). Without this the slider ran opposite to its own buttons.
                 Slider(
                     value: Binding(
-                        get: { Double(columns) },
-                        set: { columns = Int($0.rounded()) }
+                        get: { Double(minColumns + maxColumns - columns) },
+                        set: { columns = minColumns + maxColumns - Int($0.rounded()) }
                     ),
                     in: Double(minColumns)...Double(maxColumns),
                     step: 1

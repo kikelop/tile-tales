@@ -57,6 +57,22 @@ struct TileMapView: View {
                 }
             }
 
+            // Empty state — no geolocated tiles means an empty map that otherwise
+            // looks broken (arbitrary default region, zero pins).
+            if store.geolocatedTiles.isEmpty {
+                VStack(spacing: 8) {
+                    Spacer()
+                    Image(systemName: "mappin.slash")
+                        .font(.system(size: 34)).foregroundColor(mutedColor.opacity(0.6))
+                    Text("No located tiles yet")
+                        .font(.system(size: 16, weight: .semibold)).foregroundColor(fgColor)
+                    Text("Add a place from a tile's edit screen and it'll show up here.")
+                        .font(.system(size: 13)).foregroundColor(mutedColor)
+                        .multilineTextAlignment(.center).padding(.horizontal, 48)
+                    Spacer()
+                }
+            }
+
             // Bottom card for selected tile
             if let tileId = selectedTileId,
                let tile = store.tiles.first(where: { $0.id == tileId }) {

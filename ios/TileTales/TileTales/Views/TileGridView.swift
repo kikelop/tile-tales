@@ -123,7 +123,9 @@ struct TileGridView: View {
                     let base = pinchBaseColumns ?? { pinchBaseColumns = columns; return columns }()
                     // Pinch out (value > 1) → fewer columns (bigger tiles), and vice versa.
                     let target = Int((Double(base) / value).rounded())
-                    let clamped = min(6, max(1, target))
+                    // Clamp to 2…4 so pinch and the "Tile size" menu (Large/Medium/Small)
+                    // agree on the range — otherwise the menu picker showed no selection.
+                    let clamped = min(4, max(2, target))
                     if clamped != columns {
                         withAnimation(.easeOut(duration: 0.18)) { columns = clamped }
                     }
