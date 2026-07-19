@@ -1,35 +1,26 @@
+import AuthenticationServices
 import SwiftUI
 
-/// Profile screen: account & sync front and center (tiles must survive
-/// switching phones), with collection stats as a secondary tab. Mirrors the
-/// web app's ProfileView.
+/// Profile screen: cloud backup (Sign in with Apple) up top so tiles survive
+/// switching phones, then collection stats and local backup. Local-first —
+/// everything below works without an account.
 struct ProfileView: View {
     @EnvironmentObject var store: TileStore
     @EnvironmentObject var auth: AuthService
     @EnvironmentObject var sync: SyncEngine
     @Binding var navigationPath: NavigationPath
 
-    enum Tab: String, CaseIterable, Identifiable {
-        case account = "Account"
-        case stats = "Stats"
-        var id: String { rawValue }
-    }
-
-    @State private var tab: Tab = .account
-
     private let bgColor = Brand.bg
     private let fgColor = Brand.fg
-    private let mutedColor = Brand.muted
 
     var body: some View {
         ZStack {
             bgColor.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
-                // v1 local-only: no account/sign-in. Stats + local backup only.
-                // (Account/sync tab returns in v2 with the community map.)
                 ScrollView {
                     VStack(spacing: 20) {
+                        AccountSectionView()
                         StatsContent()
                         BackupSectionView()
                     }
@@ -62,20 +53,14 @@ struct AccountSectionView: View {
     @EnvironmentObject var auth: AuthService
     @EnvironmentObject var sync: SyncEngine
 
-    enum Mode { case signIn, signUp, forgot }
-
-    @State private var mode: Mode = .signIn
-    @State private var email = ""
-    @State private var password = ""
-    @State private var busy = false
-    @State private var formError: String?
-    @State private var resetSent = false
+    @State private var currentNonce: String?
+    @State private var authenticating = false
+    @State private var authError: String?
     @State private var showDeleteConfirm = false
     @State private var deleting = false
 
     private let fgColor = Brand.fg
     private let mutedColor = Brand.muted
-    private let accent = Brand.accent // #5485C6
     private let danger = Color(red: 179/255, green: 64/255, blue: 42/255)
 
     var body: some View {
@@ -84,8 +69,8 @@ struct AccountSectionView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(fgColor)
 
-            if let session = auth.session {
-                signedInBody(email: session.user.email ?? "")
+            if auth.session != nil {
+                signedInBody(identity: signedInIdentity)
             } else {
                 signedOutBody
             }
@@ -109,80 +94,49 @@ struct AccountSectionView: View {
 
     @ViewBuilder
     private var signedOutBody: some View {
-        if mode == .forgot && resetSent {
-            Text("If \(email) has an account, a reset link is on its way.")
-                .font(.system(size: 13)).foregroundColor(mutedColor)
-            Button("← Back to sign in") { switchMode(.signIn) }
-                .font(.system(size: 13, weight: .semibold)).foregroundColor(accent)
-        } else {
-            TextField("you@email.com", text: $email)
-                .textContentType(.emailAddress)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .padding(12)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+        Text("Sign in to back up your collection. Your tiles follow you to any device — nothing is shared or made public.")
+            .font(.system(size: 13))
+            .foregroundColor(mutedColor)
+            .fixedSize(horizontal: false, vertical: true)
 
-            if mode != .forgot {
-                SecureField("Password (8+ characters)", text: $password)
-                    .textContentType(mode == .signUp ? .newPassword : .password)
-                    .padding(12)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-
-            if let formError {
-                Text(formError).font(.system(size: 13)).foregroundColor(danger)
-            }
-
-            Button { Task { await submit() } } label: {
-                Text(busy ? "…" : primaryLabel)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .disabled(busy || email.isEmpty)
-            .opacity(busy || email.isEmpty ? 0.5 : 1)
-
-            HStack {
-                if mode == .signIn {
-                    Button("Create account") { switchMode(.signUp) }
-                        .font(.system(size: 13, weight: .semibold)).foregroundColor(accent)
-                    Spacer()
-                    Button("Forgot password?") { switchMode(.forgot) }
-                        .font(.system(size: 13)).foregroundColor(mutedColor)
-                } else {
-                    Button("← Back to sign in") { switchMode(.signIn) }
-                        .font(.system(size: 13, weight: .semibold)).foregroundColor(accent)
-                }
-            }
-
-            if mode == .signUp {
-                Text("Your tiles back up automatically and follow you to any device.")
-                    .font(.system(size: 12)).foregroundColor(mutedColor)
-            }
+        SignInWithAppleButton(.signIn) { request in
+            let nonce = randomNonceString()
+            currentNonce = nonce
+            request.requestedScopes = [.fullName, .email]
+            request.nonce = sha256(nonce)
+        } onCompletion: { result in
+            handleAppleCompletion(result)
         }
-    }
+        .signInWithAppleButtonStyle(.black)
+        .frame(maxWidth: .infinity)
+        .frame(height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .opacity(authenticating ? 0.5 : 1)
+        .disabled(authenticating)
 
-    private var primaryLabel: String {
-        switch mode {
-        case .signIn: return "Sign in"
-        case .signUp: return "Create account"
-        case .forgot: return "Send reset link"
+        if let authError {
+            Text(authError).font(.system(size: 13)).foregroundColor(danger)
         }
     }
 
     // MARK: signed in
 
+    /// Friendly label for the signed-in state. Prefers the name Apple gave us on
+    /// first sign-in (stored in user metadata); never shows the cryptic private
+    /// relay email, which means nothing to the user.
+    private var signedInIdentity: String {
+        if case let .string(name)? = auth.session?.user.userMetadata["full_name"],
+           !name.trimmingCharacters(in: .whitespaces).isEmpty {
+            return name
+        }
+        return "Signed in with Apple"
+    }
+
     @ViewBuilder
-    private func signedInBody(email: String) -> some View {
+    private func signedInBody(identity: String) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(email)
+                Text(identity)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(fgColor)
                     .lineLimit(1)
@@ -245,36 +199,32 @@ struct AccountSectionView: View {
 
     // MARK: actions
 
-    private func switchMode(_ next: Mode) {
-        mode = next
-        formError = nil
-        resetSent = false
-    }
-
-    private func submit() async {
-        guard !busy else { return }
-        formError = nil
-        let trimmed = email.trimmingCharacters(in: .whitespaces)
-        guard trimmed.contains("@"), trimmed.contains(".") else {
-            formError = "That doesn't look like an email"
-            return
+    private func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard
+                let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                let tokenData = credential.identityToken,
+                let idToken = String(data: tokenData, encoding: .utf8),
+                let nonce = currentNonce
+            else {
+                authError = "Couldn't read the Apple credential — try again"
+                return
+            }
+            authError = nil
+            authenticating = true
+            Task {
+                let error = await auth.signInWithApple(
+                    idToken: idToken, nonce: nonce, fullName: credential.fullName
+                )
+                authenticating = false
+                authError = error
+            }
+        case .failure(let error):
+            // User cancellation isn't worth surfacing.
+            if (error as? ASAuthorizationError)?.code == .canceled { return }
+            authError = "Sign in with Apple failed — try again"
         }
-        if mode != .forgot && password.count < 8 {
-            formError = "Password needs at least 8 characters"
-            return
-        }
-        busy = true
-        defer { busy = false }
-        switch mode {
-        case .signIn:
-            formError = await auth.signIn(email: trimmed, password: password)
-        case .signUp:
-            formError = await auth.signUp(email: trimmed, password: password)
-        case .forgot:
-            formError = await auth.requestPasswordReset(email: trimmed)
-            if formError == nil { resetSent = true }
-        }
-        if formError == nil { password = "" }
     }
 
     private func deleteAccount() async {
