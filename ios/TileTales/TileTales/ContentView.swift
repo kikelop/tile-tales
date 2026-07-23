@@ -275,7 +275,7 @@ struct LoginSheet: View {
 // Single source of truth for the palette so colour tests are one-line changes.
 enum Brand {
     static let accent = Color(hex: 0x3586F2)  // bright azure
-    static let bg     = Color(hex: 0xFAF9F6)  // near-white warm
+    static let bg     = Color(hex: 0xFDFCFB)  // near-white
     static let fg     = Color(hex: 0x1A1A1A)
     static let muted  = Color(hex: 0x8A8578)
 }
